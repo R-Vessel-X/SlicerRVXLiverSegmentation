@@ -62,7 +62,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
 
   def setup(self):
-    print('SETUP MODULE WIDGET')
     ScriptedLoadableModuleWidget.setup(self)
 
     # Define module interface #
@@ -75,21 +74,23 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self.moduleLayout = qt.QVBoxLayout(self.moduleCollapsibleButton)
 
     self.tabWidget = qt.QTabWidget()
+    self.moduleLayout.addWidget(self.tabWidget)
 
     self.dataTab = qt.QWidget()
-    self.defineDataTab()
-    self.liverTab = qt.QWidget()
-    self.defineLiverTab()
-    self.vesselsTab = qt.QWidget()
-
     self.tabWidget.addTab(self.dataTab, "Data")
+    self.liverTab = qt.QWidget()
     self.tabWidget.addTab(self.liverTab, "Liver")
+    self.vesselsTab = qt.QWidget()
     self.tabWidget.addTab(self.vesselsTab, "Vessels")
 
-    self.moduleLayout.addWidget(self.tabWidget)
-    # self.layout.addStretch(1)
+    self.defineDataTab()
+    self.defineLiverTab()
 
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeAddedEvent, self.onNodeAdded)
+
+  def setCurrentTab(self, tabWidget):
+    print('TEST SET TAB')
+    self.tabWidget.setCurrentWidget(tabWidget)
 
   def defineDataTab(self):
     dataTabLayout = qt.QVBoxLayout(self.dataTab)
@@ -174,10 +175,44 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     dataTabLayout.addStretch(1)
 
+    # Add Next/Previous arrow
+    previousButton = qt.QPushButton()
+    previousButton.enabled = False
+    previousIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowLeft)
+    previousButton.setIcon(previousIcon)
+
+    nextButton = qt.QPushButton()
+    nextIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight)
+    nextButton.setIcon(nextIcon)
+    nextButton.connect('clicked()', lambda tab=self.liverTab: self.setCurrentTab(tab))
+
+    buttonHBoxLayout = qt.QHBoxLayout()
+    buttonHBoxLayout.addWidget(previousButton)
+    # buttonHBoxLayout.addStretch(1)
+    buttonHBoxLayout.addWidget(nextButton)
+    dataTabLayout.addLayout(buttonHBoxLayout)
+
   def defineLiverTab(self):
     liverTabLayout = qt.QVBoxLayout(self.liverTab)
     segmentationUI = slicer.util.getNewModuleGui(slicer.modules.segmenteditor)
     liverTabLayout.addWidget(segmentationUI)
+
+    # Add Next/Previous arrow
+    previousButton = qt.QPushButton()
+    previousIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowLeft)
+    previousButton.setIcon(previousIcon)
+    previousButton.connect('clicked()', lambda tab=self.dataTab: self.setCurrentTab(tab))
+
+    nextButton = qt.QPushButton()
+    nextIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight)
+    nextButton.setIcon(nextIcon)
+    nextButton.connect('clicked()', lambda tab=self.vesselsTab: self.setCurrentTab(tab))
+
+    buttonHBoxLayout = qt.QHBoxLayout()
+    buttonHBoxLayout.addWidget(previousButton)
+    # buttonHBoxLayout.addStretch(1)
+    buttonHBoxLayout.addWidget(nextButton)
+    liverTabLayout.addLayout(buttonHBoxLayout)
 
   def onLoadDMRIClicked(self):
     # Show DICOM Widget #
@@ -235,12 +270,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     threeDWidget.threeDView().resetFocalPoint()
     threeDWidget.threeDView().renderWindow().GetRenderers().GetFirstRenderer().ResetCamera()
 
-  # TODO: test #
-  def showSlices():
-    layoutManager = slicer.app.layoutManager()
-    for sliceViewName in layoutManager.sliceViewNames():
-      controller = layoutManager.sliceWidget(sliceViewName).sliceController()
-      controller.setSliceVisible(True)
 #
 # RVesselXModuleLogic
 #
