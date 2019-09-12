@@ -148,7 +148,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
-    self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    vessel = self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    self._vesselTree.addVessel(vessel)
 
   def _createExtractVesselLayout(self):
     formLayout = qt.QFormLayout()
@@ -288,12 +289,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     vesselsTabLayout = qt.QVBoxLayout(self._vesselsTab)
 
     self._vesselTree = VesselTree()
-    self._vesselTree.addRow()
-    self._vesselTree.addRow()
-    self._vesselTree.addRow()
-    self._vesselTree.addRow()
     vesselsTabLayout.addWidget(self._vesselTree.getWidget())
-
     vesselsTabLayout.addLayout(self._createExtractVesselLayout())
 
     # Add vessel previous and next button (next button will be disabled)

@@ -20,6 +20,8 @@ class Vessel(object):
   """ Object responsible for holding vessel information and representation in the scene
   """
 
+  _createdCount = 0
+
   def __init__(self):
     self._startPoint = None
     self._endPoint = None
@@ -28,6 +30,8 @@ class Vessel(object):
     self._segmentedModel = None
     self._segmentedVolume = None
     self._centerline = None
+    self.name = "Vessel_" + str(Vessel._createdCount)
+    Vessel._createdCount += 1
 
   def centerline(self):
     return self._centerline
@@ -76,7 +80,6 @@ class VesselTree(object):
     self._headerIcons[c.visibility] = Icons.toggleVisibility
 
     self._columnCount = max(self._headerIcons.keys()) + 1
-    self._iRow = 0
     self._itemDict = {}
     self._initTreeWidget()
 
@@ -106,7 +109,7 @@ class VesselTree(object):
     return self._tree
 
   def callLambda(self, item, column):
-    logging.info("Clicked item %s on column %s" % (self._itemDict[item], column))
+    logging.info("Clicked item %s on column %s" % (self._itemDict[item].name, column))
 
   def _setWidgetItemIcon(self, item, iconList):
     for i in range(self._columnCount):
@@ -114,11 +117,9 @@ class VesselTree(object):
       if icon is not None:
         item.setIcon(i, icon)
 
-  def addRow(self):
+  def addVessel(self, vessel):
     item = qt.QTreeWidgetItem(self._tree)
-    item.setText(0, "VesselName_" + str(self._iRow))
+    item.setText(0, vessel.name)
 
     self._setWidgetItemIcon(item, self._itemIcons)
-    self._itemDict[item] = self._iRow
-    logging.info("called add row")
-    self._iRow += 1
+    self._itemDict[item] = vessel
