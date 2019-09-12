@@ -67,6 +67,85 @@ class RVesselXModule(ScriptedLoadableModule):
         """
 
 
+class Icons(object):
+  """ Object responsible for the different icons in the module. The module doesn't have any icons internally but pulls
+  icons from slicer and the other modules.
+  """
+
+  toggleVisibility = qt.QIcon(":/Icons/VisibleOrInvisible.png")
+  visibleOn = qt.QIcon(":/Icons/VisibleOn.png")
+  visibleOff = qt.QIcon(":/Icons/VisibleOff.png")
+  editSegmentation = qt.QIcon(":/Icons/Paint.png")
+  editPoint = qt.QIcon(":/Icons/AnnotationEditPoint.png")
+  delete = qt.QIcon(":/Icons/SnapshotDelete.png")
+  cut3d = qt.QIcon(":/Icons/Medium/SlicerEditCut.png")
+
+
+class VesselTree(object):
+  class ColumnIndex(object):
+    name = 0
+    visibility = 1
+    editPoint = 2
+    editSegmentation = 3
+    cut3d = 4
+    delete = 5
+
+  def __init__(self):
+    c = VesselTree.ColumnIndex()
+    self._itemIcons = {c.name: None, c.visibility: Icons.visibleOn, c.editPoint: Icons.editPoint,
+                       c.editSegmentation: Icons.editSegmentation, c.cut3d: Icons.cut3d, c.delete: Icons.delete}
+    self._headerIcons = dict(self._itemIcons)
+    self._headerIcons[c.visibility] = Icons.toggleVisibility
+
+    self._columnCount = max(self._headerIcons.keys()) + 1
+    self._iRow = 0
+    self._itemDict = {}
+    self._initTreeWidget()
+
+  def _initTreeWidget(self):
+    self._tree = qt.QTreeWidget()
+    self._tree.setColumnCount(self._columnCount)
+
+    # Configure tree to have first section stretched and last sections to be at right of the layout
+    # other columns will always be at minimum size fitting the icons
+    self._tree.header().setSectionResizeMode(0, qt.QHeaderView.Stretch)
+    self._tree.header().setStretchLastSection(False)
+
+    for i in range(1, self._columnCount):
+      self._tree.header().setSectionResizeMode(i, qt.QHeaderView.ResizeToContents)
+
+    # No header text except for first column (vessel name). Other columns have icons instead
+    self._tree.setHeaderLabels(["" for _ in range(self._tree.columnCount)])
+    self._tree.setHeaderLabel("Vessel Name")
+
+    # Set header columns icons
+    self._setWidgetItemIcon(self._tree.headerItem(), self._headerIcons)
+
+    # Connect click button to handler
+    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self.callLambda)
+
+  def getWidget(self):
+    return self._tree
+
+  def callLambda(self, item, column):
+    _info("Clicked item %s on column %s" % (self._itemDict[item], column))
+
+  def _setWidgetItemIcon(self, item, iconList):
+    for i in range(self._columnCount):
+      icon = iconList[i]
+      if icon is not None:
+        item.setIcon(i, icon)
+
+  def addRow(self):
+    item = qt.QTreeWidgetItem(self._tree)
+    item.setText(0, "VesselName_" + str(self._iRow))
+
+    self._setWidgetItemIcon(item, self._itemIcons)
+    self._itemDict[item] = self._iRow
+    _info("called add row")
+    self._iRow += 1
+
+
 class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   """Class responsible for the UI of the RVesselX project.
 
@@ -93,6 +172,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._liverTab = None
     self._dataTab = None
     self._vesselsTab = None
+    self._vesselTree = None
     self._logic = RVesselXModuleLogic()
 
     # Define layout #
@@ -325,6 +405,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     """
     # Visualisation tree for Vessels
     vesselsTabLayout = qt.QVBoxLayout(self._vesselsTab)
+
+    self._vesselTree = VesselTree()
+    self._vesselTree.addRow()
+    self._vesselTree.addRow()
+    self._vesselTree.addRow()
+    self._vesselTree.addRow()
+    vesselsTabLayout.addWidget(self._vesselTree.getWidget())
+
     vesselsTabLayout.addLayout(self._createExtractVesselLayout())
 
     # Add vessel previous and next button (next button will be disabled)
