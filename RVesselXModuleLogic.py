@@ -42,12 +42,12 @@ class VMTKModule(object):
 
 
 class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
-  def __init__(self):
-    ScriptedLoadableModuleLogic.__init__(self)
+  def __init__(self, parent=None):
+    ScriptedLoadableModuleLogic.__init__(self, parent)
 
     notFound = VMTKModule.tryToLoad()
     if notFound:
-      errorMsg = "Failed to load the following VMTK Modules : %s\nPlease make sure VTMK is installed." % notFound
+      errorMsg = "Failed to load the following VMTK Modules : %s\nPlease make sure VMTK is installed." % notFound
       slicer.util.errorDisplay(errorMsg)
 
   @staticmethod
