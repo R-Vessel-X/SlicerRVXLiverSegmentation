@@ -30,8 +30,26 @@ class Vessel(object):
     self._segmentedModel = None
     self._segmentedVolume = None
     self._centerline = None
-    self.name = "Vessel_" + str(Vessel._createdCount)
+    self._name = self.defaultName()
     Vessel._createdCount += 1
+
+  @staticmethod
+  def defaultName():
+    return "Vessel_" + str(Vessel._createdCount)
+
+  @property
+  def name(self):
+    return self._name
+
+  @name.setter
+  def name(self, name):
+    self._name = name
+    if self._wasSegmented:
+      # TODO Rename all volumes and models associated with segmentation
+      pass
+
+  def _wasSegmented(self):
+    return self._segmentedVolume is not None
 
   def centerline(self):
     return self._centerline
@@ -57,6 +75,18 @@ class Vessel(object):
   def setCenterline(self, centerline, voronoiModel):
     self._centerline = centerline
     self._centerlineVoronoi = voronoiModel
+
+
+class NoEditDelegate(qt.QStyledItemDelegate):
+  """
+  Helper class to avoid being able to edit columns aside from name in VesselTree
+  """
+
+  def __init__(self, parent):
+    super(NoEditDelegate, self).__init__(parent)
+
+  def createEditor(self, parent, option, index):
+    return None
 
 
 class VesselTree(object):
@@ -94,6 +124,7 @@ class VesselTree(object):
 
     for i in range(1, self._columnCount):
       self._tree.header().setSectionResizeMode(i, qt.QHeaderView.ResizeToContents)
+      self._tree.setItemDelegateForColumn(i, NoEditDelegate(self._tree))
 
     # No header text except for first column (vessel name). Other columns have icons instead
     self._tree.setHeaderLabels(["" for _ in range(self._tree.columnCount)])
@@ -103,13 +134,21 @@ class VesselTree(object):
     self._setWidgetItemIcon(self._tree.headerItem(), self._headerIcons)
 
     # Connect click button to handler
-    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self.callLambda)
+    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self._triggerVesselButton)
+    self._tree.connect("itemChanged(QTreeWidgetItem*, int)", self._renameVessel)
+
+  def _renameVessel(self, item, column):
+    if column == 0 and item in self._itemDict:
+      self._itemDict[item].name = item.text(column)
 
   def getWidget(self):
     return self._tree
 
-  def callLambda(self, item, column):
+  def _triggerVesselButton(self, item, column):
+    # TODO Call vessel buttons
     logging.info("Clicked item %s on column %s" % (self._itemDict[item].name, column))
+    if column == 0:
+      self._tree.editItem(item, 0)
 
   def _setWidgetItemIcon(self, item, iconList):
     for i in range(self._columnCount):
@@ -120,6 +159,7 @@ class VesselTree(object):
   def addVessel(self, vessel):
     item = qt.QTreeWidgetItem(self._tree)
     item.setText(0, vessel.name)
+    item.setFlags(item.flags() | qt.Qt.ItemIsEditable)  # set item as editable to be able to rename vessel
 
     self._setWidgetItemIcon(item, self._itemIcons)
     self._itemDict[item] = vessel
