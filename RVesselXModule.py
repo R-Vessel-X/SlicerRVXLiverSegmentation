@@ -20,7 +20,7 @@ def _warnLineSep():
 
 
 class RVesselXModule(ScriptedLoadableModule):
-  def __init__(self, parent):
+  def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "R Vessel X"
     self.parent.categories = ["Examples"]
@@ -44,14 +44,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     Vessel Tab : Responsible for vessel segmentation
   """
 
-  def __init__(self, parent):
+  def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.inputSelector = None
     self.volumesModuleSelector = None
     self.volumeRenderingModuleSelector = None
     self.volumeRenderingModuleVisibility = None
 
-    self._vesselVolumeSelector = None
     self._vesselStartSelector = None
     self._vesselEndSelector = None
     self._tabWidget = None
@@ -144,7 +143,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return seedFiducialsNodeSelector
 
   def _extractVessel(self):
-    sourceVolume = self._vesselVolumeSelector.currentNode()
+    sourceVolume = self.inputSelector.currentNode()
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
@@ -153,10 +152,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
   def _createExtractVesselLayout(self):
     formLayout = qt.QFormLayout()
-
-    # Volume selection input
-    self._vesselVolumeSelector = self._createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Select input volume")
-    formLayout.addRow("Input Volume:", self._vesselVolumeSelector)
 
     # Start point fiducial
     self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", "startPoint",
@@ -183,11 +178,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       def fiducialSelected(seedSelector):
         return getNode(seedSelector) and getNode(seedSelector).GetNumberOfFiducials() > 0
 
-      isButtonEnabled = getNode(self._vesselVolumeSelector) and fiducialSelected(
+      isButtonEnabled = getNode(self.inputSelector) and fiducialSelected(
         self._vesselStartSelector) and fiducialSelected(self._vesselEndSelector)
       extractVesselButton.setEnabled(isButtonEnabled)
 
-    self._vesselVolumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", updateExtractButtonStatus)
+    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", updateExtractButtonStatus)
     self._vesselStartSelector.connect("updateFinished()", updateExtractButtonStatus)
     self._vesselEndSelector.connect("updateFinished()", updateExtractButtonStatus)
 
