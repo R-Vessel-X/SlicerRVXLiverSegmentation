@@ -32,11 +32,19 @@ class Vessel(object):
     self._centerline = None
     self._centerlineVoronoi = None
     self._name = self.defaultName()
+    self.isVisible = True
     Vessel._createdCount += 1
 
   @staticmethod
   def defaultName():
     return "Vessel_" + str(Vessel._createdCount)
+
+  def toggleVisibility(self):
+    self.isVisible = not self.isVisible
+    if self._wasSegmented():
+      self._segmentedVolume.SetDisplayVisibility(self.isVisible)
+      self._segmentedModel.SetDisplayVisibility(self.isVisible)
+      self._centerline.SetDisplayVisibility(self.isVisible)
 
   @property
   def name(self):
@@ -166,10 +174,11 @@ class VesselTree(object):
     return self._tree
 
   def _triggerVesselButton(self, item, column):
-    # TODO Call vessel buttons
-    logging.info("Clicked item %s on column %s" % (self._itemDict[item].name, column))
-    if column == 0:
-      self._tree.editItem(item, 0)
+    vessel = self._itemDict[item]
+
+    if column == VesselTree.ColumnIndex.visibility:
+      vessel.toggleVisibility()
+      item.setIcon(VesselTree.ColumnIndex.visibility, Icons.visibleOn if vessel.isVisible else Icons.visibleOff)
 
   def _setWidgetItemIcon(self, item, iconList):
     for i in range(self._columnCount):
