@@ -378,6 +378,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     """
     # Create vessel which will hold every information of the vessel extracted in logic module
     vessel = Vessel()
+    vessel.setExtremities(startPoint, endPoint)
 
     # Apply vesselness filter
     vesselnessFiltered = self._applyVesselnessFilter(sourceVolume, startPoint)

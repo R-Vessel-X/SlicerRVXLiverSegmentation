@@ -30,6 +30,7 @@ class Vessel(object):
     self._segmentedModel = None
     self._segmentedVolume = None
     self._centerline = None
+    self._centerlineVoronoi = None
     self._name = self.defaultName()
     Vessel._createdCount += 1
 
@@ -67,20 +68,34 @@ class Vessel(object):
   def setExtremities(self, startPoint, endPoint):
     self._startPoint = startPoint
     self._endPoint = endPoint
+    self._hideFromUser([self._startPoint, self._endPoint], hideFromEditor=False)
 
   def setVesselnessVolume(self, vesselnessVolume):
     self._vesselnessVolume = vesselnessVolume
+    self._hideFromUser(self._vesselnessVolume)
 
   def setSegmentation(self, seeds, volume, model):
     self._segmentationSeeds = seeds
     self._segmentedVolume = volume
     self._segmentedModel = model
     self._renameSegmentation()
+    self._hideFromUser(self._segmentationSeeds)
 
   def setCenterline(self, centerline, voronoiModel):
     self._centerline = centerline
     self._centerlineVoronoi = voronoiModel
     self._renameSegmentation()
+    self._hideFromUser(self._centerlineVoronoi)
+
+  def _hideFromUser(self, modelsToHide, hideFromEditor=True):
+    if not isinstance(modelsToHide, list):
+      modelsToHide = [modelsToHide]
+
+    for model in modelsToHide:
+      if model is not None:
+        model.SetDisplayVisibility(False)
+        if hideFromEditor:
+          model.SetHideFromEditors(True)
 
 
 class NoEditDelegate(qt.QStyledItemDelegate):
