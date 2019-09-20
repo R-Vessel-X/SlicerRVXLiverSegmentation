@@ -44,12 +44,16 @@ class Vessel(object):
   @name.setter
   def name(self, name):
     self._name = name
-    if self._wasSegmented:
-      # TODO Rename all volumes and models associated with segmentation
-      pass
+    self._renameSegmentation()
+
+  def _renameSegmentation(self):
+    if self._wasSegmented():
+      self._segmentedVolume.SetName(self._name)
+      self._segmentedModel.SetName(self._name + "_Surface")
+      self._centerline.SetName(self._name + "_Centerline")
 
   def _wasSegmented(self):
-    return self._segmentedVolume is not None
+    return self._segmentedVolume is not None and self._centerline is not None
 
   def centerline(self):
     return self._centerline
@@ -71,10 +75,12 @@ class Vessel(object):
     self._segmentationSeeds = seeds
     self._segmentedVolume = volume
     self._segmentedModel = model
+    self._renameSegmentation()
 
   def setCenterline(self, centerline, voronoiModel):
     self._centerline = centerline
     self._centerlineVoronoi = voronoiModel
+    self._renameSegmentation()
 
 
 class NoEditDelegate(qt.QStyledItemDelegate):

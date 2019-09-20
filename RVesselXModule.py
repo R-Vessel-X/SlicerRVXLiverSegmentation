@@ -4,7 +4,7 @@ import logging
 import traceback
 
 from RVesselXModuleLogic import RVesselXModuleLogic
-from Vessel import VesselTree
+from Vessel import VesselTree, Vessel
 
 _info = logging.info
 _warn = logging.warn
@@ -466,6 +466,12 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     return cropVolumeNode.GetOutputVolumeNode()
 
+  def _emptyVolume(self, volumeName):
+    emptyVolume = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
+    emptyVolume.UnRegister(None)
+    emptyVolume.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
+    return emptyVolume
+
   def testVesselSegmentationLogic(self):
     # load test data
     import SampleData
@@ -498,6 +504,43 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     self.assertNotEqual(0, vessel.segmentedModel().GetPolyData().GetNumberOfCells())
     self.assertIsNotNone(vessel.centerline())
     self.assertNotEqual(0, vessel.centerline().GetPolyData().GetNumberOfCells())
+
+  def _createVesselWithArbitraryData(self):
+    from itertools import count
+    v = Vessel()
+    pt = ([i, 0, 0] for i in count(start=0, step=1))
+
+    startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", next(pt))
+    endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", next(pt))
+    seedPoints = RVesselXModuleLogic._createFiducialNode("seedPoint", next(pt), next(pt))
+
+    segmentationVol = self._emptyVolume("segVolume")
+    vesselVol = self._emptyVolume("vesselVolume")
+    segmentationModel = RVesselXModuleLogic._createModelNode("segModel")
+    centerlineModel = RVesselXModuleLogic._createModelNode("centerlineModel")
+    voronoiModel = RVesselXModuleLogic._createModelNode("voronoiModel")
+
+    # Create volumes associated with vessel extraction
+    v.setExtremities(startPoint=startPoint, endPoint=endPoint)
+    v.setSegmentation(seeds=seedPoints, volume=segmentationVol, model=segmentationModel)
+    v.setCenterline(centerline=centerlineModel, voronoiModel=voronoiModel)
+    v.setVesselnessVolume(vesselnessVolume=vesselVol)
+    return v
+
+  def testVesselCreationNameIsInSegmentationName(self):
+    v = self._createVesselWithArbitraryData()
+    self.assertIn(v.name, v.segmentedVolume().GetName())
+    self.assertIn(v.name, v.segmentedModel().GetName())
+    self.assertIn(v.name, v.centerline().GetName())
+
+  def testOnRenameRenamesSegmentationName(self):
+    v = self._createVesselWithArbitraryData()
+    newName = "New Name"
+    v.name = newName
+    self.assertEqual(newName, v.name)
+    self.assertIn(v.name, v.segmentedVolume().GetName())
+    self.assertIn(v.name, v.segmentedModel().GetName())
+    self.assertIn(v.name, v.centerline().GetName())
 
   def testSetupModule(self):
     """ Setups the module in new window
