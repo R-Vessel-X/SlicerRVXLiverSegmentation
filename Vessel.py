@@ -1,5 +1,5 @@
 import qt
-import logging
+import slicer
 
 
 class Icons(object):
@@ -76,7 +76,9 @@ class Vessel(object):
   def setExtremities(self, startPoint, endPoint):
     self._startPoint = startPoint
     self._endPoint = endPoint
-    self._hideFromUser([self._startPoint, self._endPoint], hideFromEditor=False)
+
+    self._startPoint.SetLocked(True)
+    self._endPoint.SetLocked(True)
 
   def setVesselnessVolume(self, vesselnessVolume):
     self._vesselnessVolume = vesselnessVolume
@@ -87,23 +89,29 @@ class Vessel(object):
     self._segmentedVolume = volume
     self._segmentedModel = model
     self._renameSegmentation()
-    self._hideFromUser(self._segmentationSeeds)
+    self._removeFromScene(self._segmentationSeeds)
 
   def setCenterline(self, centerline, voronoiModel):
     self._centerline = centerline
     self._centerlineVoronoi = voronoiModel
     self._renameSegmentation()
-    self._hideFromUser(self._centerlineVoronoi)
+    self._removeFromScene(self._centerlineVoronoi)
 
   def _hideFromUser(self, modelsToHide, hideFromEditor=True):
-    if not isinstance(modelsToHide, list):
-      modelsToHide = [modelsToHide]
+    for model in self._removeNoneList(modelsToHide):
+      model.SetDisplayVisibility(False)
+      if hideFromEditor:
+        model.SetHideFromEditors(True)
 
-    for model in modelsToHide:
-      if model is not None:
-        model.SetDisplayVisibility(False)
-        if hideFromEditor:
-          model.SetHideFromEditors(True)
+  def _removeFromScene(self, nodesToRemove):
+    for node in self._removeNoneList(nodesToRemove):
+      slicer.mrmlScene.RemoveNode(node)
+
+  @staticmethod
+  def _removeNoneList(elements):
+    if not isinstance(elements, list):
+      elements = [elements]
+    return [elt for elt in elements if elt is not None]
 
 
 class NoEditDelegate(qt.QStyledItemDelegate):

@@ -142,7 +142,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     parentLayout.addWidget(collapsibleButton)
     qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
 
-  def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor(255, 0, 0)):
+  def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor("red")):
     seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
     seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
     seedFiducialsNodeSelector.toolTip = toolTip
@@ -163,17 +163,23 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     vessel = self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
     self._vesselTree.addVessel(vessel)
 
+    # Set vessel start node as end node and remove end node selection for easier leaf selection for user
+    self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
+    self._vesselEndSelector.setCurrentNode(None)
+
+    # Reselect source volume as volume input (running logic deselects volume somehow)
+    self.inputSelector.setCurrentNode(sourceVolume)
+
   def _createExtractVesselLayout(self):
     formLayout = qt.QFormLayout()
 
     # Start point fiducial
-    self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", "startPoint",
-                                                                 markupColor=qt.QColor("red"))
+    vesselPointName = "vesselPoint"
+    self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", vesselPointName)
     formLayout.addRow("Vessel Start:", self._vesselStartSelector)
 
     # End point fiducial
-    self._vesselEndSelector = self._createSingleMarkupFiducial("Select vessel end position", "endPoint",
-                                                               markupColor=qt.QColor("blue"))
+    self._vesselEndSelector = self._createSingleMarkupFiducial("Select vessel end position", vesselPointName)
     formLayout.addRow("Vessel End:", self._vesselEndSelector)
 
     # Extract Vessel Button
