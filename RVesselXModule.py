@@ -216,9 +216,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     inputLayout.addWidget(self.inputSelector)
 
-    loadDicomButton = qt.QPushButton("Load MRI")
+    loadDicomButton = qt.QPushButton("Load DICOM")
     loadDicomButton.connect("clicked(bool)", self.onLoadDMRIClicked)
     inputLayout.addWidget(loadDicomButton)
+
+    loadDataButton = qt.QPushButton("Load Data")
+    loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
+    inputLayout.addWidget(loadDataButton)
 
     dataTabLayout.addLayout(inputLayout)
 
@@ -352,6 +356,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     if dicomWidget is not None:
       dicomWidget.detailsPopup.open()
+
+  def onLoadDataClicked(self):
+    slicer.app.ioManager().openAddDataDialog()
 
   @vtk.calldata_type(vtk.VTK_OBJECT)
   def onNodeAdded(self, caller, event, calldata):
