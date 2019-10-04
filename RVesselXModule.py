@@ -84,6 +84,19 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     else:
       layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, layoutDescription)
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
+    self._configure3DViewAsMaximumIntensityProjection()
+
+  def _configure3DViewAsMaximumIntensityProjection(self):
+    # Get 3D view Node
+    view = slicer.mrmlScene.GetNodeByID('vtkMRMLViewNode1')
+
+    # Set background color to black
+    view.SetBackgroundColor2([0, 0, 0])
+    view.SetBackgroundColor([0, 0, 0])
+
+    # Set ray cast technique as maximum intensity projection
+    # see https://github.com/Slicer/Slicer/blob/master/Libs/MRML/Core/vtkMRMLViewNode.h
+    view.SetRaycastTechnique(2)
 
   def _createTab(self, tab_name):
     tab = qt.QWidget()
@@ -376,7 +389,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
       # Show volume
       slicer.util.setSliceViewerLayers(node)
-      self.showVolumeRendering(node)
+
+      # Call showVolumeRendering using a timer instead of calling it directly
+      # to allow the volume loading to fully complete.
+      qt.QTimer.singleShot(0, lambda: self.showVolumeRendering(node))
 
   def setCurrentNode(self, node):
     self.inputSelector.setCurrentNode(node)
@@ -391,12 +407,17 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     volRenLogic = slicer.modules.volumerendering.logic()
     displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
     displayNode.SetVisibility(True)
-    self.reset3DRendererCamera()
+    slicer.util.resetThreeDViews()
 
-  def reset3DRendererCamera(self):
-    threeDWidget = slicer.app.layoutManager().threeDWidget(0)
-    threeDWidget.threeDView().resetFocalPoint()
-    threeDWidget.threeDView().renderWindow().GetRenderers().GetFirstRenderer().ResetCamera()
+    # Load preset
+    # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+    scalarRange = volumeNode.GetImageData().GetScalarRange()
+    if scalarRange[1] - scalarRange[0] < 1500:
+      # small dynamic range, probably MRI
+      displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
+    else:
+      # larger dynamic range, probably CT
+      displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
