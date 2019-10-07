@@ -1,3 +1,5 @@
+import logging
+
 import qt
 import slicer
 
@@ -24,7 +26,10 @@ class Vessel(object):
 
   _createdCount = 0
 
-  def __init__(self):
+  def __init__(self, name=None):
+    if name is None:
+      name = self.defaultName()
+
     self.startPoint = None
     self.endPoint = None
     self.vesselnessVolume = None
@@ -33,7 +38,7 @@ class Vessel(object):
     self.segmentedVolume = None
     self.segmentedCenterline = None
     self.segmentedVoronoiModel = None
-    self._name = self.defaultName()
+    self.name = name
     self.isVisible = True
     Vessel._createdCount += 1
 
@@ -182,6 +187,30 @@ class VesselTree(object):
   def getWidget(self):
     return self._tree
 
+  def _removeItem(self, item, vessel):
+    """ Remove item and associated children from tree
+
+    :param item: QTreeWidgetItem to remove from tree
+    :param vessel: Vessel associated with QTreeWidgetItem
+    """
+    # remove vessel from scene
+    vessel.removeFromScene()
+
+    # Remove children from vessel
+    for child in item.takeChildren():
+      self._removeItem(child, self._itemDict[child])
+
+    # Remove from parent
+    parentItem = item.parent()
+    if parentItem is not None:  # Case is leaf -> remove from parent
+      parentItem.removeChild(item)
+    else:  # Else remove from tree
+      vesselIndex = self._tree.indexFromItem(item).row()
+      self._tree.takeTopLevelItem(vesselIndex)
+
+    # remove item from dictionary
+    self._itemDict.pop(item)
+
   def triggerVesselButton(self, item, column):
     vessel = self._itemDict[item]
 
@@ -190,21 +219,25 @@ class VesselTree(object):
       item.setIcon(VesselTree.ColumnIndex.visibility, Icons.visibleOn if vessel.isVisible else Icons.visibleOff)
 
     if column == VesselTree.ColumnIndex.delete:
-      # remove vessel from scene
-      vessel.removeFromScene()
-
-      # remove item from tree
-      vesselIndex = self._tree.indexFromItem(item).row()
-      self._tree.takeTopLevelItem(vesselIndex)
-
-      # remove item from dictionary
-      self._itemDict.pop(item)
+      self._removeItem(item, vessel)
 
   def _setWidgetItemIcon(self, item, iconList):
     for i in range(self._columnCount):
       icon = iconList[i]
       if icon is not None:
         item.setIcon(i, icon)
+
+  def _findParent(self, vessel):
+    """ If one parent end point corresponds to vessel start point, returns this item as parent. Else returns None
+
+    :param vessel: Vessel for which we are looking for parent
+    :return: QItemWidget or None
+    """
+    for itemParent, vesselParent in self._itemDict.items():
+      if vessel.startPoint == vesselParent.endPoint:
+        return itemParent
+
+    return None
 
   def addVessel(self, vessel):
     """
@@ -214,11 +247,21 @@ class VesselTree(object):
     :param vessel: Vessel
     :return: qt.QTreeWidgetItem
     """
-    item = qt.QTreeWidgetItem(self._tree)
+    item = qt.QTreeWidgetItem()
     item.setText(0, vessel.name)
     item.setFlags(item.flags() | qt.Qt.ItemIsEditable)  # set item as editable to be able to rename vessel
+    itemParent = self._findParent(vessel)
+    if itemParent is None:
+      self._tree.addTopLevelItem(item)
+    else:
+      itemParent.addChild(item)
 
     self._setWidgetItemIcon(item, self._itemIcons)
     self._itemDict[item] = vessel
 
     return item
+
+  def containsItem(self, treeItem):
+    """ Returns true if tree contains item, false otherwise
+    """
+    return treeItem in self._itemDict.keys()

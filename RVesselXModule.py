@@ -506,6 +506,28 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     emptyVolume.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
     return emptyVolume
 
+  def _createVesselWithArbitraryData(self, vesselName=None):
+    from itertools import count
+    v = Vessel(vesselName)
+    pt = ([i, 0, 0] for i in count(start=0, step=1))
+
+    startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", next(pt))
+    endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", next(pt))
+    seedPoints = RVesselXModuleLogic._createFiducialNode("seedPoint", next(pt), next(pt))
+
+    segmentationVol = self._emptyVolume("segVolume")
+    vesselVol = self._emptyVolume("vesselVolume")
+    segmentationModel = RVesselXModuleLogic._createModelNode("segModel")
+    centerlineModel = RVesselXModuleLogic._createModelNode("centerlineModel")
+    voronoiModel = RVesselXModuleLogic._createModelNode("voronoiModel")
+
+    # Create volumes associated with vessel extraction
+    v.setExtremities(startPoint=startPoint, endPoint=endPoint)
+    v.setSegmentation(seeds=seedPoints, volume=segmentationVol, model=segmentationModel)
+    v.setCenterline(centerline=centerlineModel, voronoiModel=voronoiModel)
+    v.setVesselnessVolume(vesselnessVolume=vesselVol)
+    return v
+
   def testVesselSegmentationLogic(self):
     # load test data
     import SampleData
@@ -539,28 +561,6 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     self.assertIsNotNone(vessel.segmentedCenterline)
     self.assertNotEqual(0, vessel.segmentedCenterline.GetPolyData().GetNumberOfCells())
 
-  def _createVesselWithArbitraryData(self):
-    from itertools import count
-    v = Vessel()
-    pt = ([i, 0, 0] for i in count(start=0, step=1))
-
-    startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", next(pt))
-    endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", next(pt))
-    seedPoints = RVesselXModuleLogic._createFiducialNode("seedPoint", next(pt), next(pt))
-
-    segmentationVol = self._emptyVolume("segVolume")
-    vesselVol = self._emptyVolume("vesselVolume")
-    segmentationModel = RVesselXModuleLogic._createModelNode("segModel")
-    centerlineModel = RVesselXModuleLogic._createModelNode("centerlineModel")
-    voronoiModel = RVesselXModuleLogic._createModelNode("voronoiModel")
-
-    # Create volumes associated with vessel extraction
-    v.setExtremities(startPoint=startPoint, endPoint=endPoint)
-    v.setSegmentation(seeds=seedPoints, volume=segmentationVol, model=segmentationModel)
-    v.setCenterline(centerline=centerlineModel, voronoiModel=voronoiModel)
-    v.setVesselnessVolume(vesselnessVolume=vesselVol)
-    return v
-
   def testVesselCreationNameIsInSegmentationName(self):
     v = self._createVesselWithArbitraryData()
     self.assertIn(v.name, v.segmentedVolume.GetName())
@@ -576,16 +576,8 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     self.assertIn(v.name, v.segmentedModel.GetName())
     self.assertIn(v.name, v.segmentedCenterline.GetName())
 
-  def testSetupModule(self):
-    """ Setups the module in new window
-    """
-    module = RVesselXModuleWidget(None)
-    module.setup()
-    module.cleanup()
-    module.parent.close()
-
   def testOnDeleteVesselRemovesAllAssociatedModelsFromSceneExceptStartAndEndPoints(self):
-    # Create a vessel and add models to it
+    # Create a vessel
     vessel = self._createVesselWithArbitraryData()
 
     # Add vessel to tree widget
@@ -606,3 +598,89 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     # Assert start and end points are still kept in the scene even after delete
     self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.startPoint))
     self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.endPoint))
+
+  def testDeleteLeafVesselRemovesItemFromTree(self):
+    # Create a vesselRoot and leaf
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselLeaf = self._createVesselWithArbitraryData("leaf")
+    vesselLeaf.startPoint = vesselParent.endPoint
+
+    # Add vessel to tree widget
+    tree = VesselTree()
+    treeItem = tree.addVessel(vesselParent)
+    treeLeafItem = tree.addVessel(vesselLeaf)
+
+    # Remove vessel from scene using the delete button trigger
+    tree.triggerVesselButton(treeLeafItem, VesselTree.ColumnIndex.delete)
+
+    # Verify leaf is not associated with parent
+    self.assertEqual(0, treeItem.childCount())
+
+    # verify leaf is not part of the tree
+    self.assertFalse(tree.containsItem(treeLeafItem))
+
+  def testDeleteRootVesselRemovesAssociatedLeafs(self):
+    # Create vessels and setup hierarchy
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselChild = self._createVesselWithArbitraryData("child")
+    vesselChild.startPoint = vesselParent.endPoint
+
+    vesselChild2 = self._createVesselWithArbitraryData("child 2")
+    vesselChild2.startPoint = vesselParent.endPoint
+
+    vesselChild3 = self._createVesselWithArbitraryData("child 3")
+    vesselChild3.startPoint = vesselParent.endPoint
+
+    vesselSubChild = self._createVesselWithArbitraryData("sub child")
+    vesselSubChild.startPoint = vesselChild.endPoint
+
+    vesselSubChild2 = self._createVesselWithArbitraryData("sub child 2")
+    vesselSubChild2.startPoint = vesselChild3.endPoint
+
+    # Create tree and add vessels to the tree
+    tree = VesselTree()
+    treeItemParent = tree.addVessel(vesselParent)
+    treeItemChild = tree.addVessel(vesselChild)
+    treeItemChild2 = tree.addVessel(vesselChild2)
+    treeItemChild3 = tree.addVessel(vesselChild3)
+    treeItemSubChild = tree.addVessel(vesselSubChild)
+    treeItemSubChild2 = tree.addVessel(vesselSubChild2)
+
+    # Remove child 1 and expect child and sub to be deleted
+    tree.triggerVesselButton(treeItemChild, VesselTree.ColumnIndex.delete)
+    self.assertFalse(tree.containsItem(treeItemChild))
+    self.assertFalse(tree.containsItem(treeItemSubChild))
+
+    # Remove root and expect all to be deleted
+    tree.triggerVesselButton(treeItemParent, VesselTree.ColumnIndex.delete)
+    self.assertFalse(tree.containsItem(treeItemParent))
+    self.assertFalse(tree.containsItem(treeItemChild2))
+    self.assertFalse(tree.containsItem(treeItemChild3))
+    self.assertFalse(tree.containsItem(treeItemSubChild2))
+
+  def testOnAddingVesselWithStartPointIdenticalToOtherVesselEndPointAddsVesselAsChildOfOther(self):
+    # Create vessels and setup hierarchy
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselChild = self._createVesselWithArbitraryData("child")
+    vesselChild.startPoint = vesselParent.endPoint
+
+    vesselChild2 = self._createVesselWithArbitraryData("child 2")
+    vesselChild2.startPoint = vesselParent.endPoint
+
+    vesselSubChild = self._createVesselWithArbitraryData("sub child")
+    vesselSubChild.startPoint = vesselChild.endPoint
+
+    # Create tree and add vessels to the tree
+    tree = VesselTree()
+    treeItemParent = tree.addVessel(vesselParent)
+    treeItemChild = tree.addVessel(vesselChild)
+    treeItemChild2 = tree.addVessel(vesselChild2)
+    treeItemSubChild = tree.addVessel(vesselSubChild)
+
+    # Verify hierarchy
+    self.assertEqual(2, treeItemParent.childCount())
+    self.assertEqual(1, treeItemChild.childCount())
+
+    self.assertEqual(treeItemParent, treeItemChild.parent())
+    self.assertEqual(treeItemParent, treeItemChild2.parent())
+    self.assertEqual(treeItemChild, treeItemSubChild.parent())
