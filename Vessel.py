@@ -18,19 +18,21 @@ class Icons(object):
 
 class Vessel(object):
   """ Object responsible for holding vessel information and representation in the scene
+
+  Interface for manipulation the vessel through the vessel tree
   """
 
   _createdCount = 0
 
   def __init__(self):
-    self._startPoint = None
-    self._endPoint = None
-    self._vesselnessVolume = None
-    self._segmentationSeeds = None
-    self._segmentedModel = None
-    self._segmentedVolume = None
-    self._centerline = None
-    self._centerlineVoronoi = None
+    self.startPoint = None
+    self.endPoint = None
+    self.vesselnessVolume = None
+    self.segmentationSeeds = None
+    self.segmentedModel = None
+    self.segmentedVolume = None
+    self.segmentedCenterline = None
+    self.segmentedVoronoiModel = None
     self._name = self.defaultName()
     self.isVisible = True
     Vessel._createdCount += 1
@@ -42,9 +44,9 @@ class Vessel(object):
   def toggleVisibility(self):
     self.isVisible = not self.isVisible
     if self._wasSegmented():
-      self._segmentedVolume.SetDisplayVisibility(self.isVisible)
-      self._segmentedModel.SetDisplayVisibility(self.isVisible)
-      self._centerline.SetDisplayVisibility(self.isVisible)
+      self.segmentedVolume.SetDisplayVisibility(self.isVisible)
+      self.segmentedModel.SetDisplayVisibility(self.isVisible)
+      self.segmentedCenterline.SetDisplayVisibility(self.isVisible)
 
   @property
   def name(self):
@@ -57,45 +59,36 @@ class Vessel(object):
 
   def _renameSegmentation(self):
     if self._wasSegmented():
-      self._segmentedVolume.SetName(self._name)
-      self._segmentedModel.SetName(self._name + "_Surface")
-      self._centerline.SetName(self._name + "_Centerline")
+      self.segmentedVolume.SetName(self._name)
+      self.segmentedModel.SetName(self._name + "_Surface")
+      self.segmentedCenterline.SetName(self._name + "_Centerline")
 
   def _wasSegmented(self):
-    return self._segmentedVolume is not None and self._centerline is not None
-
-  def centerline(self):
-    return self._centerline
-
-  def segmentedModel(self):
-    return self._segmentedModel
-
-  def segmentedVolume(self):
-    return self._segmentedVolume
+    return self.segmentedVolume is not None and self.segmentedCenterline is not None
 
   def setExtremities(self, startPoint, endPoint):
-    self._startPoint = startPoint
-    self._endPoint = endPoint
+    self.startPoint = startPoint
+    self.endPoint = endPoint
 
-    self._startPoint.SetLocked(True)
-    self._endPoint.SetLocked(True)
+    self.startPoint.SetLocked(True)
+    self.endPoint.SetLocked(True)
 
   def setVesselnessVolume(self, vesselnessVolume):
-    self._vesselnessVolume = vesselnessVolume
-    self._hideFromUser(self._vesselnessVolume)
+    self.vesselnessVolume = vesselnessVolume
+    self._hideFromUser(self.vesselnessVolume)
 
   def setSegmentation(self, seeds, volume, model):
-    self._segmentationSeeds = seeds
-    self._segmentedVolume = volume
-    self._segmentedModel = model
+    self.segmentationSeeds = seeds
+    self.segmentedVolume = volume
+    self.segmentedModel = model
     self._renameSegmentation()
-    self._removeFromScene(self._segmentationSeeds)
+    self._removeFromScene(self.segmentationSeeds)
 
   def setCenterline(self, centerline, voronoiModel):
-    self._centerline = centerline
-    self._centerlineVoronoi = voronoiModel
+    self.segmentedCenterline = centerline
+    self.segmentedVoronoiModel = voronoiModel
     self._renameSegmentation()
-    self._removeFromScene(self._centerlineVoronoi)
+    self._removeFromScene(self.segmentedVoronoiModel)
 
   def _hideFromUser(self, modelsToHide, hideFromEditor=True):
     for model in self._removeNoneList(modelsToHide):
@@ -104,7 +97,8 @@ class Vessel(object):
         model.SetHideFromEditors(True)
 
   def _removeFromScene(self, nodesToRemove):
-    for node in self._removeNoneList(nodesToRemove):
+    nodesInScene = [node for node in self._removeNoneList(nodesToRemove) if slicer.mrmlScene.IsNodePresent(node)]
+    for node in nodesInScene:
       slicer.mrmlScene.RemoveNode(node)
 
   @staticmethod
@@ -112,6 +106,13 @@ class Vessel(object):
     if not isinstance(elements, list):
       elements = [elements]
     return [elt for elt in elements if elt is not None]
+
+  def removeFromScene(self):
+    """
+    removes all the associated models of the vessel from mrml scene except for start and end points
+    """
+    self._removeFromScene([self.segmentedCenterline, self.segmentedModel, self.segmentedVolume, self.segmentationSeeds,
+                           self.segmentedVoronoiModel, self.vesselnessVolume])
 
 
 class NoEditDelegate(qt.QStyledItemDelegate):
@@ -171,7 +172,7 @@ class VesselTree(object):
     self._setWidgetItemIcon(self._tree.headerItem(), self._headerIcons)
 
     # Connect click button to handler
-    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self._triggerVesselButton)
+    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self.triggerVesselButton)
     self._tree.connect("itemChanged(QTreeWidgetItem*, int)", self._renameVessel)
 
   def _renameVessel(self, item, column):
@@ -181,12 +182,23 @@ class VesselTree(object):
   def getWidget(self):
     return self._tree
 
-  def _triggerVesselButton(self, item, column):
+  def triggerVesselButton(self, item, column):
     vessel = self._itemDict[item]
 
     if column == VesselTree.ColumnIndex.visibility:
       vessel.toggleVisibility()
       item.setIcon(VesselTree.ColumnIndex.visibility, Icons.visibleOn if vessel.isVisible else Icons.visibleOff)
+
+    if column == VesselTree.ColumnIndex.delete:
+      # remove vessel from scene
+      vessel.removeFromScene()
+
+      # remove item from tree
+      vesselIndex = self._tree.indexFromItem(item).row()
+      self._tree.takeTopLevelItem(vesselIndex)
+
+      # remove item from dictionary
+      self._itemDict.pop(item)
 
   def _setWidgetItemIcon(self, item, iconList):
     for i in range(self._columnCount):
@@ -195,9 +207,18 @@ class VesselTree(object):
         item.setIcon(i, icon)
 
   def addVessel(self, vessel):
+    """
+    Adds vessel in the vessel tree widget and returns created QTreeWidgetItem. This item can be used when adding leafs
+    to the item.
+
+    :param vessel: Vessel
+    :return: qt.QTreeWidgetItem
+    """
     item = qt.QTreeWidgetItem(self._tree)
     item.setText(0, vessel.name)
     item.setFlags(item.flags() | qt.Qt.ItemIsEditable)  # set item as editable to be able to rename vessel
 
     self._setWidgetItemIcon(item, self._itemIcons)
     self._itemDict[item] = vessel
+
+    return item

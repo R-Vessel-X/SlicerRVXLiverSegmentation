@@ -533,11 +533,11 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     logic = RVesselXModuleLogic()
     vessel = logic.extractVessel(sourceVolume, startPoint, endPoint)
 
-    self.assertIsNotNone(vessel.segmentedVolume())
-    self.assertIsNotNone(vessel.segmentedModel())
-    self.assertNotEqual(0, vessel.segmentedModel().GetPolyData().GetNumberOfCells())
-    self.assertIsNotNone(vessel.centerline())
-    self.assertNotEqual(0, vessel.centerline().GetPolyData().GetNumberOfCells())
+    self.assertIsNotNone(vessel.segmentedVolume)
+    self.assertIsNotNone(vessel.segmentedModel)
+    self.assertNotEqual(0, vessel.segmentedModel.GetPolyData().GetNumberOfCells())
+    self.assertIsNotNone(vessel.segmentedCenterline)
+    self.assertNotEqual(0, vessel.segmentedCenterline.GetPolyData().GetNumberOfCells())
 
   def _createVesselWithArbitraryData(self):
     from itertools import count
@@ -563,18 +563,18 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
   def testVesselCreationNameIsInSegmentationName(self):
     v = self._createVesselWithArbitraryData()
-    self.assertIn(v.name, v.segmentedVolume().GetName())
-    self.assertIn(v.name, v.segmentedModel().GetName())
-    self.assertIn(v.name, v.centerline().GetName())
+    self.assertIn(v.name, v.segmentedVolume.GetName())
+    self.assertIn(v.name, v.segmentedModel.GetName())
+    self.assertIn(v.name, v.segmentedCenterline.GetName())
 
   def testOnRenameRenamesSegmentationName(self):
     v = self._createVesselWithArbitraryData()
     newName = "New Name"
     v.name = newName
     self.assertEqual(newName, v.name)
-    self.assertIn(v.name, v.segmentedVolume().GetName())
-    self.assertIn(v.name, v.segmentedModel().GetName())
-    self.assertIn(v.name, v.centerline().GetName())
+    self.assertIn(v.name, v.segmentedVolume.GetName())
+    self.assertIn(v.name, v.segmentedModel.GetName())
+    self.assertIn(v.name, v.segmentedCenterline.GetName())
 
   def testSetupModule(self):
     """ Setups the module in new window
@@ -583,3 +583,26 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     module.setup()
     module.cleanup()
     module.parent.close()
+
+  def testOnDeleteVesselRemovesAllAssociatedModelsFromSceneExceptStartAndEndPoints(self):
+    # Create a vessel and add models to it
+    vessel = self._createVesselWithArbitraryData()
+
+    # Add vessel to tree widget
+    tree = VesselTree()
+    treeItem = tree.addVessel(vessel)
+
+    # Remove vessel from scene using the delete button trigger
+    tree.triggerVesselButton(treeItem, VesselTree.ColumnIndex.delete)
+
+    # Assert the different models are no longer in the scene
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.vesselnessVolume))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentationSeeds))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedVolume))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedModel))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedCenterline))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedVoronoiModel))
+
+    # Assert start and end points are still kept in the scene even after delete
+    self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.startPoint))
+    self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.endPoint))
