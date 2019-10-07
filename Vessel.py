@@ -180,6 +180,12 @@ class VesselTree(object):
     self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self.triggerVesselButton)
     self._tree.connect("itemChanged(QTreeWidgetItem*, int)", self._renameVessel)
 
+    # Enable reordering by drag and drop
+    self._tree.setDragEnabled(True)
+    self._tree.setDropIndicatorShown(True)
+    self._tree.setDragDropMode(qt.QAbstractItemView.InternalMove)
+    self._tree.viewport().setAcceptDrops(True)
+
   def _renameVessel(self, item, column):
     if column == 0 and item in self._itemDict:
       self._itemDict[item].name = item.text(column)
@@ -249,12 +255,15 @@ class VesselTree(object):
     """
     item = qt.QTreeWidgetItem()
     item.setText(0, vessel.name)
-    item.setFlags(item.flags() | qt.Qt.ItemIsEditable)  # set item as editable to be able to rename vessel
+
+    # set item as editable to be able to rename vessel and drop enabled to enable reordering the items in tree
+    item.setFlags(item.flags() | qt.Qt.ItemIsEditable | qt.Qt.ItemIsDragEnabled | qt.Qt.ItemIsDropEnabled)
     itemParent = self._findParent(vessel)
     if itemParent is None:
       self._tree.addTopLevelItem(item)
     else:
       itemParent.addChild(item)
+      itemParent.setExpanded(True)
 
     self._setWidgetItemIcon(item, self._itemIcons)
     self._itemDict[item] = vessel
