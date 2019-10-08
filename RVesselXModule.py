@@ -58,7 +58,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._dataTab = None
     self._vesselsTab = None
     self._vesselTree = None
-    self._logic = RVesselXModuleLogic()
+    self.logic = RVesselXModuleLogic()
 
     # Define layout #
     layoutDescription = """
@@ -84,9 +84,15 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     else:
       layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, layoutDescription)
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
-    self._configure3DViewAsMaximumIntensityProjection()
+    self._configure3DViewWithMaximumIntensityProjection()
 
-  def _configure3DViewAsMaximumIntensityProjection(self):
+  def _configure3DViewWithMaximumIntensityProjection(self):
+    """Configures 3D View to render volumes with raycast maximum intensity projection configuration.
+    Background is set to black color.
+
+    This rendering allows to see the vessels and associated segmented areas making it possible to see if parts of the
+    volumes have been missed during segmentation.
+    """
     # Get 3D view Node
     view = slicer.mrmlScene.GetNodeByID('vtkMRMLViewNode1')
 
@@ -104,6 +110,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return tab
 
   def setup(self):
+    """Setups widget in Slicer UI.
+    """
     ScriptedLoadableModuleWidget.setup(self)
 
     # Define module interface #
@@ -143,6 +151,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
 
   def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor("red")):
+    """Creates node selector for vtkMarkupFiducial type containing only one point.
+
+    Parameters
+    ----------
+    toolTip: str
+      Input selector hover text
+    markupName: str
+      Default name for the created markups when new markup is selected
+    markupColor: (option) QColor
+      Default color for the newly created markups (default = red)
+
+    Returns
+    -------
+    qSlicerSimpleMarkupsWidget
+    """
     seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
     seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
     seedFiducialsNodeSelector.toolTip = toolTip
@@ -156,11 +179,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return seedFiducialsNodeSelector
 
   def _extractVessel(self):
+    """Creates vessel from vessel tab start point, end point and selected data. Created vessel is added to VesselTree
+    view in Vessel tab.
+    """
     sourceVolume = self.inputSelector.currentNode()
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
-    vessel = self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    vessel = self.logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
     self._vesselTree.addVessel(vessel)
 
     # Set vessel start node as end node and remove end node selection for easier leaf selection for user
@@ -171,6 +197,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self.inputSelector.setCurrentNode(sourceVolume)
 
   def _createExtractVesselLayout(self):
+    """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
+    be active only when input volume, start and end points are valid.
+
+    Returns
+    ------
+    QFormLayout
+    """
     formLayout = qt.QFormLayout()
 
     # Start point fiducial
@@ -208,6 +241,23 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return formLayout
 
   def _createInputNodeSelector(self, nodeType, toolTip, callBack=None):
+    """Creates node selector with given input node type, tooltip and callback when currentNodeChanged signal is emitted
+
+    Parameters
+    ----------
+    nodeType: vtkMRML type compatible with qMRMLNodeComboBox
+      Node type which will be displayed in the combo box
+    toolTip: str
+      Input selector hover text
+    callBack: (optional) function
+      Function called when qMRMLNodeComboBox currentNodeChanged is triggered.
+      Function must accept a vtkMRMLNode input parameter
+
+    Returns
+    -------
+    inputSelector : qMRMLNodeComboBox
+      configured input selector
+    """
     inputSelector = slicer.qMRMLNodeComboBox()
     inputSelector.nodeTypes = [nodeType]
     inputSelector.selectNodeUponCreation = False
@@ -223,6 +273,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return inputSelector
 
   def _configureDataTab(self):
+    """Configure DataTab with load DICOM and Load Data buttons, Input volume selection, Volume 2D and 3D rendering
+    """
     dataTabLayout = qt.QVBoxLayout(self._dataTab)
 
     # Add load MRI button #
@@ -367,7 +419,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return buttonHBoxLayout
 
   def onLoadDMRIClicked(self):
-    # Show DICOM Widget #
+    """Show DICOM Widget as popup
+    """
     try:
       dicomWidget = slicer.modules.DICOMWidget
     except:
@@ -381,12 +434,16 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
   @vtk.calldata_type(vtk.VTK_OBJECT)
   def onNodeAdded(self, caller, event, calldata):
+    """Observer method for nodes added to the MRML scene. Sets added node as current node.
+    """
     if isinstance(calldata, slicer.vtkMRMLVolumeNode):
       layoutNode = slicer.util.getNode('*LayoutNode*')
       layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
       self.setCurrentNode(calldata)
 
   def onInputSelectorNodeChanged(self):
+    """On volume changed sets input node as current volume and show volume in 2D and 3D view
+    """
     node = self.inputSelector.currentNode()
 
     if node is not None:
@@ -401,6 +458,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       qt.QTimer.singleShot(0, lambda: self.showVolumeRendering(node))
 
   def setCurrentNode(self, node):
+    """Sets inputNode as selected volume node for module. Volume will be used for liver, vessel and tumor segmentation
+
+    :param node: vtkMRMLVolumeNode
+    """
     self.inputSelector.setCurrentNode(node)
 
     if self.volumesModuleSelector:
@@ -410,20 +471,25 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       self.volumeRenderingModuleSelector.setCurrentNode(node)
 
   def showVolumeRendering(self, volumeNode):
-    volRenLogic = slicer.modules.volumerendering.logic()
-    displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
-    displayNode.SetVisibility(True)
-    slicer.util.resetThreeDViews()
+    """Show input volumeNode in 3D View
 
-    # Load preset
-    # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
-    scalarRange = volumeNode.GetImageData().GetScalarRange()
-    if scalarRange[1] - scalarRange[0] < 1500:
-      # small dynamic range, probably MRI
-      displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
-    else:
-      # larger dynamic range, probably CT
-      displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
+    :param volumeNode: vtkMRMLVolumeNode
+    """
+    if volumeNode is not None:
+      volRenLogic = slicer.modules.volumerendering.logic()
+      displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+      displayNode.SetVisibility(True)
+      slicer.util.resetThreeDViews()
+
+      # Load preset
+      # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+      scalarRange = volumeNode.GetImageData().GetScalarRange()
+      if scalarRange[1] - scalarRange[0] < 1500:
+        # small dynamic range, probably MRI
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
+      else:
+        # larger dynamic range, probably CT
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
@@ -508,6 +574,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
   def _createVesselWithArbitraryData(self, vesselName=None):
     from itertools import count
+
     v = Vessel(vesselName)
     pt = ([i, 0, 0] for i in count(start=0, step=1))
 
@@ -684,3 +751,18 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     self.assertEqual(treeItemParent, treeItemChild.parent())
     self.assertEqual(treeItemParent, treeItemChild2.parent())
     self.assertEqual(treeItemChild, treeItemSubChild.parent())
+
+  def testLogicRaisesErrorWhenCalledWithNoneInputs(self):
+    logic = RVesselXModuleLogic()
+
+    with self.assertRaises(ValueError):
+      logic._applyLevelSetSegmentation(None, None, None, None)
+
+    with self.assertRaises(ValueError):
+      logic._applyVesselnessFilter(None, None)
+
+    with self.assertRaises(ValueError):
+      logic._applyCenterlineFilter(None, None, None)
+
+    with self.assertRaises(ValueError):
+      logic.extractVessel(None, None, None)

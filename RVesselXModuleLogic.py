@@ -51,6 +51,27 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
       slicer.util.errorDisplay(errorMsg)
 
   @staticmethod
+  def _raiseValueErrorIfInvalidType(**kwargs):
+    """Verify input type satisfies the expected type and raise in case it doesn't.
+
+    Expected input dictionary : "valueName":(value, "expectedType").
+    If value is None or value is not an instance of expectedType, method will raise ValueError with text indicating
+    valueName, value and expected type
+    """
+
+    for valueName, values in kwargs.items():
+      # Get value and expect type from dictionary
+      value, expType = values
+
+      # Get type from slicer in case of string input
+      if isinstance(expType, str):
+        expType = getattr(slicer, expType)
+
+      # Verify value is of correct instance
+      if not isinstance(value, expType):
+        raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
+
+  @staticmethod
   def _addToScene(node):
     """Add input node to scene and return node
 
@@ -154,9 +175,10 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
   def _applyVesselnessFilter(self, sourceVolume, startPoint):
     """Apply VMTK VesselnessFilter to source volume given start point. Returns ouput volume with vesselness information
 
+
     Parameters
     ----------
-    sourceVolume: vtkMRMLLabelMapVolumeNode
+    sourceVolume: vtkMRMLScalarVolumeNode
       Volume which will be labeled with vesselness information
     startPoint: vtkMRMLMarkupsFiducialNode
       Start point of the vessel. Gives indication on the target diameter of the vessel which will be
@@ -167,6 +189,10 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     outputVolume : vtkMRMLLabelMapVolumeNode
       Volume with vesselness information
     """
+    # Type checking
+    self._raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
+                                       startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"))
+
     # Get module logic from VMTK Vesselness Filtering module
     vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
 
@@ -209,7 +235,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
 
     Parameters
     ----------
-    sourceVolume : vtkMRMLLabelMapVolumeNode
+    sourceVolume : vtkMRMLScalarVolumeNode
       Original volume (before vesselness filter
     vesselnessVolume : vtkMRMLLabelMapVolumeNode
       Volume after filtering by vesselness filter
@@ -227,6 +253,11 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     LevelSetModel : vtkMRMLModelNode
       Model after marching cubes on the segmentation data
     """
+    # Type checking
+    self._raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
+                                       vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"),
+                                       startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
+                                       endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
 
     # Get module logic from VMTK LevelSetSegmentation
     segmentationWidget = VMTKModule.getLevelSetSegmentationWidget()
@@ -338,6 +369,11 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     centerlineVoronoi : vtkMRMLModelNode
       Contains voronoi model used when extracting center line
     """
+    # Type checking
+    self._raiseValueErrorIfInvalidType(levelSetSegmentationModel=(levelSetSegmentationModel, "vtkMRMLModelNode"),
+                                       startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
+                                       endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
+
     # Get logic from VMTK center line computation module
     centerLineLogic = VMTKModule.getCenterlineComputationLogic()
 
@@ -364,7 +400,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
 
     Parameters
     ----------
-    sourceVolume: vtkMRMLLabelMapVolumeNode
+    sourceVolume: vtkMRMLScalarVolumeNode
       Volume on which segmentation will be done
     startPoint: vtkMRMLMarkupsFiducialNode
       Start point for the vessel
@@ -376,6 +412,11 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     vessel : Vessel
       extracted vessel with associated informations
     """
+    # Type checking
+    self._raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
+                                       startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
+                                       endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
+
     # Create vessel which will hold every information of the vessel extracted in logic module
     vessel = Vessel()
     vessel.setExtremities(startPoint, endPoint)
