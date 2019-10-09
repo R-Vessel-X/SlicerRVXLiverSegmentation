@@ -1,9 +1,10 @@
-import os
-import unittest
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
 import traceback
+
+from RVesselXModuleLogic import RVesselXModuleLogic
+from Vessel import VesselTree, Vessel
 
 _info = logging.info
 _warn = logging.warn
@@ -18,44 +19,8 @@ def _warnLineSep():
   _lineSep(isWarning=True)
 
 
-class VMTKModule(object):
-  """Helper class for loading VMTK module and accessing VMTK Module logic from RVessel module
-  """
-
-  @staticmethod
-  def tryToLoad():
-    """Try to load every VMTK widgets in slicer.
-
-    :return: list of VMTK modules where loading failed. Empty list if success
-    """
-    notFound = []
-    for moduleName in ["VesselnessFiltering", "LevelSetSegmentation", "CenterlineComputation"]:
-      try:
-        slicer.util.getModule(moduleName).widgetRepresentation()
-      except AttributeError:
-        notFound.append(moduleName)
-
-    return notFound
-
-  @staticmethod
-  def getVesselnessFilteringLogic():
-    return slicer.modules.VesselnessFilteringWidget.logic
-
-  @staticmethod
-  def getLevelSetSegmentationLogic():
-    return VMTKModule.getLevelSetSegmentationWidget().logic
-
-  @staticmethod
-  def getLevelSetSegmentationWidget():
-    return slicer.modules.LevelSetSegmentationWidget
-
-  @staticmethod
-  def getCenterlineComputationLogic():
-    return slicer.modules.CenterlineComputationWidget.logic
-
-
 class RVesselXModule(ScriptedLoadableModule):
-  def __init__(self, parent):
+  def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "R Vessel X"
     self.parent.categories = ["Examples"]
@@ -79,21 +44,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     Vessel Tab : Responsible for vessel segmentation
   """
 
-  def __init__(self, parent):
+  def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.inputSelector = None
     self.volumesModuleSelector = None
     self.volumeRenderingModuleSelector = None
     self.volumeRenderingModuleVisibility = None
 
-    self._vesselVolumeSelector = None
     self._vesselStartSelector = None
     self._vesselEndSelector = None
     self._tabWidget = None
     self._liverTab = None
     self._dataTab = None
     self._vesselsTab = None
-    self._logic = RVesselXModuleLogic()
+    self._vesselTree = None
+    self.logic = RVesselXModuleLogic()
 
     # Define layout #
     layoutDescription = """
@@ -119,11 +84,25 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     else:
       layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, layoutDescription)
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
+    self._configure3DViewWithMaximumIntensityProjection()
 
-    notFound = VMTKModule.tryToLoad()
-    if notFound:
-      errorMsg = "Failed to load the following VMTK Modules : %s\nPlease make sure VTMK is installed." % notFound
-      slicer.util.errorDisplay(errorMsg)
+  def _configure3DViewWithMaximumIntensityProjection(self):
+    """Configures 3D View to render volumes with raycast maximum intensity projection configuration.
+    Background is set to black color.
+
+    This rendering allows to see the vessels and associated segmented areas making it possible to see if parts of the
+    volumes have been missed during segmentation.
+    """
+    # Get 3D view Node
+    view = slicer.mrmlScene.GetNodeByID('vtkMRMLViewNode1')
+
+    # Set background color to black
+    view.SetBackgroundColor2([0, 0, 0])
+    view.SetBackgroundColor([0, 0, 0])
+
+    # Set ray cast technique as maximum intensity projection
+    # see https://github.com/Slicer/Slicer/blob/master/Libs/MRML/Core/vtkMRMLViewNode.h
+    view.SetRaycastTechnique(2)
 
   def _createTab(self, tab_name):
     tab = qt.QWidget()
@@ -131,6 +110,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return tab
 
   def setup(self):
+    """Setups widget in Slicer UI.
+    """
     ScriptedLoadableModuleWidget.setup(self)
 
     # Define module interface #
@@ -169,7 +150,22 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     parentLayout.addWidget(collapsibleButton)
     qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
 
-  def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor(255, 0, 0)):
+  def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor("red")):
+    """Creates node selector for vtkMarkupFiducial type containing only one point.
+
+    Parameters
+    ----------
+    toolTip: str
+      Input selector hover text
+    markupName: str
+      Default name for the created markups when new markup is selected
+    markupColor: (option) QColor
+      Default color for the newly created markups (default = red)
+
+    Returns
+    -------
+    qSlicerSimpleMarkupsWidget
+    """
     seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
     seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
     seedFiducialsNodeSelector.toolTip = toolTip
@@ -183,27 +179,40 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return seedFiducialsNodeSelector
 
   def _extractVessel(self):
-    sourceVolume = self._vesselVolumeSelector.currentNode()
+    """Creates vessel from vessel tab start point, end point and selected data. Created vessel is added to VesselTree
+    view in Vessel tab.
+    """
+    sourceVolume = self.inputSelector.currentNode()
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
-    self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    vessel = self.logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    self._vesselTree.addVessel(vessel)
+
+    # Set vessel start node as end node and remove end node selection for easier leaf selection for user
+    self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
+    self._vesselEndSelector.setCurrentNode(None)
+
+    # Reselect source volume as volume input (running logic deselects volume somehow)
+    self.inputSelector.setCurrentNode(sourceVolume)
 
   def _createExtractVesselLayout(self):
+    """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
+    be active only when input volume, start and end points are valid.
+
+    Returns
+    ------
+    QFormLayout
+    """
     formLayout = qt.QFormLayout()
 
-    # Volume selection input
-    self._vesselVolumeSelector = self._createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Select input volume")
-    formLayout.addRow("Input Volume:", self._vesselVolumeSelector)
-
     # Start point fiducial
-    self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", "startPoint",
-                                                                 markupColor=qt.QColor("red"))
+    vesselPointName = "vesselPoint"
+    self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", vesselPointName)
     formLayout.addRow("Vessel Start:", self._vesselStartSelector)
 
     # End point fiducial
-    self._vesselEndSelector = self._createSingleMarkupFiducial("Select vessel end position", "endPoint",
-                                                               markupColor=qt.QColor("blue"))
+    self._vesselEndSelector = self._createSingleMarkupFiducial("Select vessel end position", vesselPointName)
     formLayout.addRow("Vessel End:", self._vesselEndSelector)
 
     # Extract Vessel Button
@@ -221,17 +230,34 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       def fiducialSelected(seedSelector):
         return getNode(seedSelector) and getNode(seedSelector).GetNumberOfFiducials() > 0
 
-      isButtonEnabled = getNode(self._vesselVolumeSelector) and fiducialSelected(
+      isButtonEnabled = getNode(self.inputSelector) and fiducialSelected(
         self._vesselStartSelector) and fiducialSelected(self._vesselEndSelector)
       extractVesselButton.setEnabled(isButtonEnabled)
 
-    self._vesselVolumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", updateExtractButtonStatus)
+    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", updateExtractButtonStatus)
     self._vesselStartSelector.connect("updateFinished()", updateExtractButtonStatus)
     self._vesselEndSelector.connect("updateFinished()", updateExtractButtonStatus)
 
     return formLayout
 
   def _createInputNodeSelector(self, nodeType, toolTip, callBack=None):
+    """Creates node selector with given input node type, tooltip and callback when currentNodeChanged signal is emitted
+
+    Parameters
+    ----------
+    nodeType: vtkMRML type compatible with qMRMLNodeComboBox
+      Node type which will be displayed in the combo box
+    toolTip: str
+      Input selector hover text
+    callBack: (optional) function
+      Function called when qMRMLNodeComboBox currentNodeChanged is triggered.
+      Function must accept a vtkMRMLNode input parameter
+
+    Returns
+    -------
+    inputSelector : qMRMLNodeComboBox
+      configured input selector
+    """
     inputSelector = slicer.qMRMLNodeComboBox()
     inputSelector.nodeTypes = [nodeType]
     inputSelector.selectNodeUponCreation = False
@@ -247,6 +273,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return inputSelector
 
   def _configureDataTab(self):
+    """Configure DataTab with load DICOM and Load Data buttons, Input volume selection, Volume 2D and 3D rendering
+    """
     dataTabLayout = qt.QVBoxLayout(self._dataTab)
 
     # Add load MRI button #
@@ -259,9 +287,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     inputLayout.addWidget(self.inputSelector)
 
-    loadDicomButton = qt.QPushButton("Load MRI")
+    loadDicomButton = qt.QPushButton("Load DICOM")
     loadDicomButton.connect("clicked(bool)", self.onLoadDMRIClicked)
     inputLayout.addWidget(loadDicomButton)
+
+    loadDataButton = qt.QPushButton("Load Data")
+    loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
+    inputLayout.addWidget(loadDataButton)
 
     dataTabLayout.addLayout(inputLayout)
 
@@ -325,6 +357,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     """
     # Visualisation tree for Vessels
     vesselsTabLayout = qt.QVBoxLayout(self._vesselsTab)
+
+    self._vesselTree = VesselTree()
+    vesselsTabLayout.addWidget(self._vesselTree.getWidget())
     vesselsTabLayout.addLayout(self._createExtractVesselLayout())
 
     # Add vessel previous and next button (next button will be disabled)
@@ -384,7 +419,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return buttonHBoxLayout
 
   def onLoadDMRIClicked(self):
-    # Show DICOM Widget #
+    """Show DICOM Widget as popup
+    """
     try:
       dicomWidget = slicer.modules.DICOMWidget
     except:
@@ -393,14 +429,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     if dicomWidget is not None:
       dicomWidget.detailsPopup.open()
 
+  def onLoadDataClicked(self):
+    slicer.app.ioManager().openAddDataDialog()
+
   @vtk.calldata_type(vtk.VTK_OBJECT)
   def onNodeAdded(self, caller, event, calldata):
+    """Observer method for nodes added to the MRML scene. Sets added node as current node.
+    """
     if isinstance(calldata, slicer.vtkMRMLVolumeNode):
       layoutNode = slicer.util.getNode('*LayoutNode*')
       layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
       self.setCurrentNode(calldata)
 
   def onInputSelectorNodeChanged(self):
+    """On volume changed sets input node as current volume and show volume in 2D and 3D view
+    """
     node = self.inputSelector.currentNode()
 
     if node is not None:
@@ -409,9 +452,16 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
       # Show volume
       slicer.util.setSliceViewerLayers(node)
-      self.showVolumeRendering(node)
+
+      # Call showVolumeRendering using a timer instead of calling it directly
+      # to allow the volume loading to fully complete.
+      qt.QTimer.singleShot(0, lambda: self.showVolumeRendering(node))
 
   def setCurrentNode(self, node):
+    """Sets inputNode as selected volume node for module. Volume will be used for liver, vessel and tumor segmentation
+
+    :param node: vtkMRMLVolumeNode
+    """
     self.inputSelector.setCurrentNode(node)
 
     if self.volumesModuleSelector:
@@ -421,357 +471,25 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       self.volumeRenderingModuleSelector.setCurrentNode(node)
 
   def showVolumeRendering(self, volumeNode):
-    volRenLogic = slicer.modules.volumerendering.logic()
-    displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
-    displayNode.SetVisibility(True)
-    self.reset3DRendererCamera()
+    """Show input volumeNode in 3D View
 
-  def reset3DRendererCamera(self):
-    threeDWidget = slicer.app.layoutManager().threeDWidget(0)
-    threeDWidget.threeDView().resetFocalPoint()
-    threeDWidget.threeDView().renderWindow().GetRenderers().GetFirstRenderer().ResetCamera()
-
-
-class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
-  def __init__(self):
-    ScriptedLoadableModuleLogic.__init__(self)
-
-  @staticmethod
-  def _addToScene(node):
-    """Add input node to scene and return node
-
-    Parameters
-    ----------
-    node: vtkMRMLNode
-      Node to add to scene
-
-    Returns
-    -------
-    node after having added it to scene
+    :param volumeNode: vtkMRMLVolumeNode
     """
-    outputNode = slicer.mrmlScene.AddNode(node)
-    outputNode.CreateDefaultDisplayNodes()
-    return outputNode
+    if volumeNode is not None:
+      volRenLogic = slicer.modules.volumerendering.logic()
+      displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+      displayNode.SetVisibility(True)
+      slicer.util.resetThreeDViews()
 
-  @staticmethod
-  def _createFiducialNode(name, *positions):
-    """Creates a vtkMRMLMarkupsFiducialNode with one point at given position and with given name
-
-    Parameters
-    ----------
-    positions : list of list of positions
-      size 3 position list with positions for created fiducial point
-    name : str
-      Base for unique name given to the output node
-
-    Returns
-    -------
-    vtkMRMLMarkupsFiducialNode with one point at given position
-    """
-    fiducialPoint = slicer.mrmlScene.CreateNodeByClass("vtkMRMLMarkupsFiducialNode")
-    fiducialPoint.UnRegister(None)
-    fiducialPoint.SetName(slicer.mrmlScene.GetUniqueNameByString(name))
-    for position in positions:
-      fiducialPoint.AddFiducialFromArray(position)
-    return slicer.mrmlScene.AddNode(fiducialPoint)
-
-  @staticmethod
-  def _createLabelMapVolumeNodeBasedOnModel(modelVolume, volumeName):
-    """Creates new LabelMapVolume node which reproduces the input node orientation, spacing, and origins
-
-    Parameters
-    ----------
-    modelVolume : vtkMRMLLabelMapVolumeNode
-      Volume from which orientation, spacing and origin will be deduced
-    volumeName: str
-      base name for the volume when it will be added to slicer scene. A unique name will be derived
-      from this base name (ie : adding number indices in case the volume is already present in the scene)
-
-    Returns
-    -------
-    vtkMRMLLabelMapVolumeNode
-      New Label map volume added to the scene
-    """
-    newLabelMapNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
-    newLabelMapNode.UnRegister(None)
-    newLabelMapNode.CopyOrientation(modelVolume)
-    newLabelMapNode.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
-    return RVesselXModuleLogic._addToScene(newLabelMapNode)
-
-  @staticmethod
-  def _createModelNode(modelName):
-    """Creates new Model node with given input volume Name
-
-    Parameters
-    ----------
-    modelName: str
-      base name for the model when it will be added to slicer scene. A unique name will be derived
-      from this base name (ie : adding number indices in case the model is already present in the scene)
-
-    Returns
-    -------
-    vtkMRMLModelNode
-      New model added to the scene
-    """
-    newModelNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelNode")
-    newModelNode.UnRegister(None)
-    newModelNode.SetName(slicer.mrmlScene.GetUniqueNameByString(modelName))
-    return RVesselXModuleLogic._addToScene(newModelNode)
-
-  def _getFiducialPositions(self, fiducialNode):
-    """ Extracts positions from input fiducial node and returns it as array of positions
-
-    Parameters
-    ----------
-    fiducialNode : vtkMRMLMarkupsFiducialNode
-      FiducialNode from which we want the coordinates
-
-    Returns
-    -------
-    List of arrays[3] of fiducial positions
-    """
-    positions = []
-    for i in range(fiducialNode.GetNumberOfFiducials()):
-      pos = [0, 0, 0]
-      fiducialNode.GetNthFiducialPosition(i, pos)
-      positions.append(pos)
-    return positions
-
-  def _applyVesselnessFilter(self, sourceVolume, startPoint):
-    """Apply VMTK VesselnessFilter to source volume given start point. Returns ouput volume with vesselness information
-
-    Parameters
-    ----------
-    sourceVolume: vtkMRMLLabelMapVolumeNode
-      Volume which will be labeled with vesselness information
-    startPoint: vtkMRMLMarkupsFiducialNode
-      Start point of the vessel. Gives indication on the target diameter of the vessel which will be
-      filtered by the method.
-
-    Returns
-    -------
-    outputVolume : vtkMRMLLabelMapVolumeNode
-      Volume with vesselness information
-    """
-    # Get module logic from VMTK Vesselness Filtering module
-    vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
-
-    # Create output node
-    vesselnessFiltered = self._createLabelMapVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered")
-
-    # Extract diameter size from start point position
-    vesselPositionRas = [0, 0, 0]
-    startPoint.GetNthFiducialPosition(0, vesselPositionRas)
-    vesselPositionIJK = vesselnessLogic.getIJKFromRAS(sourceVolume, vesselPositionRas)
-    maximumDetectedDiameter = vesselnessLogic.getDiameter(sourceVolume.GetImageData(), vesselPositionIJK)
-    minimumDiameterDefaultValue = 1
-
-    # Extract contrast from seed
-    contrastMeasure = vesselnessLogic.calculateContrastMeasure(sourceVolume.GetImageData(), vesselPositionIJK,
-                                                               maximumDetectedDiameter)
-
-    # Calculate alpha and beta parameters from suppressPlates and suppressBlobs parameters
-    # For now = default VMTK Values (may be made available to user)
-    suppressPlatesDefaultValue = 10
-    suppresBlobsDefaultValue = 10
-    alpha = vesselnessLogic.alphaFromSuppressPlatesPercentage(suppressPlatesDefaultValue)
-    beta = vesselnessLogic.betaFromSuppressBlobsPercentage(suppresBlobsDefaultValue)
-
-    # Scale minimum and maximum diameters with volume spacing
-    minimumDiameter = minimumDiameterDefaultValue * min(sourceVolume.GetSpacing())
-    maximumDiameter = maximumDetectedDiameter * min(sourceVolume.GetSpacing())
-
-    # Compute vesselness volume
-    vesselnessLogic.computeVesselnessVolume(sourceVolume, vesselnessFiltered, maximumDiameterMm=maximumDiameter,
-                                            minimumDiameterMm=minimumDiameter, alpha=alpha, beta=beta,
-                                            contrastMeasure=contrastMeasure)
-
-    return vesselnessFiltered
-
-  def _applyLevelSetSegmentation(self, sourceVolume, vesselnessVolume, startPoint, endPoint):
-    """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input startPoint and endPoint.
-
-    Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
-
-    Parameters
-    ----------
-    sourceVolume : vtkMRMLLabelMapVolumeNode
-      Original volume (before vesselness filter
-    vesselnessVolume : vtkMRMLLabelMapVolumeNode
-      Volume after filtering by vesselness filter
-    startPoint : vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint : vtkMRMLMarkupsFiducialNode
-      End point for the vessel
-
-    Returns
-    -------
-    LevelSetSegmentation : vtkMRMLLabelMapVolumeNode
-      segmentation volume output
-    LevelSetModel : vtkMRMLModelNode
-      Model after marching cubes on the segmentation data
-    """
-
-    # Get module logic from VMTK LevelSetSegmentation
-    segmentationWidget = VMTKModule.getLevelSetSegmentationWidget()
-    segmentationLogic = VMTKModule.getLevelSetSegmentationLogic()
-
-    # Create output volume node
-    outputVolume = self._createLabelMapVolumeNodeBasedOnModel(sourceVolume, "LevelSetSegmentation")
-    outputModel = self._createModelNode("LevelSetSegmentationModel")
-
-    # Copy paste code from LevelSetSegmentation start method
-    # https://github.com/vmtk/SlicerExtension-VMTK/blob/master/LevelSetSegmentation/LevelSetSegmentation.py
-
-    # Aggregate start point and end point as seeds for vessel extraction
-    seedsPositions = self._getFiducialPositions(startPoint) + self._getFiducialPositions(endPoint)
-
-    # now we need to convert the fiducials to vtkIdLists
-    seeds = self._createFiducialNode("LevelSetSegmentationSeeds", *seedsPositions)
-    seeds = segmentationWidget.convertFiducialHierarchyToVtkIdList(seeds, vesselnessVolume)
-    stoppers = segmentationWidget.convertFiducialHierarchyToVtkIdList(endPoint,
-                                                                      vesselnessVolume) if endPoint else vtk.vtkIdList()
-
-    # the input image for the initialization
-    inputImage = vtk.vtkImageData()
-    inputImage.DeepCopy(vesselnessVolume.GetImageData())
-
-    # initialization
-    initImageData = vtk.vtkImageData()
-
-    # evolution
-    evolImageData = vtk.vtkImageData()
-
-    # perform the initialization
-    currentScalarRange = inputImage.GetScalarRange()
-    minimumScalarValue = round(currentScalarRange[0], 0)
-    maximumScalarValue = round(currentScalarRange[1], 0)
-
-    initImageData.DeepCopy(
-      segmentationLogic.performInitialization(inputImage, minimumScalarValue, maximumScalarValue, seeds, stoppers,
-                                              'collidingfronts'))
-
-    if not initImageData.GetPointData().GetScalars():
-      # something went wrong, the image is empty
-      raise ValueError("Segmentation failed - the output was empty...")
-
-    # no preview, run the whole thing! we never use the vesselness node here, just the original one
-    inflationDefaultValue = 0
-    curvatureDefaultValue = 70
-    attractionDefaultValue = 50
-    iterationDefaultValue = 10
-    evolImageData.DeepCopy(
-      segmentationLogic.performEvolution(sourceVolume.GetImageData(), initImageData, iterationDefaultValue,
-                                         inflationDefaultValue, curvatureDefaultValue, attractionDefaultValue,
-                                         'geodesic'))
-
-    # create segmentation labelMap
-    labelMap = vtk.vtkImageData()
-    labelMap.DeepCopy(segmentationLogic.buildSimpleLabelMap(evolImageData, 5, 0))
-
-    # propagate the label map to the node
-    outputVolume.SetAndObserveImageData(labelMap)
-
-    # currentVesselnessNode
-    slicer.util.setSliceViewerLayers(background=sourceVolume, foreground=vesselnessVolume, label=outputVolume,
-                                     foregroundOpacity=0.1)
-
-    # generate 3D model
-    model = vtk.vtkPolyData()
-
-    # we need the ijkToRas transform for the marching cubes call
-    ijkToRasMatrix = vtk.vtkMatrix4x4()
-    outputVolume.GetIJKToRASMatrix(ijkToRasMatrix)
-
-    # call marching cubes
-    model.DeepCopy(segmentationLogic.marchingCubes(evolImageData, ijkToRasMatrix, 0.0))
-
-    # propagate model to nodes
-    outputModel.SetAndObservePolyData(model)
-    outputModel.CreateDefaultDisplayNodes()
-
-    return outputVolume, outputModel
-
-  def _closestPointOnSurfaceAsIdList(self, surface, point):
-    pointList = vtk.vtkIdList()
-
-    pointLocator = vtk.vtkPointLocator()
-    pointLocator.SetDataSet(surface)
-    pointLocator.BuildLocator()
-
-    sourceId = pointLocator.FindClosestPoint(point)
-    pointList.InsertNextId(sourceId)
-    return pointList
-
-  def _applyCenterlineFilter(self, levelSetSegmentationModel, startPoint, endPoint):
-    """ Extracts centerline from input level set segmentation model (ie : vessel polyData) and start and end points
-
-    Parameters
-    ----------
-    levelSetSegmentationModel : vtkMRMLModelNode
-      Result from LevelSetSegmentation representing outer vessel mesh
-    startPoint : vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint : vtkMRMLMarkupsFiducialNode
-      End point for the vessel
-
-    Returns
-    -------
-    vtkMRMLModelNode containing center line vtkPolyData extracted from input vessel model
-    """
-    # Get logic from VMTK center line computation module
-    centerLineLogic = VMTKModule.getCenterlineComputationLogic()
-
-    # Extract mesh and source and target point lists from input data
-    segmentationMesh = levelSetSegmentationModel.GetPolyData()
-    sourceIdList = self._closestPointOnSurfaceAsIdList(segmentationMesh, self._getFiducialPositions(startPoint)[0])
-    targetIdList = self._closestPointOnSurfaceAsIdList(segmentationMesh, self._getFiducialPositions(endPoint)[0])
-
-    # Calculate center line poly data
-    centerLinePolyData, voronoiPolyData = centerLineLogic.computeCenterlines(segmentationMesh, sourceIdList,
-                                                                             targetIdList)
-
-    # Create output voronoi model and centerline model
-    centerLineModel = self._createModelNode("CenterLineModel")
-    voronoiModel = self._createModelNode("VoronoiModel")
-
-    centerLineModel.SetAndObservePolyData(centerLinePolyData)
-    voronoiModel.SetAndObservePolyData(voronoiPolyData)
-
-    return centerLineModel
-
-  def extractVessel(self, sourceVolume, startPoint, endPoint):
-    """ Extracts vessel from source volume, given start point and end point
-
-    Parameters
-    ----------
-    sourceVolume: vtkMRMLLabelMapVolumeNode
-      Volume on which segmentation will be done
-    startPoint: vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint: vtkMRMLMarkupsFiducialNode
-      End point for the vessel
-
-    Returns
-    -------
-    extractedVesselVolume : vtkMRMLLabelMapVolumeNode
-      Volume label representing the extracted vessel
-    extractedVesselModel : vtkMRMLModelNode
-      Surface mesh of the extracted vessel
-    extractedVesselCenterLine : vtkMRMLMarkupsFiducialNode
-      Center line points of the extracted vessel
-    """
-    # Apply vesselness filter
-    vesselnessFiltered = self._applyVesselnessFilter(sourceVolume, startPoint)
-
-    # Call levelSetSegmentation
-    levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(sourceVolume, vesselnessFiltered, startPoint,
-                                                                    endPoint)
-
-    # Extract centerpoint
-    centerLine = self._applyCenterlineFilter(levelSetModel, startPoint, endPoint)
-
-    return levelSetVolume, levelSetModel, centerLine
+      # Load preset
+      # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+      scalarRange = volumeNode.GetImageData().GetScalarRange()
+      if scalarRange[1] - scalarRange[0] < 1500:
+        # small dynamic range, probably MRI
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
+      else:
+        # larger dynamic range, probably CT
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
@@ -848,6 +566,35 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     return cropVolumeNode.GetOutputVolumeNode()
 
+  def _emptyVolume(self, volumeName):
+    emptyVolume = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
+    emptyVolume.UnRegister(None)
+    emptyVolume.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
+    return emptyVolume
+
+  def _createVesselWithArbitraryData(self, vesselName=None):
+    from itertools import count
+
+    v = Vessel(vesselName)
+    pt = ([i, 0, 0] for i in count(start=0, step=1))
+
+    startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", next(pt))
+    endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", next(pt))
+    seedPoints = RVesselXModuleLogic._createFiducialNode("seedPoint", next(pt), next(pt))
+
+    segmentationVol = self._emptyVolume("segVolume")
+    vesselVol = self._emptyVolume("vesselVolume")
+    segmentationModel = RVesselXModuleLogic._createModelNode("segModel")
+    centerlineModel = RVesselXModuleLogic._createModelNode("centerlineModel")
+    voronoiModel = RVesselXModuleLogic._createModelNode("voronoiModel")
+
+    # Create volumes associated with vessel extraction
+    v.setExtremities(startPoint=startPoint, endPoint=endPoint)
+    v.setSegmentation(seeds=seedPoints, volume=segmentationVol, model=segmentationModel)
+    v.setCenterline(centerline=centerlineModel, voronoiModel=voronoiModel)
+    v.setVesselnessVolume(vesselnessVolume=vesselVol)
+    return v
+
   def testVesselSegmentationLogic(self):
     # load test data
     import SampleData
@@ -873,18 +620,149 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
-    segmentedVolume, segmentedModel, centerLines = logic.extractVessel(sourceVolume, startPoint, endPoint)
+    vessel = logic.extractVessel(sourceVolume, startPoint, endPoint)
 
-    self.assertIsNotNone(segmentedVolume)
-    self.assertIsNotNone(segmentedModel)
-    self.assertNotEqual(0, segmentedModel.GetPolyData().GetNumberOfCells())
-    self.assertIsNotNone(centerLines)
-    self.assertNotEqual(0, centerLines.GetPolyData().GetNumberOfCells())
+    self.assertIsNotNone(vessel.segmentedVolume)
+    self.assertIsNotNone(vessel.segmentedModel)
+    self.assertNotEqual(0, vessel.segmentedModel.GetPolyData().GetNumberOfCells())
+    self.assertIsNotNone(vessel.segmentedCenterline)
+    self.assertNotEqual(0, vessel.segmentedCenterline.GetPolyData().GetNumberOfCells())
 
-  def testSetupModule(self):
-    """ Setups the module in new window
-    """
-    module = RVesselXModuleWidget(None)
-    module.setup()
-    module.cleanup()
-    module.parent.close()
+  def testVesselCreationNameIsInSegmentationName(self):
+    v = self._createVesselWithArbitraryData()
+    self.assertIn(v.name, v.segmentedVolume.GetName())
+    self.assertIn(v.name, v.segmentedModel.GetName())
+    self.assertIn(v.name, v.segmentedCenterline.GetName())
+
+  def testOnRenameRenamesSegmentationName(self):
+    v = self._createVesselWithArbitraryData()
+    newName = "New Name"
+    v.name = newName
+    self.assertEqual(newName, v.name)
+    self.assertIn(v.name, v.segmentedVolume.GetName())
+    self.assertIn(v.name, v.segmentedModel.GetName())
+    self.assertIn(v.name, v.segmentedCenterline.GetName())
+
+  def testOnDeleteVesselRemovesAllAssociatedModelsFromSceneExceptStartAndEndPoints(self):
+    # Create a vessel
+    vessel = self._createVesselWithArbitraryData()
+
+    # Add vessel to tree widget
+    tree = VesselTree()
+    treeItem = tree.addVessel(vessel)
+
+    # Remove vessel from scene using the delete button trigger
+    tree.triggerVesselButton(treeItem, VesselTree.ColumnIndex.delete)
+
+    # Assert the different models are no longer in the scene
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.vesselnessVolume))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentationSeeds))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedVolume))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedModel))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedCenterline))
+    self.assertFalse(slicer.mrmlScene.IsNodePresent(vessel.segmentedVoronoiModel))
+
+    # Assert start and end points are still kept in the scene even after delete
+    self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.startPoint))
+    self.assertTrue(slicer.mrmlScene.IsNodePresent(vessel.endPoint))
+
+  def testDeleteLeafVesselRemovesItemFromTree(self):
+    # Create a vesselRoot and leaf
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselLeaf = self._createVesselWithArbitraryData("leaf")
+    vesselLeaf.startPoint = vesselParent.endPoint
+
+    # Add vessel to tree widget
+    tree = VesselTree()
+    treeItem = tree.addVessel(vesselParent)
+    treeLeafItem = tree.addVessel(vesselLeaf)
+
+    # Remove vessel from scene using the delete button trigger
+    tree.triggerVesselButton(treeLeafItem, VesselTree.ColumnIndex.delete)
+
+    # Verify leaf is not associated with parent
+    self.assertEqual(0, treeItem.childCount())
+
+    # verify leaf is not part of the tree
+    self.assertFalse(tree.containsItem(treeLeafItem))
+
+  def testDeleteRootVesselRemovesAssociatedLeafs(self):
+    # Create vessels and setup hierarchy
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselChild = self._createVesselWithArbitraryData("child")
+    vesselChild.startPoint = vesselParent.endPoint
+
+    vesselChild2 = self._createVesselWithArbitraryData("child 2")
+    vesselChild2.startPoint = vesselParent.endPoint
+
+    vesselChild3 = self._createVesselWithArbitraryData("child 3")
+    vesselChild3.startPoint = vesselParent.endPoint
+
+    vesselSubChild = self._createVesselWithArbitraryData("sub child")
+    vesselSubChild.startPoint = vesselChild.endPoint
+
+    vesselSubChild2 = self._createVesselWithArbitraryData("sub child 2")
+    vesselSubChild2.startPoint = vesselChild3.endPoint
+
+    # Create tree and add vessels to the tree
+    tree = VesselTree()
+    treeItemParent = tree.addVessel(vesselParent)
+    treeItemChild = tree.addVessel(vesselChild)
+    treeItemChild2 = tree.addVessel(vesselChild2)
+    treeItemChild3 = tree.addVessel(vesselChild3)
+    treeItemSubChild = tree.addVessel(vesselSubChild)
+    treeItemSubChild2 = tree.addVessel(vesselSubChild2)
+
+    # Remove child 1 and expect child and sub to be deleted
+    tree.triggerVesselButton(treeItemChild, VesselTree.ColumnIndex.delete)
+    self.assertFalse(tree.containsItem(treeItemChild))
+    self.assertFalse(tree.containsItem(treeItemSubChild))
+
+    # Remove root and expect all to be deleted
+    tree.triggerVesselButton(treeItemParent, VesselTree.ColumnIndex.delete)
+    self.assertFalse(tree.containsItem(treeItemParent))
+    self.assertFalse(tree.containsItem(treeItemChild2))
+    self.assertFalse(tree.containsItem(treeItemChild3))
+    self.assertFalse(tree.containsItem(treeItemSubChild2))
+
+  def testOnAddingVesselWithStartPointIdenticalToOtherVesselEndPointAddsVesselAsChildOfOther(self):
+    # Create vessels and setup hierarchy
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselChild = self._createVesselWithArbitraryData("child")
+    vesselChild.startPoint = vesselParent.endPoint
+
+    vesselChild2 = self._createVesselWithArbitraryData("child 2")
+    vesselChild2.startPoint = vesselParent.endPoint
+
+    vesselSubChild = self._createVesselWithArbitraryData("sub child")
+    vesselSubChild.startPoint = vesselChild.endPoint
+
+    # Create tree and add vessels to the tree
+    tree = VesselTree()
+    treeItemParent = tree.addVessel(vesselParent)
+    treeItemChild = tree.addVessel(vesselChild)
+    treeItemChild2 = tree.addVessel(vesselChild2)
+    treeItemSubChild = tree.addVessel(vesselSubChild)
+
+    # Verify hierarchy
+    self.assertEqual(2, treeItemParent.childCount())
+    self.assertEqual(1, treeItemChild.childCount())
+
+    self.assertEqual(treeItemParent, treeItemChild.parent())
+    self.assertEqual(treeItemParent, treeItemChild2.parent())
+    self.assertEqual(treeItemChild, treeItemSubChild.parent())
+
+  def testLogicRaisesErrorWhenCalledWithNoneInputs(self):
+    logic = RVesselXModuleLogic()
+
+    with self.assertRaises(ValueError):
+      logic._applyLevelSetSegmentation(None, None, None, None)
+
+    with self.assertRaises(ValueError):
+      logic._applyVesselnessFilter(None, None)
+
+    with self.assertRaises(ValueError):
+      logic._applyCenterlineFilter(None, None, None)
+
+    with self.assertRaises(ValueError):
+      logic.extractVessel(None, None, None)
