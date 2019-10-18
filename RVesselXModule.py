@@ -19,6 +19,28 @@ def _warnLineSep():
   _lineSep(isWarning=True)
 
 
+class TabAction(object):
+  """
+  Helper class to trigger enter and exit actions when switching tabs in plugin
+  """
+
+  def __init__(self, enterAction=None, exitAction=None):
+    self._enterAction = enterAction
+    self._exitAction = exitAction
+
+  def enterAction(self):
+    if self._enterAction:
+      self._enterAction()
+
+  def exitAction(self):
+    if self._exitAction:
+      self._exitAction()
+
+  @staticmethod
+  def noAction():
+    return TabAction()
+
+
 class RVesselXModule(ScriptedLoadableModule):
   def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
@@ -59,6 +81,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._vesselsTab = None
     self._vesselTree = None
     self.logic = RVesselXModuleLogic()
+    self._liverSegmentNode = None
+    self._segmentationWidget = None
+    self._tabChangeActions = {}
 
     # Define layout #
     layoutDescription = """
@@ -134,8 +159,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._configureLiverTab()
     self._configureVesselsTab()
 
+    self._tabChangeActions = {self._dataTab: TabAction.noAction(),  #
+                              self._vesselsTab: TabAction.noAction(),  #
+                              self._liverTab: TabAction(enterAction=self._onEnterLiverTab,
+                                                        exitAction=self._onExitLiverTab)}
+
   def _setCurrentTab(self, tab_widget):
+    # Trigger exit action for current widget
+    currentWidget = self._tabWidget.currentWidget()
+    self._tabChangeActions[currentWidget].exitAction()
+
+    # Change tab to new widget
     self._tabWidget.setCurrentWidget(tab_widget)
+
+    # Trigger enter action for new widget
+    self._tabChangeActions[tab_widget].enterAction()
 
   def _addInCollapsibleLayout(self, childLayout, parentLayout, collapsibleText, isCollapsed=True):
     """Wraps input childLayout into a collapsible button attached to input parentLayout.
@@ -346,8 +384,45 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     segmentationUi = slicer.util.getNewModuleGui(slicer.modules.segmenteditor)
     liverTabLayout.addWidget(segmentationUi)
 
+    # Extract segmentation Widget from segmentation UI
+    for child in segmentationUi.children():
+      if "EditorWidget" in child.name:
+        self._segmentationWidget = child
+        break
+
+    # Extract show 3d button and surface smoothing from segmentation widget
+    # by default liver 3D will be shown and surface smoothing disabled on entering the liver tab
+    for child in self._segmentationWidget.children():
+      if "show3d" in child.name.lower():
+        self._segmentationShow3dButton = child
+
+        # Extract smoothing button from QMenu attached to show3d button
+        self._segmentationSmooth3d = \
+          [action for action in child.children()[0].actions() if "surface" in action.text.lower()][0]
+
+    # Add segmentation volume for the liver
+    self._liverSegmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
+    self._liverSegmentNode.SetName("Liver")
+
+    # Add two segments to segmentation volume
+    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverIn")
+    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverOut")
+
+    self._segmentationWidget.setSegmentationNode(self._liverSegmentNode)
+
+
+    # Add previous and next buttons
     liverTabLayout.addLayout(
       self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
+
+  def _onEnterLiverTab(self):
+    # Show liver 3D view and deactivate surface smoothing
+    self._segmentationShow3dButton.setChecked(True)
+    self._segmentationSmooth3d.setChecked(False)
+
+  def _onExitLiverTab(self):
+    # Hide liver 3D view
+    self._segmentationShow3dButton.setChecked(False)
 
   def _configureVesselsTab(self):
     """ Vessels Tab interfaces the Vessels Modelisation ToolKit in one aggregated view.
@@ -461,6 +536,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     if self.volumeRenderingModuleSelector:
       self.volumeRenderingModuleSelector.setCurrentNode(node)
+
+    if self._segmentationWidget:
+      self._segmentationWidget.setMasterVolumeNode(node)
 
   def showVolumeRendering(self, volumeNode):
     """Show input volumeNode in 3D View
