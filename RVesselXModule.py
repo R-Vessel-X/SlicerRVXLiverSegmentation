@@ -19,6 +19,31 @@ def _warnLineSep():
   _lineSep(isWarning=True)
 
 
+class WidgetUtils(object):
+  @staticmethod
+  def getChildrenContainingName(widget, childString):
+    return [child for child in widget.children() if childString.lower() in child.name.lower()]
+
+  @staticmethod
+  def getChildContainingName(widget, childString):
+    children = WidgetUtils.getChildrenContainingName(widget, childString)
+    return children[0] if children else None
+
+  @staticmethod
+  def hideChildrenContainingName(widget, childString):
+    hiddenChildren = WidgetUtils.getChildrenContainingName(widget, childString)
+    for child in WidgetUtils.getChildrenContainingName(widget, childString):
+      child.visible = False
+    return hiddenChildren
+
+  @staticmethod
+  def hideChildContainingName(widget, childString):
+    hiddenChild = WidgetUtils.getChildContainingName(widget, childString)
+    if hiddenChild:
+      hiddenChild.visible = False
+    return hiddenChild
+
+
 class TabAction(object):
   """
   Helper class to trigger enter and exit actions when switching tabs in plugin
@@ -343,31 +368,18 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._addInCollapsibleLayout(volumesWidget, dataTabLayout, "Volume")
 
     # Hide Volumes Selector and its label
-    activeVolumeNodeSelectorName = "ActiveVolumeNodeSelector"
-    widgetToRemoveNames = ["ActiveVolumeLabel", activeVolumeNodeSelectorName]
-
-    for child in volumesWidget.children():
-      if child.name in widgetToRemoveNames:
-        child.visible = False
-
-      if child.name == activeVolumeNodeSelectorName:
-        self.volumesModuleSelector = child
+    WidgetUtils.hideChildrenContainingName(volumesWidget, "activeVolume")
+    self.volumesModuleSelector = WidgetUtils.getChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
 
     # Add Volume Rendering information
     volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
     self._addInCollapsibleLayout(volumeRenderingWidget, dataTabLayout, "Volume Rendering")
 
     # Hide Volume Rendering Selector and its label
-    visibilityCheckboxName = "VisibilityCheckBox"
-    volumeNodeSelectorName = "VolumeNodeComboBox"
-
-    for child in volumeRenderingWidget.children():
-      if child.name == visibilityCheckboxName:
-        child.visible = False
-        self.volumeRenderingModuleVisibility = child
-      if child.name == volumeNodeSelectorName:
-        child.visible = False
-        self.volumeRenderingModuleSelector = child
+    self.volumeRenderingModuleVisibility = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+                                                                               "VisibilityCheckBox")
+    self.volumeRenderingModuleSelector = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+                                                                             "VolumeNodeComboBox")
 
     # Add stretch
     dataTabLayout.addStretch(1)
@@ -385,20 +397,19 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     liverTabLayout.addWidget(segmentationUi)
 
     # Extract segmentation Widget from segmentation UI
-    for child in segmentationUi.children():
-      if "EditorWidget" in child.name:
-        self._segmentationWidget = child
-        break
+    self._segmentationWidget = WidgetUtils.getChildContainingName(segmentationUi, "EditorWidget")
 
     # Extract show 3d button and surface smoothing from segmentation widget
     # by default liver 3D will be shown and surface smoothing disabled on entering the liver tab
-    for child in self._segmentationWidget.children():
-      if "show3d" in child.name.lower():
-        self._segmentationShow3dButton = child
+    self._segmentationShow3dButton = WidgetUtils.getChildContainingName(self._segmentationWidget, "show3d")
 
-        # Extract smoothing button from QMenu attached to show3d button
-        self._segmentationSmooth3d = \
-          [action for action in child.children()[0].actions() if "surface" in action.text.lower()][0]
+    # Extract smoothing button from QMenu attached to show3d button
+    self._segmentationSmooth3d = [action for action in self._segmentationShow3dButton.children()[0].actions()  #
+                                  if "surface" in action.text.lower()][0]
+
+    # Hide master volume and segmentation node selectors
+    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "masterVolume")
+    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "segmentationNode")
 
     # Add segmentation volume for the liver
     self._liverSegmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
