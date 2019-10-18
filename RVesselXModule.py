@@ -110,6 +110,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._segmentationWidget = None
     self._tabChangeActions = {}
     self._vesselnessVolume = None
+    self._currentTabWidget = None
 
     # Define layout #
     layoutDescription = """
@@ -189,17 +190,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
                               self._vesselsTab: TabAction.noAction(),  #
                               self._liverTab: TabAction(enterAction=self._onEnterLiverTab,
                                                         exitAction=self._onExitLiverTab)}
+    self._currentTabWidget = self._dataTab
+
+    self._tabWidget.connect("currentChanged(int)", self._onCurrentTabIndexChanged)
 
   def _setCurrentTab(self, tab_widget):
-    # Trigger exit action for current widget
-    currentWidget = self._tabWidget.currentWidget()
-    self._tabChangeActions[currentWidget].exitAction()
-
     # Change tab to new widget
     self._tabWidget.setCurrentWidget(tab_widget)
 
+  def _onCurrentTabIndexChanged(self, tabIndex):
+    # Trigger exit action for current widget
+    self._tabChangeActions[self._currentTabWidget].exitAction()
+
     # Trigger enter action for new widget
-    self._tabChangeActions[tab_widget].enterAction()
+    self._currentTabWidget = self._tabWidget.currentWidget()
+    self._tabChangeActions[self._currentTabWidget].enterAction()
 
   def _addInCollapsibleLayout(self, childLayout, parentLayout, collapsibleText, isCollapsed=True):
     """Wraps input childLayout into a collapsible button attached to input parentLayout.
