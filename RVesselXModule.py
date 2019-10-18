@@ -134,8 +134,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._configureLiverTab()
     self._configureVesselsTab()
 
-    slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeAddedEvent, self.onNodeAdded)
-
   def _setCurrentTab(self, tab_widget):
     self._tabWidget.setCurrentWidget(tab_widget)
 
@@ -282,8 +280,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     inputLabel = qt.QLabel("Volume: ")
     inputLayout.addWidget(inputLabel)
+
+    # Wrap input selector changed method in a timer call so that the volume can be correctly set first
+    def inputChangedCallback(node):
+      qt.QTimer.singleShot(0, lambda: self.onInputSelectorNodeChanged(node))
+
     self.inputSelector = self._createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
-                                                       callBack=self.onInputSelectorNodeChanged)
+                                                       callBack=inputChangedCallback)
 
     inputLayout.addWidget(self.inputSelector)
 
@@ -432,30 +435,19 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def onLoadDataClicked(self):
     slicer.app.ioManager().openAddDataDialog()
 
-  @vtk.calldata_type(vtk.VTK_OBJECT)
-  def onNodeAdded(self, caller, event, calldata):
-    """Observer method for nodes added to the MRML scene. Sets added node as current node.
-    """
-    if isinstance(calldata, slicer.vtkMRMLVolumeNode):
-      layoutNode = slicer.util.getNode('*LayoutNode*')
-      layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
-      self.setCurrentNode(calldata)
-
-  def onInputSelectorNodeChanged(self):
+  def onInputSelectorNodeChanged(self, node):
     """On volume changed sets input node as current volume and show volume in 2D and 3D view
     """
-    node = self.inputSelector.currentNode()
 
     if node is not None:
       # Update current node on volume and volumeRendering modules
       self.setCurrentNode(node)
 
-      # Show volume
+      # Show node in 2D view
       slicer.util.setSliceViewerLayers(node)
 
-      # Call showVolumeRendering using a timer instead of calling it directly
-      # to allow the volume loading to fully complete.
-      qt.QTimer.singleShot(0, lambda: self.showVolumeRendering(node))
+      # Show node in 3D view
+      self.showVolumeRendering(node)
 
   def setCurrentNode(self, node):
     """Sets inputNode as selected volume node for module. Volume will be used for liver, vessel and tumor segmentation
