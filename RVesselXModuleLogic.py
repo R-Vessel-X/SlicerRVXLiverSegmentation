@@ -395,7 +395,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
 
     return centerLineModel, voronoiModel
 
-  def extractVessel(self, sourceVolume, startPoint, endPoint):
+  def extractVessel(self, sourceVolume, startPoint, endPoint, vesselnessVolume=None):
     """ Extracts vessel from source volume, given start point and end point
 
     Parameters
@@ -406,6 +406,10 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
       Start point for the vessel
     endPoint: vtkMRMLMarkupsFiducialNode
       End point for the vessel
+    vesselnessVolume: vtkMRMLLabelMapVolumeNode
+      optional filtered vesselness volume to use when extracting vessel
+      if None, volume will be calculated using VMTK vesselness filter.
+      Note that calculating this volume can be time demanding.
 
     Returns
     -------
@@ -422,11 +426,12 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic):
     vessel.setExtremities(startPoint, endPoint)
 
     # Apply vesselness filter
-    vesselnessFiltered = self._applyVesselnessFilter(sourceVolume, startPoint)
-    vessel.setVesselnessVolume(vesselnessFiltered)
+    if vesselnessVolume is None:
+      vesselnessVolume = self._applyVesselnessFilter(sourceVolume, startPoint)
+    vessel.setVesselnessVolume(vesselnessVolume)
 
     # Call levelSetSegmentation
-    levelSetSeeds, levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(sourceVolume, vesselnessFiltered,
+    levelSetSeeds, levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(sourceVolume, vesselnessVolume,
                                                                                    startPoint, endPoint)
     vessel.setSegmentation(seeds=levelSetSeeds, volume=levelSetVolume, model=levelSetModel)
 

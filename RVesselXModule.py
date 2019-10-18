@@ -109,6 +109,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._liverSegmentNode = None
     self._segmentationWidget = None
     self._tabChangeActions = {}
+    self._vesselnessVolume = None
 
     # Define layout #
     layoutDescription = """
@@ -247,7 +248,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
-    vessel = self.logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint)
+    vessel = self.logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint,
+                                      vesselnessVolume=self._vesselnessVolume)
+    self._vesselnessVolume = vessel.vesselnessVolume
     self._vesselTree.addVessel(vessel)
 
     # Set vessel start node as end node and remove end node selection for easier leaf selection for user
@@ -526,6 +529,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     """
 
     if node is not None:
+      # Reset vesselness volume
+      self._vesselnessVolume = None
+
       # Update current node on volume and volumeRendering modules
       self.setCurrentNode(node)
 
