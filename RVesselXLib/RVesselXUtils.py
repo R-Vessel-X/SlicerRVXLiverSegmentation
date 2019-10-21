@@ -80,8 +80,8 @@ def createSingleMarkupFiducial(toolTip, markupName, markupColor=qt.QColor("red")
   return seedFiducialsNodeSelector
 
 
-def addInCollapsibleLayout(childLayout, parentLayout, collapsibleText, isCollapsed=True):
-  """Wraps input childLayout into a collapsible button attached to input parentLayout.
+def addInCollapsibleLayout(childWidget, parentLayout, collapsibleText, isCollapsed=True):
+  """Wraps input childWidget into a collapsible button attached to input parentLayout.
   collapsibleText is writen next to collapsible button. Initial collapsed status is customizable
   (collapsed by default)
   """
@@ -89,7 +89,9 @@ def addInCollapsibleLayout(childLayout, parentLayout, collapsibleText, isCollaps
   collapsibleButton.text = collapsibleText
   collapsibleButton.collapsed = isCollapsed
   parentLayout.addWidget(collapsibleButton)
-  qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
+  collapsibleButtonLayout = qt.QVBoxLayout()
+  collapsibleButtonLayout.addWidget(childWidget)
+  collapsibleButton.setLayout(collapsibleButtonLayout)
 
 
 class WidgetUtils(object):
