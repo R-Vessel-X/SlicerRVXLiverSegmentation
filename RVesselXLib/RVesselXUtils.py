@@ -1,6 +1,8 @@
 import logging
 import os
 
+import ctk
+import qt
 import slicer
 
 info = logging.info
@@ -14,6 +16,51 @@ def lineSep(isWarning=False):
 
 def warnLineSep():
   lineSep(isWarning=True)
+
+
+def createInputNodeSelector(nodeType, toolTip, callBack=None):
+  """Creates node selector with given input node type, tooltip and callback when currentNodeChanged signal is emitted
+
+  Parameters
+  ----------
+  nodeType: vtkMRML type compatible with qMRMLNodeComboBox
+    Node type which will be displayed in the combo box
+  toolTip: str
+    Input selector hover text
+  callBack: (optional) function
+    Function called when qMRMLNodeComboBox currentNodeChanged is triggered.
+    Function must accept a vtkMRMLNode input parameter
+
+  Returns
+  -------
+  inputSelector : qMRMLNodeComboBox
+    configured input selector
+  """
+  inputSelector = slicer.qMRMLNodeComboBox()
+  inputSelector.nodeTypes = [nodeType]
+  inputSelector.selectNodeUponCreation = False
+  inputSelector.addEnabled = False
+  inputSelector.removeEnabled = False
+  inputSelector.noneEnabled = False
+  inputSelector.showHidden = False
+  inputSelector.showChildNodeTypes = False
+  inputSelector.setMRMLScene(slicer.mrmlScene)
+  inputSelector.setToolTip(toolTip)
+  if callBack is not None:
+    inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", callBack)
+  return inputSelector
+
+
+def addInCollapsibleLayout(childLayout, parentLayout, collapsibleText, isCollapsed=True):
+  """Wraps input childLayout into a collapsible button attached to input parentLayout.
+  collapsibleText is writen next to collapsible button. Initial collapsed status is customizable
+  (collapsed by default)
+  """
+  collapsibleButton = ctk.ctkCollapsibleButton()
+  collapsibleButton.text = collapsibleText
+  collapsibleButton.collapsed = isCollapsed
+  parentLayout.addWidget(collapsibleButton)
+  qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
 
 
 class WidgetUtils(object):

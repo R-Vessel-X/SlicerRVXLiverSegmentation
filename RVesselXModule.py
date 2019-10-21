@@ -4,7 +4,7 @@ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, info, warn, lineSep, warnLineSep, GeometryExporter, WidgetUtils, Settings, \
-  VesselTree, Vessel
+  VesselTree, Vessel, addInCollapsibleLayout, createInputNodeSelector
 
 
 class TabAction(object):
@@ -27,6 +27,169 @@ class TabAction(object):
   @staticmethod
   def noAction():
     return TabAction()
+
+
+class VerticalLayoutWidget(qt.QWidget):
+  """
+  Widget with default QVBoxLayout and access to it.
+  """
+
+  def __init__(self):
+    qt.QWidget.__init__(self)
+    self._verticalLayout = qt.QVBoxLayout()
+    self.setLayout(self._verticalLayout)
+
+  def addLayout(self, layout):
+    self._verticalLayout.addLayout(layout)
+
+  def addWidget(self, widget):
+    self._verticalLayout.addWidget(widget)
+
+
+class DataWidget(VerticalLayoutWidget):
+  """
+  Object responsible for loading and showing the input volume to the user.
+  Provides buttons to load DICOM and other data.
+  Enables listeners to be notified when the input volume has been changed by the user.
+  """
+
+  def __init__(self):
+    """
+    Configure DataTab with load DICOM and Load Data buttons, Input volume selection, Volume 2D and 3D rendering
+    """
+
+    VerticalLayoutWidget.__init__(self)
+
+    # Add load MRI button #
+    inputLayout = qt.QHBoxLayout()
+
+    inputLabel = qt.QLabel("Volume: ")
+    inputLayout.addWidget(inputLabel)
+
+    # Wrap input selector changed method in a timer call so that the volume can be correctly set first
+    def inputChangedCallback(node):
+      qt.QTimer.singleShot(0, lambda: self.onInputSelectorNodeChanged(node))
+
+    self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
+                                                 callBack=inputChangedCallback)
+
+    inputLayout.addWidget(self.inputSelector)
+
+    loadDicomButton = qt.QPushButton("Load DICOM")
+    loadDicomButton.connect("clicked(bool)", self.onLoadDICOMClicked)
+    inputLayout.addWidget(loadDicomButton)
+
+    loadDataButton = qt.QPushButton("Load Data")
+    loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
+    inputLayout.addWidget(loadDataButton)
+
+    self._verticalLayout.addLayout(inputLayout)
+
+    # Add Volume information
+    volumesWidget = slicer.util.getNewModuleGui(slicer.modules.volumes)
+    addInCollapsibleLayout(volumesWidget, self._verticalLayout, "Volume")
+
+    # Hide Volumes Selector and its label
+    WidgetUtils.hideChildrenContainingName(volumesWidget, "activeVolume")
+    self.volumesModuleSelector = WidgetUtils.getChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
+
+    # Add Volume Rendering information
+    volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
+    addInCollapsibleLayout(volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
+
+    # Hide Volume Rendering Selector and its label
+    self.volumeRenderingModuleVisibility = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+                                                                               "VisibilityCheckBox")
+    self.volumeRenderingModuleSelector = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+                                                                             "VolumeNodeComboBox")
+
+    # Add stretch
+    self._verticalLayout.addStretch(1)
+
+    # Connect volume changed callback
+    self._inputNodeChangedCallbacks = [self.setVolumeNode]
+
+  def addInputNodeChangedCallback(self, callback):
+    """
+    Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to a
+    valid value, the callback will be called.
+
+    :param callback: Callable[[vtkMRMLNode], None] function to call with new input node when changed
+    """
+    self._inputNodeChangedCallbacks.append(callback)
+
+  def onInputSelectorNodeChanged(self, node):
+    """
+    On input changed and with a valid input node, notifies all callbacks of new node value
+
+    :param node: vtkMRMLNode
+    """
+    if node is not None:
+      for callback in self._inputNodeChangedCallbacks:
+        callback(node)
+
+  def onLoadDICOMClicked(self):
+    """Show DICOM Widget as popup
+    """
+    try:
+      dicomWidget = slicer.modules.DICOMWidget
+    except:
+      dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+
+    if dicomWidget is not None:
+      dicomWidget.detailsPopup.open()
+
+  def onLoadDataClicked(self):
+    slicer.app.ioManager().openAddDataDialog()
+
+  def setVolumeNode(self, node):
+    """
+    Set input selector and volume rendering nodes as input node.
+    Show the new input node in 3D rendering.
+
+    :param node: vtkMRMLVolumeNode
+    """
+    # Change node in input selector and volume rendering widgets
+    self.inputSelector.setCurrentNode(node)
+
+    if self.volumesModuleSelector:
+      self.volumesModuleSelector.setCurrentNode(node)
+
+    if self.volumeRenderingModuleSelector:
+      self.volumeRenderingModuleSelector.setCurrentNode(node)
+
+    # Show node in 2D view
+    slicer.util.setSliceViewerLayers(node)
+
+    # Show node in 3D view
+    self.showVolumeRendering(node)
+
+  def showVolumeRendering(self, volumeNode):
+    """Show input volumeNode in 3D View
+
+    :param volumeNode: vtkMRMLVolumeNode
+    """
+    if volumeNode is not None:
+      volRenLogic = slicer.modules.volumerendering.logic()
+      displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+      displayNode.SetVisibility(True)
+      slicer.util.resetThreeDViews()
+
+      # Load preset
+      # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+      scalarRange = volumeNode.GetImageData().GetScalarRange()
+      if scalarRange[1] - scalarRange[0] < 1500:
+        # small dynamic range, probably MRI
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
+      else:
+        # larger dynamic range, probably CT
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
+
+  def getInputNode(self):
+    """
+    :return: Current vtkMRMLVolumeNode selected by user in the DataWidget
+    """
+    return self.inputSelector.currentNode()
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -56,16 +219,12 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
-    self.inputSelector = None
-    self.volumesModuleSelector = None
-    self.volumeRenderingModuleSelector = None
-    self.volumeRenderingModuleVisibility = None
 
     self._vesselStartSelector = None
     self._vesselEndSelector = None
     self._tabWidget = None
     self._liverTab = None
-    self._dataTab = None
+    self._dataTab = DataWidget()
     self._vesselsTab = None
     self._vesselTree = None
     self.logic = RVesselXModuleLogic()
@@ -141,11 +300,15 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabWidget = qt.QTabWidget()
     moduleLayout.addWidget(self._tabWidget)
 
-    self._dataTab = self._createTab("Data")
+    # Configure data tab
+    self._tabWidget.addTab(self._dataTab, "Data")
+    self._dataTab.addInputNodeChangedCallback(self.onInputSelectorNodeChanged)
+
     self._liverTab = self._createTab("Liver")
     self._vesselsTab = self._createTab("Vessels")
 
-    self._configureDataTab()
+    self._dataTab.addLayout(self._createPreviousNextArrowsLayout(next_tab=self._liverTab))
+
     self._configureLiverTab()
     self._configureVesselsTab()
 
@@ -168,17 +331,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Trigger enter action for new widget
     self._currentTabWidget = self._tabWidget.currentWidget()
     self._tabChangeActions[self._currentTabWidget].enterAction()
-
-  def _addInCollapsibleLayout(self, childLayout, parentLayout, collapsibleText, isCollapsed=True):
-    """Wraps input childLayout into a collapsible button attached to input parentLayout.
-    collapsibleText is writen next to collapsible button. Initial collapsed status is customizable
-    (collapsed by default)
-    """
-    collapsibleButton = ctk.ctkCollapsibleButton()
-    collapsibleButton.text = collapsibleText
-    collapsibleButton.collapsed = isCollapsed
-    parentLayout.addWidget(collapsibleButton)
-    qt.QVBoxLayout(collapsibleButton).addWidget(childLayout)
 
   def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor("red")):
     """Creates node selector for vtkMarkupFiducial type containing only one point.
@@ -212,7 +364,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     """Creates vessel from vessel tab start point, end point and selected data. Created vessel is added to VesselTree
     view in Vessel tab.
     """
-    sourceVolume = self.inputSelector.currentNode()
+    sourceVolume = self._dataTab.getInputNode()
     startPoint = self._vesselStartSelector.currentNode()
     endPoint = self._vesselEndSelector.currentNode()
 
@@ -224,9 +376,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Set vessel start node as end node and remove end node selection for easier leaf selection for user
     self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
     self._vesselEndSelector.setCurrentNode(None)
-
-    # Reselect source volume as volume input (running logic deselects volume somehow)
-    self.inputSelector.setCurrentNode(sourceVolume)
 
   def _createExtractVesselLayout(self):
     """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
@@ -255,108 +404,22 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     formLayout.addRow("", extractVesselButton)
 
     # Enable extract button when all selector nodes are correctly set
-    def updateExtractButtonStatus():
+    def updateExtractButtonStatus(*args):
       def getNode(node):
         return node.currentNode()
 
       def fiducialSelected(seedSelector):
         return getNode(seedSelector) and getNode(seedSelector).GetNumberOfFiducials() > 0
 
-      isButtonEnabled = getNode(self.inputSelector) and fiducialSelected(
+      isButtonEnabled = self._dataTab.getInputNode() and fiducialSelected(
         self._vesselStartSelector) and fiducialSelected(self._vesselEndSelector)
       extractVesselButton.setEnabled(isButtonEnabled)
 
-    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", updateExtractButtonStatus)
+    self._dataTab.addInputNodeChangedCallback(updateExtractButtonStatus)
     self._vesselStartSelector.connect("updateFinished()", updateExtractButtonStatus)
     self._vesselEndSelector.connect("updateFinished()", updateExtractButtonStatus)
 
     return formLayout
-
-  def _createInputNodeSelector(self, nodeType, toolTip, callBack=None):
-    """Creates node selector with given input node type, tooltip and callback when currentNodeChanged signal is emitted
-
-    Parameters
-    ----------
-    nodeType: vtkMRML type compatible with qMRMLNodeComboBox
-      Node type which will be displayed in the combo box
-    toolTip: str
-      Input selector hover text
-    callBack: (optional) function
-      Function called when qMRMLNodeComboBox currentNodeChanged is triggered.
-      Function must accept a vtkMRMLNode input parameter
-
-    Returns
-    -------
-    inputSelector : qMRMLNodeComboBox
-      configured input selector
-    """
-    inputSelector = slicer.qMRMLNodeComboBox()
-    inputSelector.nodeTypes = [nodeType]
-    inputSelector.selectNodeUponCreation = False
-    inputSelector.addEnabled = False
-    inputSelector.removeEnabled = False
-    inputSelector.noneEnabled = False
-    inputSelector.showHidden = False
-    inputSelector.showChildNodeTypes = False
-    inputSelector.setMRMLScene(slicer.mrmlScene)
-    inputSelector.setToolTip(toolTip)
-    if callBack is not None:
-      inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", callBack)
-    return inputSelector
-
-  def _configureDataTab(self):
-    """Configure DataTab with load DICOM and Load Data buttons, Input volume selection, Volume 2D and 3D rendering
-    """
-    dataTabLayout = qt.QVBoxLayout(self._dataTab)
-
-    # Add load MRI button #
-    inputLayout = qt.QHBoxLayout()
-
-    inputLabel = qt.QLabel("Volume: ")
-    inputLayout.addWidget(inputLabel)
-
-    # Wrap input selector changed method in a timer call so that the volume can be correctly set first
-    def inputChangedCallback(node):
-      qt.QTimer.singleShot(0, lambda: self.onInputSelectorNodeChanged(node))
-
-    self.inputSelector = self._createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
-                                                       callBack=inputChangedCallback)
-
-    inputLayout.addWidget(self.inputSelector)
-
-    loadDicomButton = qt.QPushButton("Load DICOM")
-    loadDicomButton.connect("clicked(bool)", self.onLoadDMRIClicked)
-    inputLayout.addWidget(loadDicomButton)
-
-    loadDataButton = qt.QPushButton("Load Data")
-    loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
-    inputLayout.addWidget(loadDataButton)
-
-    dataTabLayout.addLayout(inputLayout)
-
-    # Add Volume information
-    volumesWidget = slicer.util.getNewModuleGui(slicer.modules.volumes)
-    self._addInCollapsibleLayout(volumesWidget, dataTabLayout, "Volume")
-
-    # Hide Volumes Selector and its label
-    WidgetUtils.hideChildrenContainingName(volumesWidget, "activeVolume")
-    self.volumesModuleSelector = WidgetUtils.getChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
-
-    # Add Volume Rendering information
-    volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
-    self._addInCollapsibleLayout(volumeRenderingWidget, dataTabLayout, "Volume Rendering")
-
-    # Hide Volume Rendering Selector and its label
-    self.volumeRenderingModuleVisibility = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
-                                                                               "VisibilityCheckBox")
-    self.volumeRenderingModuleSelector = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
-                                                                             "VolumeNodeComboBox")
-
-    # Add stretch
-    dataTabLayout.addStretch(1)
-
-    # Add Next/Previous arrow
-    dataTabLayout.addLayout(self._createPreviousNextArrowsLayout(next_tab=self._liverTab))
 
   def _configureLiverTab(self):
     """ Liver tab contains segmentation utils for extracting the liver in the input DICOM.
@@ -535,73 +598,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     buttonHBoxLayout.addWidget(nextButton)
     return buttonHBoxLayout
 
-  def onLoadDMRIClicked(self):
-    """Show DICOM Widget as popup
-    """
-    try:
-      dicomWidget = slicer.modules.DICOMWidget
-    except:
-      dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-
-    if dicomWidget is not None:
-      dicomWidget.detailsPopup.open()
-
-  def onLoadDataClicked(self):
-    slicer.app.ioManager().openAddDataDialog()
-
   def onInputSelectorNodeChanged(self, node):
     """On volume changed sets input node as current volume and show volume in 2D and 3D view
     """
-
-    if node is not None:
-      # Reset vesselness volume
-      self._vesselnessVolume = None
-
-      # Update current node on volume and volumeRendering modules
-      self.setCurrentNode(node)
-
-      # Show node in 2D view
-      slicer.util.setSliceViewerLayers(node)
-
-      # Show node in 3D view
-      self.showVolumeRendering(node)
-
-  def setCurrentNode(self, node):
-    """Sets inputNode as selected volume node for module. Volume will be used for liver, vessel and tumor segmentation
-
-    :param node: vtkMRMLVolumeNode
-    """
-    self.inputSelector.setCurrentNode(node)
-
-    if self.volumesModuleSelector:
-      self.volumesModuleSelector.setCurrentNode(node)
-
-    if self.volumeRenderingModuleSelector:
-      self.volumeRenderingModuleSelector.setCurrentNode(node)
+    # Reset vesselness volume
+    self._vesselnessVolume = None
 
     if self._segmentationWidget:
       self._segmentationWidget.setMasterVolumeNode(node)
-
-  def showVolumeRendering(self, volumeNode):
-    """Show input volumeNode in 3D View
-
-    :param volumeNode: vtkMRMLVolumeNode
-    """
-    if volumeNode is not None:
-      volRenLogic = slicer.modules.volumerendering.logic()
-      displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
-      displayNode.SetVisibility(True)
-      slicer.util.resetThreeDViews()
-
-      # Load preset
-      # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
-      scalarRange = volumeNode.GetImageData().GetScalarRange()
-      if scalarRange[1] - scalarRange[0] < 1500:
-        # small dynamic range, probably MRI
-        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
-      else:
-        # larger dynamic range, probably CT
-        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
 
 class TemporaryDir(object):
