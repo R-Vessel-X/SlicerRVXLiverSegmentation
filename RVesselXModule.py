@@ -45,6 +45,9 @@ class VerticalLayoutWidget(qt.QWidget):
   def addWidget(self, widget):
     self._verticalLayout.addWidget(widget)
 
+  def getTabActions(self):
+    return TabAction.noAction()
+
 
 class DataWidget(VerticalLayoutWidget):
   """
@@ -192,6 +195,92 @@ class DataWidget(VerticalLayoutWidget):
     return self.inputSelector.currentNode()
 
 
+class LiverWidget(VerticalLayoutWidget):
+  """
+  Object responsible for segmenting the liver volume and exporting the segment result as NIFTI volume.
+  """
+
+  def __init__(self):
+    VerticalLayoutWidget.__init__(self)
+
+    segmentationUi = slicer.util.getNewModuleGui(slicer.modules.segmenteditor)
+    self._verticalLayout.addWidget(segmentationUi)
+
+    # Extract segmentation Widget from segmentation UI
+    self._segmentationWidget = WidgetUtils.getChildContainingName(segmentationUi, "EditorWidget")
+
+    # Extract show 3d button and surface smoothing from segmentation widget
+    # by default liver 3D will be shown and surface smoothing disabled on entering the liver tab
+    self._segmentationShow3dButton = WidgetUtils.getChildContainingName(self._segmentationWidget, "show3d")
+
+    # Extract smoothing button from QMenu attached to show3d button
+    self._segmentationSmooth3d = [action for action in self._segmentationShow3dButton.children()[0].actions()  #
+                                  if "surface" in action.text.lower()][0]
+
+    # Hide master volume and segmentation node selectors
+    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "masterVolume")
+    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "segmentationNode")
+
+    # Add segmentation volume for the liver
+    self._liverSegmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
+    self._liverSegmentNode.SetName("Liver")
+
+    # Add two segments to segmentation volume
+    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverIn")
+    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverOut")
+
+    self._segmentationWidget.setSegmentationNode(self._liverSegmentNode)
+
+  def setInputNode(self, node):
+    """
+    Modify input to given input node if node is valid
+
+    :param node: vtkMRMLNode
+    """
+    if self._segmentationWidget and node:
+      self._segmentationWidget.setMasterVolumeNode(node)
+
+  def getGeometryExporter(self):
+    """
+    Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
+    If the segment was not initialized, nothing is exported
+
+    :return: GeometryExporter containing liver volume or None
+    """
+    liverNodes = list(slicer.mrmlScene.GetNodesByName("Liver"))
+    liverNode = liverNodes[0] if len(liverNodes) > 0 else None
+    liverSegmentIn = liverNode.GetSegmentation().GetSegment("LiverIn") if liverNode else None
+
+    if liverSegmentIn is not None:
+      liverVolumeLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "LiverVolumeLabel")
+      slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(liverNode, liverVolumeLabel)
+      liverVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "LiverVolume")
+      slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, liverVolume, liverVolumeLabel)
+
+      return GeometryExporter(liver=liverVolume)
+    else:
+      return None
+
+  def _onEnterAction(self):
+    """
+    Show liver 3D view and deactivate surface smoothing
+    """
+    self._segmentationShow3dButton.setChecked(True)
+    self._segmentationSmooth3d.setChecked(False)
+
+  def _onExitAction(self):
+    """
+    Hide liver 3D view
+    """
+    self._segmentationShow3dButton.setChecked(False)
+
+  def getTabActions(self):
+    """
+    :return: Tab enter and exit actions
+    """
+    return TabAction(enterAction=self._onEnterAction, exitAction=self._onExitAction)
+
+
 class RVesselXModule(ScriptedLoadableModule):
   def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
@@ -222,17 +311,17 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     self._vesselStartSelector = None
     self._vesselEndSelector = None
-    self._tabWidget = None
-    self._liverTab = None
-    self._dataTab = DataWidget()
     self._vesselsTab = None
     self._vesselTree = None
-    self.logic = RVesselXModuleLogic()
-    self._liverSegmentNode = None
-    self._segmentationWidget = None
-    self._tabChangeActions = {}
     self._vesselnessVolume = None
+
+    self.logic = RVesselXModuleLogic()
+
+    self._tabWidget = None
     self._currentTabWidget = None
+    self._liverTab = LiverWidget()
+    self._dataTab = DataWidget()
+    self._tabChangeActions = {}
 
     # Define layout #
     layoutDescription = """
@@ -302,20 +391,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     # Configure data tab
     self._tabWidget.addTab(self._dataTab, "Data")
+    self._tabWidget.addTab(self._liverTab, "Liver")
     self._dataTab.addInputNodeChangedCallback(self.onInputSelectorNodeChanged)
+    self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
 
-    self._liverTab = self._createTab("Liver")
     self._vesselsTab = self._createTab("Vessels")
 
+    # Add previous and next buttons
     self._dataTab.addLayout(self._createPreviousNextArrowsLayout(next_tab=self._liverTab))
-
-    self._configureLiverTab()
+    self._liverTab.addLayout(
+      self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
     self._configureVesselsTab()
 
-    self._tabChangeActions = {self._dataTab: TabAction.noAction(),  #
+    self._tabChangeActions = {self._dataTab: self._dataTab.getTabActions(),  #
                               self._vesselsTab: TabAction.noAction(),  #
-                              self._liverTab: TabAction(enterAction=self._onEnterLiverTab,
-                                                        exitAction=self._onExitLiverTab)}
+                              self._liverTab: self._liverTab.getTabActions()}
     self._currentTabWidget = self._dataTab
 
     self._tabWidget.connect("currentChanged(int)", self._onCurrentTabIndexChanged)
@@ -421,53 +511,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     return formLayout
 
-  def _configureLiverTab(self):
-    """ Liver tab contains segmentation utils for extracting the liver in the input DICOM.
-
-    Direct include of Segmentation Editor is done.
-    """
-    liverTabLayout = qt.QVBoxLayout(self._liverTab)
-    segmentationUi = slicer.util.getNewModuleGui(slicer.modules.segmenteditor)
-    liverTabLayout.addWidget(segmentationUi)
-
-    # Extract segmentation Widget from segmentation UI
-    self._segmentationWidget = WidgetUtils.getChildContainingName(segmentationUi, "EditorWidget")
-
-    # Extract show 3d button and surface smoothing from segmentation widget
-    # by default liver 3D will be shown and surface smoothing disabled on entering the liver tab
-    self._segmentationShow3dButton = WidgetUtils.getChildContainingName(self._segmentationWidget, "show3d")
-
-    # Extract smoothing button from QMenu attached to show3d button
-    self._segmentationSmooth3d = [action for action in self._segmentationShow3dButton.children()[0].actions()  #
-                                  if "surface" in action.text.lower()][0]
-
-    # Hide master volume and segmentation node selectors
-    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "masterVolume")
-    WidgetUtils.hideChildrenContainingName(self._segmentationWidget, "segmentationNode")
-
-    # Add segmentation volume for the liver
-    self._liverSegmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
-    self._liverSegmentNode.SetName("Liver")
-
-    # Add two segments to segmentation volume
-    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverIn")
-    self._liverSegmentNode.GetSegmentation().AddEmptySegment("LiverOut")
-
-    self._segmentationWidget.setSegmentationNode(self._liverSegmentNode)
-
-    # Add previous and next buttons
-    liverTabLayout.addLayout(
-      self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
-
-  def _onEnterLiverTab(self):
-    # Show liver 3D view and deactivate surface smoothing
-    self._segmentationShow3dButton.setChecked(True)
-    self._segmentationSmooth3d.setChecked(False)
-
-  def _onExitLiverTab(self):
-    # Hide liver 3D view
-    self._segmentationShow3dButton.setChecked(False)
-
   def _exportVolumes(self):
     """
     Export every volume of RVesselX to specified user directory.
@@ -493,31 +536,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     :return: List[GeometryExporter]
     """
     # Aggregate every volume to export
-    volumesToExport = [self._liverVolumeGeometryExporter()] + self._vesselTree.getVesselGeometryExporters()
+    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselTree.getVesselGeometryExporters()
 
     # return only not None elements
     return [vol for vol in volumesToExport if vol is not None]
-
-  def _liverVolumeGeometryExporter(self):
-    """
-    Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
-    If the segment was not initialized, nothing is exported
-
-    :return: GeometryExporter containing liver volume or None
-    """
-    liverNodes = list(slicer.mrmlScene.GetNodesByName("Liver"))
-    liverNode = liverNodes[0] if len(liverNodes) > 0 else None
-    liverSegmentIn = liverNode.GetSegmentation().GetSegment("LiverIn") if liverNode else None
-
-    if liverSegmentIn is not None:
-      liverVolumeLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "LiverVolumeLabel")
-      slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(liverNode, liverVolumeLabel)
-      liverVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "LiverVolume")
-      slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, liverVolume, liverVolumeLabel)
-
-      return GeometryExporter(liver=liverVolume)
-    else:
-      return None
 
   def _configureVesselsTab(self):
     """ Vessels Tab interfaces the Vessels Modelisation ToolKit in one aggregated view.
@@ -603,9 +625,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     """
     # Reset vesselness volume
     self._vesselnessVolume = None
-
-    if self._segmentationWidget:
-      self._segmentationWidget.setMasterVolumeNode(node)
 
 
 class TemporaryDir(object):
