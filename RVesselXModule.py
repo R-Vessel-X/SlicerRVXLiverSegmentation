@@ -4,29 +4,7 @@ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, info, warn, lineSep, warnLineSep, GeometryExporter, WidgetUtils, Settings, \
-  VesselTree, Vessel, addInCollapsibleLayout, createInputNodeSelector
-
-
-class TabAction(object):
-  """
-  Helper class to trigger enter and exit actions when switching tabs in plugin
-  """
-
-  def __init__(self, enterAction=None, exitAction=None):
-    self._enterAction = enterAction
-    self._exitAction = exitAction
-
-  def enterAction(self):
-    if self._enterAction:
-      self._enterAction()
-
-  def exitAction(self):
-    if self._exitAction:
-      self._exitAction()
-
-  @staticmethod
-  def noAction():
-    return TabAction()
+  VesselTree, Vessel, addInCollapsibleLayout, createInputNodeSelector, createSingleMarkupFiducial
 
 
 class VerticalLayoutWidget(qt.QWidget):
@@ -45,8 +23,11 @@ class VerticalLayoutWidget(qt.QWidget):
   def addWidget(self, widget):
     self._verticalLayout.addWidget(widget)
 
-  def getTabActions(self):
-    return TabAction.noAction()
+  def exitAction(self):
+    pass
+
+  def enterAction(self):
+    pass
 
 
 class DataWidget(VerticalLayoutWidget):
@@ -257,28 +238,128 @@ class LiverWidget(VerticalLayoutWidget):
       liverVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "LiverVolume")
       slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, liverVolume, liverVolumeLabel)
 
-      return GeometryExporter(liver=liverVolume)
+      return GeometryExporter(Liver=liverVolume)
     else:
       return None
 
-  def _onEnterAction(self):
+  def enterAction(self):
     """
     Show liver 3D view and deactivate surface smoothing
     """
     self._segmentationShow3dButton.setChecked(True)
     self._segmentationSmooth3d.setChecked(False)
 
-  def _onExitAction(self):
+  def exitAction(self):
     """
     Hide liver 3D view
     """
     self._segmentationShow3dButton.setChecked(False)
 
-  def getTabActions(self):
+
+class VesselWidget(VerticalLayoutWidget):
+  """ Vessels Widget interfaces the Vessels Modelisation ToolKit in one aggregated view.
+
+  Integration includes :
+      Vesselness filtering : visualization help to extract vessels
+      Level set segmentation : segmentation tool for the vessels
+      Center line computation : Extraction of the vessels endpoints from 3D vessels and start point
+      Vessels tree : View tree to select, add, show / hide vessels
+  """
+
+  def __init__(self, logic):
     """
-    :return: Tab enter and exit actions
+    :param logic: RVesselXModuleLogic
     """
-    return TabAction(enterAction=self._onEnterAction, exitAction=self._onExitAction)
+    VerticalLayoutWidget.__init__(self)
+
+    self._vesselStartSelector = None
+    self._vesselEndSelector = None
+    self._vesselTree = None
+    self._vesselnessVolume = None
+    self._inputVolume = None
+    self._logic = logic
+
+    # Visualisation tree for Vessels
+    self._vesselTree = VesselTree()
+    self._verticalLayout.addWidget(self._vesselTree.getWidget())
+    self._verticalLayout.addLayout(self._createExtractVesselLayout())
+
+  def _createExtractVesselLayout(self):
+    """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
+    be active only when input volume, start and end points are valid.
+
+    Returns
+    ------
+    QFormLayout
+    """
+    formLayout = qt.QFormLayout()
+
+    # Start point fiducial
+    vesselPointName = "vesselPoint"
+    self._vesselStartSelector = createSingleMarkupFiducial("Select vessel start position", vesselPointName)
+    formLayout.addRow("Vessel Start:", self._vesselStartSelector)
+
+    # End point fiducial
+    self._vesselEndSelector = createSingleMarkupFiducial("Select vessel end position", vesselPointName)
+    formLayout.addRow("Vessel End:", self._vesselEndSelector)
+
+    # Extract Vessel Button
+    self._extractVesselButton = qt.QPushButton("Extract Vessel")
+    self._extractVesselButton.connect("clicked(bool)", self._extractVessel)
+    self._extractVesselButton.setToolTip(
+      "Select vessel start point, vessel end point, and volume then press Extract button to extract vessel")
+    formLayout.addRow("", self._extractVesselButton)
+
+    self._vesselStartSelector.connect("updateFinished()", self._updateExtractButtonStatus)
+    self._vesselEndSelector.connect("updateFinished()", self._updateExtractButtonStatus)
+
+    return formLayout
+
+  def _updateExtractButtonStatus(self):
+    """
+    Check whether the extract vessel button should be activated or not.
+    """
+
+    def getNode(node):
+      return node.currentNode()
+
+    def fiducialSelected(seedSelector):
+      return getNode(seedSelector) and getNode(seedSelector).GetNumberOfFiducials() > 0
+
+    isButtonEnabled = self._inputVolume and fiducialSelected(self._vesselStartSelector) and fiducialSelected(
+      self._vesselEndSelector)
+    self._extractVesselButton.setEnabled(isButtonEnabled)
+
+  def setInputNode(self, node):
+    """
+    On input changed and valid, change current input node and reset vesselness volume used in VMTK algorithms.
+
+    :param node: vtkMRMLNode
+    """
+    if node and node != self._inputVolume:
+      self._vesselnessVolume = None
+      self._inputVolume = node
+      self._updateExtractButtonStatus()
+
+  def _extractVessel(self):
+    """Creates vessel from vessel tab start point, end point and selected data. Created vessel is added to VesselTree
+    view in Vessel tab.
+    """
+    sourceVolume = self._inputVolume
+    startPoint = self._vesselStartSelector.currentNode()
+    endPoint = self._vesselEndSelector.currentNode()
+
+    vessel = self._logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint,
+                                       vesselnessVolume=self._vesselnessVolume)
+    self._vesselnessVolume = vessel.vesselnessVolume
+    self._vesselTree.addVessel(vessel)
+
+    # Set vessel start node as end node and remove end node selection for easier leaf selection for user
+    self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
+    self._vesselEndSelector.setCurrentNode(None)
+
+  def getVesselGeometryExporters(self):
+    return self._vesselTree.getVesselGeometryExporters()
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -309,19 +390,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
 
-    self._vesselStartSelector = None
-    self._vesselEndSelector = None
-    self._vesselsTab = None
-    self._vesselTree = None
-    self._vesselnessVolume = None
-
     self.logic = RVesselXModuleLogic()
 
     self._tabWidget = None
     self._currentTabWidget = None
+
+    self._vesselsTab = VesselWidget(self.logic)
     self._liverTab = LiverWidget()
     self._dataTab = DataWidget()
-    self._tabChangeActions = {}
 
     # Define layout #
     layoutDescription = """
@@ -367,10 +443,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # see https://github.com/Slicer/Slicer/blob/master/Libs/MRML/Core/vtkMRMLViewNode.h
     view.SetRaycastTechnique(2)
 
-  def _createTab(self, tab_name):
-    tab = qt.QWidget()
-    self._tabWidget.addTab(tab, tab_name)
-    return tab
+  def _addTab(self, tab, tabName):
+    self._tabWidget.addTab(tab, tabName)
 
   def setup(self):
     """Setups widget in Slicer UI.
@@ -389,25 +463,21 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabWidget = qt.QTabWidget()
     moduleLayout.addWidget(self._tabWidget)
 
-    # Configure data tab
-    self._tabWidget.addTab(self._dataTab, "Data")
-    self._tabWidget.addTab(self._liverTab, "Liver")
-    self._dataTab.addInputNodeChangedCallback(self.onInputSelectorNodeChanged)
+    # Add widgets to tab widget and connect data tab input change to the liver and vessels tab set input methods
+    self._addTab(self._dataTab, "Data")
+    self._addTab(self._liverTab, "Liver")
+    self._addTab(self._vesselsTab, "Vessels")
     self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
 
-    self._vesselsTab = self._createTab("Vessels")
-
-    # Add previous and next buttons
+    # Setup previous and next buttons for the different tabs
     self._dataTab.addLayout(self._createPreviousNextArrowsLayout(next_tab=self._liverTab))
     self._liverTab.addLayout(
       self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
-    self._configureVesselsTab()
+    self._vesselsTab.addLayout(self._createPreviousNextArrowsLayout(previous_tab=self._liverTab))
 
-    self._tabChangeActions = {self._dataTab: self._dataTab.getTabActions(),  #
-                              self._vesselsTab: TabAction.noAction(),  #
-                              self._liverTab: self._liverTab.getTabActions()}
+    # Save start tab and listen to tab changes to handle enter and exit actions
     self._currentTabWidget = self._dataTab
-
     self._tabWidget.connect("currentChanged(int)", self._onCurrentTabIndexChanged)
 
   def _setCurrentTab(self, tab_widget):
@@ -416,100 +486,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
   def _onCurrentTabIndexChanged(self, tabIndex):
     # Trigger exit action for current widget
-    self._tabChangeActions[self._currentTabWidget].exitAction()
+    self._currentTabWidget.exitAction()
 
     # Trigger enter action for new widget
     self._currentTabWidget = self._tabWidget.currentWidget()
-    self._tabChangeActions[self._currentTabWidget].enterAction()
-
-  def _createSingleMarkupFiducial(self, toolTip, markupName, markupColor=qt.QColor("red")):
-    """Creates node selector for vtkMarkupFiducial type containing only one point.
-
-    Parameters
-    ----------
-    toolTip: str
-      Input selector hover text
-    markupName: str
-      Default name for the created markups when new markup is selected
-    markupColor: (option) QColor
-      Default color for the newly created markups (default = red)
-
-    Returns
-    -------
-    qSlicerSimpleMarkupsWidget
-    """
-    seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
-    seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
-    seedFiducialsNodeSelector.toolTip = toolTip
-    seedFiducialsNodeSelector.setNodeBaseName(markupName)
-    seedFiducialsNodeSelector.tableWidget().hide()
-    seedFiducialsNodeSelector.defaultNodeColor = markupColor
-    seedFiducialsNodeSelector.markupsSelectorComboBox().noneEnabled = False
-    seedFiducialsNodeSelector.markupsPlaceWidget().placeMultipleMarkups = slicer.qSlicerMarkupsPlaceWidget.ForcePlaceSingleMarkup
-    seedFiducialsNodeSelector.setMRMLScene(slicer.mrmlScene)
-    self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', seedFiducialsNodeSelector, 'setMRMLScene(vtkMRMLScene*)')
-    return seedFiducialsNodeSelector
-
-  def _extractVessel(self):
-    """Creates vessel from vessel tab start point, end point and selected data. Created vessel is added to VesselTree
-    view in Vessel tab.
-    """
-    sourceVolume = self._dataTab.getInputNode()
-    startPoint = self._vesselStartSelector.currentNode()
-    endPoint = self._vesselEndSelector.currentNode()
-
-    vessel = self.logic.extractVessel(sourceVolume=sourceVolume, startPoint=startPoint, endPoint=endPoint,
-                                      vesselnessVolume=self._vesselnessVolume)
-    self._vesselnessVolume = vessel.vesselnessVolume
-    self._vesselTree.addVessel(vessel)
-
-    # Set vessel start node as end node and remove end node selection for easier leaf selection for user
-    self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
-    self._vesselEndSelector.setCurrentNode(None)
-
-  def _createExtractVesselLayout(self):
-    """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
-    be active only when input volume, start and end points are valid.
-
-    Returns
-    ------
-    QFormLayout
-    """
-    formLayout = qt.QFormLayout()
-
-    # Start point fiducial
-    vesselPointName = "vesselPoint"
-    self._vesselStartSelector = self._createSingleMarkupFiducial("Select vessel start position", vesselPointName)
-    formLayout.addRow("Vessel Start:", self._vesselStartSelector)
-
-    # End point fiducial
-    self._vesselEndSelector = self._createSingleMarkupFiducial("Select vessel end position", vesselPointName)
-    formLayout.addRow("Vessel End:", self._vesselEndSelector)
-
-    # Extract Vessel Button
-    extractVesselButton = qt.QPushButton("Extract Vessel")
-    extractVesselButton.connect("clicked(bool)", self._extractVessel)
-    extractVesselButton.setToolTip(
-      "Select vessel start point, vessel end point, and volume then press Extract button to extract vessel")
-    formLayout.addRow("", extractVesselButton)
-
-    # Enable extract button when all selector nodes are correctly set
-    def updateExtractButtonStatus(*args):
-      def getNode(node):
-        return node.currentNode()
-
-      def fiducialSelected(seedSelector):
-        return getNode(seedSelector) and getNode(seedSelector).GetNumberOfFiducials() > 0
-
-      isButtonEnabled = self._dataTab.getInputNode() and fiducialSelected(
-        self._vesselStartSelector) and fiducialSelected(self._vesselEndSelector)
-      extractVesselButton.setEnabled(isButtonEnabled)
-
-    self._dataTab.addInputNodeChangedCallback(updateExtractButtonStatus)
-    self._vesselStartSelector.connect("updateFinished()", updateExtractButtonStatus)
-    self._vesselEndSelector.connect("updateFinished()", updateExtractButtonStatus)
-
-    return formLayout
+    self._currentTabWidget.enterAction()
 
   def _exportVolumes(self):
     """
@@ -536,29 +517,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     :return: List[GeometryExporter]
     """
     # Aggregate every volume to export
-    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselTree.getVesselGeometryExporters()
+    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselsTab.getVesselGeometryExporters()
 
     # return only not None elements
     return [vol for vol in volumesToExport if vol is not None]
-
-  def _configureVesselsTab(self):
-    """ Vessels Tab interfaces the Vessels Modelisation ToolKit in one aggregated view.
-
-    Integration includes :
-        Vesselness filtering : visualization help to extract vessels
-        Level set segmentation : segmentation tool for the vessels
-        Center line computation : Extraction of the vessels endpoints from 3D vessels and start point
-        Vessels tree : View tree to select, add, show / hide vessels
-    """
-    # Visualisation tree for Vessels
-    vesselsTabLayout = qt.QVBoxLayout(self._vesselsTab)
-
-    self._vesselTree = VesselTree()
-    vesselsTabLayout.addWidget(self._vesselTree.getWidget())
-    vesselsTabLayout.addLayout(self._createExtractVesselLayout())
-
-    # Add vessel previous and next button (next button will be disabled)
-    vesselsTabLayout.addLayout(self._createPreviousNextArrowsLayout(previous_tab=self._liverTab))
 
   def _createTabButton(self, buttonIcon, nextTab=None):
     """
@@ -619,12 +581,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     buttonHBoxLayout.addWidget(previousButton)
     buttonHBoxLayout.addWidget(nextButton)
     return buttonHBoxLayout
-
-  def onInputSelectorNodeChanged(self, node):
-    """On volume changed sets input node as current volume and show volume in 2D and 3D view
-    """
-    # Reset vesselness volume
-    self._vesselnessVolume = None
 
 
 class TemporaryDir(object):

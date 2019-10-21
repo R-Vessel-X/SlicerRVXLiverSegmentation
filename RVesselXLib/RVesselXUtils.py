@@ -51,6 +51,35 @@ def createInputNodeSelector(nodeType, toolTip, callBack=None):
   return inputSelector
 
 
+def createSingleMarkupFiducial(toolTip, markupName, markupColor=qt.QColor("red")):
+  """Creates node selector for vtkMarkupFiducial type containing only one point.
+
+  Parameters
+  ----------
+  toolTip: str
+    Input selector hover text
+  markupName: str
+    Default name for the created markups when new markup is selected
+  markupColor: (option) QColor
+    Default color for the newly created markups (default = red)
+
+  Returns
+  -------
+  qSlicerSimpleMarkupsWidget
+  """
+  seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
+  seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
+  seedFiducialsNodeSelector.toolTip = toolTip
+  seedFiducialsNodeSelector.setNodeBaseName(markupName)
+  seedFiducialsNodeSelector.tableWidget().hide()
+  seedFiducialsNodeSelector.defaultNodeColor = markupColor
+  seedFiducialsNodeSelector.markupsSelectorComboBox().noneEnabled = False
+  seedFiducialsNodeSelector.markupsPlaceWidget().placeMultipleMarkups = slicer.qSlicerMarkupsPlaceWidget.ForcePlaceSingleMarkup
+  seedFiducialsNodeSelector.setMRMLScene(slicer.mrmlScene)
+  slicer.app.connect('mrmlSceneChanged(vtkMRMLScene*)', seedFiducialsNodeSelector, 'setMRMLScene(vtkMRMLScene*)')
+  return seedFiducialsNodeSelector
+
+
 def addInCollapsibleLayout(childLayout, parentLayout, collapsibleText, isCollapsed=True):
   """Wraps input childLayout into a collapsible button attached to input parentLayout.
   collapsibleText is writen next to collapsible button. Initial collapsed status is customizable
