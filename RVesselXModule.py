@@ -1,47 +1,10 @@
+import os
+
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
-import logging
-import traceback
 
-from RVesselXModuleLogic import RVesselXModuleLogic
-from Vessel import VesselTree, Vessel
-
-_info = logging.info
-_warn = logging.warn
-
-
-def _lineSep(isWarning=False):
-  log = _info if not isWarning else _warn
-  log('*************************************')
-
-
-def _warnLineSep():
-  _lineSep(isWarning=True)
-
-
-class WidgetUtils(object):
-  @staticmethod
-  def getChildrenContainingName(widget, childString):
-    return [child for child in widget.children() if childString.lower() in child.name.lower()]
-
-  @staticmethod
-  def getChildContainingName(widget, childString):
-    children = WidgetUtils.getChildrenContainingName(widget, childString)
-    return children[0] if children else None
-
-  @staticmethod
-  def hideChildrenContainingName(widget, childString):
-    hiddenChildren = WidgetUtils.getChildrenContainingName(widget, childString)
-    for child in WidgetUtils.getChildrenContainingName(widget, childString):
-      child.visible = False
-    return hiddenChildren
-
-  @staticmethod
-  def hideChildContainingName(widget, childString):
-    hiddenChild = WidgetUtils.getChildContainingName(widget, childString)
-    if hiddenChild:
-      hiddenChild.visible = False
-    return hiddenChild
+from RVesselXLib import RVesselXModuleLogic, info, warn, lineSep, warnLineSep, GeometryExporter, WidgetUtils, Settings, \
+  VesselTree, Vessel
 
 
 class TabAction(object):
@@ -429,7 +392,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     self._segmentationWidget.setSegmentationNode(self._liverSegmentNode)
 
-
     # Add previous and next buttons
     liverTabLayout.addLayout(
       self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
@@ -442,6 +404,57 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def _onExitLiverTab(self):
     # Hide liver 3D view
     self._segmentationShow3dButton.setChecked(False)
+
+  def _exportVolumes(self):
+    """
+    Export every volume of RVesselX to specified user directory.
+    Does nothing if no user directory is selected.
+    """
+    # Query output directory from user and early return in case of cancel
+    selectedDir = qt.QFileDialog.getExistingDirectory(None, "Select export directory", Settings.exportDirectory())
+
+    if not selectedDir:
+      return
+
+    # Save user directory in settings
+    Settings.setExportDirectory(selectedDir)
+
+    # Export each volume to export to export directory
+    for vol in self._volumesToExport():
+      vol.exportToDirectory(selectedDir)
+
+  def _volumesToExport(self):
+    """
+    Creates list of GeometryExporter associated with every element to export (ie Vessels, liver and tumors)
+
+    :return: List[GeometryExporter]
+    """
+    # Aggregate every volume to export
+    volumesToExport = [self._liverVolumeGeometryExporter()] + self._vesselTree.getVesselGeometryExporters()
+
+    # return only not None elements
+    return [vol for vol in volumesToExport if vol is not None]
+
+  def _liverVolumeGeometryExporter(self):
+    """
+    Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
+    If the segment was not initialized, nothing is exported
+
+    :return: GeometryExporter containing liver volume or None
+    """
+    liverNodes = list(slicer.mrmlScene.GetNodesByName("Liver"))
+    liverNode = liverNodes[0] if len(liverNodes) > 0 else None
+    liverSegmentIn = liverNode.GetSegmentation().GetSegment("LiverIn") if liverNode else None
+
+    if liverSegmentIn is not None:
+      liverVolumeLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "LiverVolumeLabel")
+      slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(liverNode, liverVolumeLabel)
+      liverVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "LiverVolume")
+      slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, liverVolume, liverVolumeLabel)
+
+      return GeometryExporter(liver=liverVolume)
+    else:
+      return None
 
   def _configureVesselsTab(self):
     """ Vessels Tab interfaces the Vessels Modelisation ToolKit in one aggregated view.
@@ -465,15 +478,15 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def _createTabButton(self, buttonIcon, nextTab=None):
     """
     Creates a button linking to a given input tab. If input tab is None, button will be disabled
-    
-    Parameters 
+
+    Parameters
     ----------
     buttonIcon
       Icon for the button
     nextTab
       Next tab which will be set when button is clicked
-    
-    Returns 
+
+    Returns
     -------
       QPushButton
     """
@@ -506,8 +519,15 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     previousIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowLeft)
     previousButton = self._createTabButton(previousIcon, previous_tab)
 
-    nextIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight)
-    nextButton = self._createTabButton(nextIcon, next_tab)
+    # Create Next button if next tab is set.
+    if next_tab:
+      nextIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_ArrowRight)
+      nextButton = self._createTabButton(nextIcon, next_tab)
+    else:  # Else set next button as export button
+      nextIcon = qt.QApplication.style().standardIcon(qt.QStyle.SP_DialogSaveButton)
+      nextButton = qt.QPushButton("Export all segmented volumes")
+      nextButton.connect('clicked(bool)', self._exportVolumes)
+      nextButton.setIcon(nextIcon)
 
     # Add arrows to Horizontal layout and return layout
     buttonHBoxLayout = qt.QHBoxLayout()
@@ -584,6 +604,26 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
         displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
 
+class TemporaryDir(object):
+  """
+  Helper context manager for creating and removing temporary directory for testing purposes
+  """
+
+  def __init__(self, dirSuffix="RVesselX"):
+    self._dirSuffix = dirSuffix
+    self._dir = None
+
+  def __enter__(self):
+    import tempfile
+    self._dir = tempfile.mkdtemp(suffix=self._dirSuffix)
+    return self._dir
+
+  def __exit__(self, *args):
+    import shutil
+    shutil.rmtree(self._dir)
+    pass
+
+
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def setUp(self):
     """ Clear scene before each tests
@@ -601,46 +641,47 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def runTest(self):
     """ Runs each test and aggregates results in a list
     """
+    import traceback
 
     className = type(self).__name__
-    _info('Running Tests %s' % className)
-    _lineSep()
+    info('Running Tests %s' % className)
+    lineSep()
 
     testList = self._listTests()
 
     success_count = 0
     failed_name = []
     nTest = len(testList)
-    _info("Discovered tests : %s" % testList)
-    _lineSep()
+    info("Discovered tests : %s" % testList)
+    lineSep()
     for iTest, testName in enumerate(testList):
       self.setUp()
       test = getattr(self, testName)
       debugTestName = '%s/%s' % (className, testName)
       try:
-        _info('Test Start (%d/%d) : %s' % (iTest + 1, nTest, debugTestName))
+        info('Test Start (%d/%d) : %s' % (iTest + 1, nTest, debugTestName))
         test()
         success_count += 1
-        _info('Test OK!')
-        _lineSep()
+        info('Test OK!')
+        lineSep()
       except Exception:
-        _warn('Test NOK!')
-        _warn(traceback.format_exc())
+        warn('Test NOK!')
+        warn(traceback.format_exc())
         failed_name.append(debugTestName)
-        _warnLineSep()
+        warnLineSep()
 
     success_count_str = 'Succeeded %d/%d tests' % (success_count, len(testList))
     if success_count != len(testList):
-      _warnLineSep()
-      _warn('Testing Failed!')
-      _warn(success_count_str)
-      _warn('Failed tests names : %s' % failed_name)
-      _warnLineSep()
+      warnLineSep()
+      warn('Testing Failed!')
+      warn(success_count_str)
+      warn('Failed tests names : %s' % failed_name)
+      warnLineSep()
     else:
-      _lineSep()
-      _info('Testing OK!')
-      _info(success_count_str)
-      _lineSep()
+      lineSep()
+      info('Testing OK!')
+      info(success_count_str)
+      lineSep()
 
   def _cropSourceVolume(self, sourceVolume, roi):
     cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()
@@ -687,8 +728,26 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     v.setVesselnessVolume(vesselnessVolume=vesselVol)
     return v
 
+  def _nonEmptyVolume(self, volumeName="VolumeName"):
+    import numpy as np
+
+    arbitraryGenerativeFunction = np.fromfunction(lambda x, y, z: 0.5 * x * x + 0.3 * y * y + 0.5 * z * z, (30, 20, 15))
+    volumeNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLScalarVolumeNode')
+    volumeNode.CreateDefaultDisplayNodes()
+    volumeNode.SetName(volumeName)
+    slicer.util.updateVolumeFromArray(volumeNode, arbitraryGenerativeFunction)
+    return volumeNode
+
+  def _nonEmptyModel(self, modelName="ModelName"):
+    sphere = vtk.vtkSphereSource()
+    sphere.SetRadius(30.0)
+    sphere.Update()
+    modelNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+    modelNode.SetAndObservePolyData(sphere.GetOutput())
+    modelNode.SetName(modelName)
+    return modelNode
+
   def testVesselSegmentationLogic(self):
-    # load test data
     import SampleData
     sampleDataLogic = SampleData.SampleDataLogic()
     sourceVolume = sampleDataLogic.downloadCTACardio()
@@ -858,3 +917,40 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     with self.assertRaises(ValueError):
       logic.extractVessel(None, None, None)
+
+  def testGeometryExporterSavesVolumesAsNiftiAndModelsAsVtkFiles(self):
+    # Create non empty model and volume nodes (empty nodes are not exported)
+    model = self._nonEmptyModel()
+    volume = self._nonEmptyVolume()
+
+    # Create geometry exporter and add the two nodes to it
+    exporter = GeometryExporter()
+    exporter["ModelFileName"] = model
+    exporter["VolumeFileName"] = volume
+
+    # Create temporary dir to export the data
+    with TemporaryDir() as outputDir:
+      # Export nodes in the exporter
+      exporter.exportToDirectory(outputDir)
+
+      # Expect the nodes have been correctly exported
+      expModelPath = os.path.join(outputDir, "ModelFileName.vtk")
+      expVolumePath = os.path.join(outputDir, "VolumeFileName.nii")
+      self.assertTrue(os.path.isfile(expModelPath))
+      self.assertTrue(os.path.isfile(expVolumePath))
+
+  def testVesselsReturnGeometryExporterContainingCenterlineAndVolume(self):
+    vesselName = "AVesselName"
+    vessel = self._createVesselWithArbitraryData(vesselName)
+
+    expCenterline = self._nonEmptyModel()
+    expVolume = self._nonEmptyVolume()
+
+    self.assertNotEqual(vessel.segmentedCenterline, expCenterline)
+    self.assertNotEqual(vessel.segmentedCenterline, expVolume)
+    vessel.setCenterline(expCenterline, vessel.segmentedVoronoiModel)
+    vessel.setSegmentation(vessel.segmentationSeeds, expVolume, vessel.segmentedModel)
+
+    exporter = vessel.getGeometryExporter()
+    self.assertEqual(expCenterline, exporter[vesselName + "CenterLine"])
+    self.assertEqual(expVolume, exporter[vesselName])

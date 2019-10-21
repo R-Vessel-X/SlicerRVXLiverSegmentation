@@ -1,7 +1,6 @@
-import logging
-
 import qt
 import slicer
+from RVesselXUtils import GeometryExporter
 
 
 class Icons(object):
@@ -172,6 +171,15 @@ class Vessel(object):
     self._removeFromScene([self.segmentedCenterline, self.segmentedModel, self.segmentedVolume, self.segmentationSeeds,
                            self.segmentedVoronoiModel, self.vesselnessVolume])
 
+  def getGeometryExporter(self):
+    """
+    :return: Returns GeometryExporter object containing vessel volume and center line for user export.
+    """
+    exporter = GeometryExporter()
+    exporter[self.name] = self.segmentedVolume
+    exporter[self.name + "CenterLine"] = self.segmentedCenterline
+    return exporter
+
 
 class NoEditDelegate(qt.QStyledItemDelegate):
   """
@@ -242,6 +250,12 @@ class VesselTree(object):
     self._tree.setDropIndicatorShown(True)
     self._tree.setDragDropMode(qt.QAbstractItemView.InternalMove)
     self._tree.viewport().setAcceptDrops(True)
+
+  def getVesselGeometryExporters(self):
+    """
+    :return: List[GeometryExporter] list of exporters for vessels stored in vessel Tree
+    """
+    return [vessel.getGeometryExporter() for vessel in self._itemDict.values()]
 
   def _renameVessel(self, item, column):
     """On tree edition, only allow the name of the vessel to be edited. Text in the button columns is locked to empty.
