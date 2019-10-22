@@ -107,5 +107,5 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselStartSelector.setCurrentNode(self._vesselEndSelector.currentNode())
     self._vesselEndSelector.setCurrentNode(None)
 
-  def getVesselGeometryExporters(self):
+  def getGeometryExporters(self):
     return self._vesselTree.getVesselGeometryExporters()

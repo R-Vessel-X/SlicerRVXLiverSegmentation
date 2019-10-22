@@ -13,3 +13,6 @@ class VerticalLayoutWidget(qt.QWidget):
 
   def addLayout(self, layout):
     self._verticalLayout.addLayout(layout)
+
+  def getGeometryExporters(self):
+    return [None]

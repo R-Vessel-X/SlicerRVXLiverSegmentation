@@ -68,7 +68,7 @@ class SegmentWidget(VerticalLayoutWidget):
       # Wrap update in QTimer for better reliability on set event (otherwise set can fail somehow)
       qt.QTimer.singleShot(0, lambda: self._segmentationWidget.setMasterVolumeNode(self._inputNode))
 
-  def getGeometryExporter(self):
+  def getGeometryExporters(self):
     """
     Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
     If the segment was not initialized, nothing is exported
@@ -90,7 +90,7 @@ class SegmentWidget(VerticalLayoutWidget):
     # Return geometry exporter with created volumes
     geometryExporter = GeometryExporter()
     geometryExporter[segmentName] = volume
-    return geometryExporter
+    return [geometryExporter]
 
   def addLayout(self, layout):
     """

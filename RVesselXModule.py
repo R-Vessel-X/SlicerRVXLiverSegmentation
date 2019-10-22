@@ -166,8 +166,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     :return: List[GeometryExporter]
     """
     # Aggregate every volume to export
-    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselsTab.getVesselGeometryExporters() + [
-      self._tumorTab.getGeometryExporter()]
+    volumesToExport = []
+    for tab in self._tabList:
+      volumesToExport.extend(tab.getGeometryExporters())
 
     # return only not None elements
     return [vol for vol in volumesToExport if vol is not None]
