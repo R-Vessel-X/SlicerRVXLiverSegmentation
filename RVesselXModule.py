@@ -6,7 +6,7 @@ import vtk
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, info, warn, lineSep, warnLineSep, GeometryExporter, Settings, VesselTree, \
-  Vessel, DataWidget, LiverWidget, VesselWidget, addInCollapsibleLayout
+  Vessel, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -39,10 +39,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     self.logic = None
     self._tabWidget = None
-    self._currentTabWidget = None
-    self._vesselsTab = None
-    self._liverTab = None
     self._dataTab = None
+    self._liverTab = None
+    self._vesselsTab = None
+    self._tumorTab = None
+    self._tabList = []
 
   def _configureLayout(self):
     # Define layout #
@@ -90,11 +91,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
   def _addTab(self, tab, tabName):
     self._tabWidget.addTab(tab, tabName)
+    self._tabList.append(tab)
 
   def setup(self):
     """Setups widget in Slicer UI.
     """
     ScriptedLoadableModuleWidget.setup(self)
+    # Reset tab list
+    self._tabList = []
 
     # Configure layout and 3D view
     self._configureLayout()
@@ -102,9 +106,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     # Initialize Variables
     self.logic = RVesselXModuleLogic()
-    self._vesselsTab = VesselWidget(self.logic)
-    self._liverTab = LiverWidget()
     self._dataTab = DataWidget()
+    self._liverTab = SegmentWidget(segmentNodeName="Liver", segmentNames=["LiverIn", "LiverOut"])
+    self._vesselsTab = VesselWidget(self.logic)
+    self._tumorTab = SegmentWidget(segmentNodeName="Tumors")
 
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
@@ -114,30 +119,27 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._addTab(self._dataTab, "Data")
     self._addTab(self._liverTab, "Liver")
     self._addTab(self._vesselsTab, "Vessels")
+    self._addTab(self._tumorTab, "Tumors")
     self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._tumorTab.setInputNode)
 
     # Setup previous and next buttons for the different tabs
-    self._dataTab.addLayout(self._createPreviousNextArrowsLayout(next_tab=self._liverTab))
-    self._liverTab.addLayout(
-      self._createPreviousNextArrowsLayout(previous_tab=self._dataTab, next_tab=self._vesselsTab))
-    self._vesselsTab.addLayout(self._createPreviousNextArrowsLayout(previous_tab=self._liverTab))
+    self._configurePreviousNextTabButtons()
 
-    # Save start tab and listen to tab changes to handle enter and exit actions
-    self._currentTabWidget = self._dataTab
-    self._tabWidget.connect("currentChanged(int)", self._onCurrentTabIndexChanged)
+  def _configurePreviousNextTabButtons(self):
+    """
+    Adds previous and next buttons to tabs added to layout. If previous tab is not defined, button will be grayed out.
+    If next tab is not defined, next button will be replaced by export button.
+    """
+    for i, tab in enumerate(self._tabList):
+      prev_tab = self._tabList[i - 1] if i - 1 >= 0 else None
+      next_tab = self._tabList[i + 1] if i + 1 < len(self._tabList) else None
+      tab.addLayout(self._createPreviousNextArrowsLayout(previous_tab=prev_tab, next_tab=next_tab))
 
   def _setCurrentTab(self, tab_widget):
     # Change tab to new widget
     self._tabWidget.setCurrentWidget(tab_widget)
-
-  def _onCurrentTabIndexChanged(self, tabIndex):
-    # Trigger exit action for current widget
-    self._currentTabWidget.exitAction()
-
-    # Trigger enter action for new widget
-    self._currentTabWidget = self._tabWidget.currentWidget()
-    self._currentTabWidget.enterAction()
 
   def _exportVolumes(self):
     """
@@ -164,7 +166,8 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     :return: List[GeometryExporter]
     """
     # Aggregate every volume to export
-    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselsTab.getVesselGeometryExporters()
+    volumesToExport = [self._liverTab.getGeometryExporter()] + self._vesselsTab.getVesselGeometryExporters() + [
+      self._tumorTab.getGeometryExporter()]
 
     # return only not None elements
     return [vol for vol in volumesToExport if vol is not None]

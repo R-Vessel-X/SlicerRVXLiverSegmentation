@@ -1,5 +1,5 @@
 from .DataWidget import DataWidget
-from .LiverWidget import LiverWidget
+from .SegmentWidget import SegmentWidget
 from .RVesselXModuleLogic import RVesselXModuleLogic
 from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, warn, warnLineSep, info, lineSep, \
   addInCollapsibleLayout, createInputNodeSelector, createSingleMarkupFiducial

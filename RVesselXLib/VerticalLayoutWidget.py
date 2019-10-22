@@ -13,12 +13,3 @@ class VerticalLayoutWidget(qt.QWidget):
 
   def addLayout(self, layout):
     self._verticalLayout.addLayout(layout)
-
-  def addWidget(self, widget):
-    self._verticalLayout.addWidget(widget)
-
-  def exitAction(self):
-    pass
-
-  def enterAction(self):
-    pass
