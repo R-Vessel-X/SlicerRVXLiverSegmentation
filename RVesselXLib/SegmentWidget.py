@@ -6,8 +6,7 @@ from VerticalLayoutWidget import VerticalLayoutWidget
 
 
 class SegmentWidget(VerticalLayoutWidget):
-  """
-  Object responsible for segmenting the liver volume as well as tumor volumes and exporting the results as NIFTI.
+  """Object responsible for segmenting the liver volume as well as tumor volumes and exporting the results as NIFTI.
   Presents direct interface to segmentation tools.
   Can be configured with named segmentation node and prepared segments
   """
@@ -24,11 +23,11 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
 
     # Extract segmentation Widget from segmentation UI
-    self._segmentationWidget = WidgetUtils.getChildContainingName(self._segmentUi, "EditorWidget")
+    self._segmentationWidget = WidgetUtils.getFirstChildContainingName(self._segmentUi, "EditorWidget")
 
     # Extract show 3d button and surface smoothing from segmentation widget
     # by default liver 3D will be shown and surface smoothing disabled on entering the tab
-    self._segmentationShow3dButton = WidgetUtils.getChildContainingName(self._segmentationWidget, "show3d")
+    self._segmentationShow3dButton = WidgetUtils.getFirstChildContainingName(self._segmentationWidget, "show3d")
 
     # Extract smoothing button from QMenu attached to show3d button
     self._segmentationSmooth3d = [action for action in self._segmentationShow3dButton.children()[0].actions()  #
@@ -50,17 +49,17 @@ class SegmentWidget(VerticalLayoutWidget):
     self._layoutList = []
 
   def setInputNode(self, node):
-    """
-    Modify input to given input node and update segmentation master volume
+    """Modify input to given input node and update segmentation master volume
 
-    :param node: vtkMRMLNode
+    Parameters
+    ----------
+    node: vtkMRMLNode
     """
     self._inputNode = node
     self._updateSegmentationMasterVolumeNode()
 
   def _updateSegmentationMasterVolumeNode(self):
-    """
-    Updates segmentation widget master volume to be the one previously set using setInputNode.
+    """Updates segmentation widget master volume to be the one previously set using setInputNode.
     Update is called multiple times to avoid problems when switching to segmentation widget. (problem may come from
     implementation detail in SegmentationEditor module)
     """
@@ -69,11 +68,12 @@ class SegmentWidget(VerticalLayoutWidget):
       qt.QTimer.singleShot(0, lambda: self._segmentationWidget.setMasterVolumeNode(self._inputNode))
 
   def getGeometryExporters(self):
-    """
-    Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
+    """Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
     If the segment was not initialized, nothing is exported
 
-    :return: GeometryExporter containing liver volume or None
+    Returns
+    -------
+      GeometryExporter containing liver volume or None
     """
     segmentName = self._segmentNode.GetName()
 
@@ -93,18 +93,18 @@ class SegmentWidget(VerticalLayoutWidget):
     return [geometryExporter]
 
   def addLayout(self, layout):
-    """
-    Override of base addLayout to save all the different layouts added to the widget and their order.
+    """Override of base addLayout to save all the different layouts added to the widget and their order.
     They will be removed and re added during show events.
 
-    :param layout: QLayout
+    Parameters
+    ----------
+    layout: QLayout
     """
     self._layoutList.append(layout)
     self._verticalLayout.addLayout(layout)
 
   def _resetLayout(self):
-    """
-    Removes all the layouts from the widget and reconstruct them in order.
+    """Removes all the layouts from the widget and reconstruct them in order.
     Done in order to have proper showing of only instance of segmentation UI.
     This method is called during show events of the Widget.
     """
@@ -120,11 +120,12 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentUi.show()
 
   def showEvent(self, event):
-    """
-    On show events, reset layout to have proper showing of only instance of segmentation UI.
+    """On show events, reset layout to have proper showing of only instance of segmentation UI.
     Sets the segmentation UI segmentNode linked to current instance of widget and show node 3D
 
-    :param event: QEvent
+    Parameters
+    ----------
+    event: QEvent
     """
     # Reset layout
     self._resetLayout()
@@ -143,10 +144,11 @@ class SegmentWidget(VerticalLayoutWidget):
     qt.QWidget.showEvent(self, event)
 
   def hideEvent(self, event):
-    """
-    On hide event, hide the segmentNode 3D
+    """On hide event, hide the segmentNode 3D
 
-    :param event: QEvent
+    Parameters
+    ----------
+    event: QEvent
     """
     self._segmentationShow3dButton.setChecked(False)
 

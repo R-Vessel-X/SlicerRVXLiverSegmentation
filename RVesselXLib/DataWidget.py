@@ -50,16 +50,16 @@ class DataWidget(VerticalLayoutWidget):
 
     # Hide Volumes Selector and its label
     WidgetUtils.hideChildrenContainingName(volumesWidget, "activeVolume")
-    self.volumesModuleSelector = WidgetUtils.getChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
+    self.volumesModuleSelector = WidgetUtils.getFirstChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
 
     # Add Volume Rendering information
     volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
     addInCollapsibleLayout(volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
 
     # Hide Volume Rendering Selector and its label
-    self.volumeRenderingModuleVisibility = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
                                                                                "VisibilityCheckBox")
-    self.volumeRenderingModuleSelector = WidgetUtils.hideChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
                                                                              "VolumeNodeComboBox")
 
     # Add stretch
@@ -73,7 +73,9 @@ class DataWidget(VerticalLayoutWidget):
     Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to a
     valid value, the callback will be called.
 
-    :param callback: Callable[[vtkMRMLNode], None] function to call with new input node when changed
+    Parameters
+    ----------
+    callback: Callable[[vtkMRMLNode], None] function to call with new input node when changed
     """
     self._inputNodeChangedCallbacks.append(callback)
 
@@ -81,7 +83,9 @@ class DataWidget(VerticalLayoutWidget):
     """
     On input changed and with a valid input node, notifies all callbacks of new node value
 
-    :param node: vtkMRMLNode
+    Parameters
+    ----------
+    node: vtkMRMLNode
     """
     if node is not None:
       for callback in self._inputNodeChangedCallbacks:
@@ -106,7 +110,9 @@ class DataWidget(VerticalLayoutWidget):
     Set input selector and volume rendering nodes as input node.
     Show the new input node in 3D rendering.
 
-    :param node: vtkMRMLVolumeNode
+    Parameters
+    ----------
+    node: vtkMRMLVolumeNode
     """
     # Change node in input selector and volume rendering widgets
     self.inputSelector.setCurrentNode(node)
@@ -126,7 +132,9 @@ class DataWidget(VerticalLayoutWidget):
   def showVolumeRendering(self, volumeNode):
     """Show input volumeNode in 3D View
 
-    :param volumeNode: vtkMRMLVolumeNode
+    Parameters
+    ----------
+    volumeNode: vtkMRMLVolumeNode
     """
     if volumeNode is not None:
       volRenLogic = slicer.modules.volumerendering.logic()
@@ -146,6 +154,8 @@ class DataWidget(VerticalLayoutWidget):
 
   def getInputNode(self):
     """
-    :return: Current vtkMRMLVolumeNode selected by user in the DataWidget
+    Returns
+    -------
+      Current vtkMRMLVolumeNode selected by user in the DataWidget
     """
     return self.inputSelector.currentNode()

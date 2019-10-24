@@ -6,7 +6,7 @@ import vtk
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, info, warn, lineSep, warnLineSep, GeometryExporter, Settings, VesselTree, \
-  Vessel, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
+  Vessel, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget, IRVesselXModuleLogic, VesselTreeItem
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -128,8 +128,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._configurePreviousNextTabButtons()
 
   def _configurePreviousNextTabButtons(self):
-    """
-    Adds previous and next buttons to tabs added to layout. If previous tab is not defined, button will be grayed out.
+    """Adds previous and next buttons to tabs added to layout. If previous tab is not defined, button will be grayed out.
     If next tab is not defined, next button will be replaced by export button.
     """
     for i, tab in enumerate(self._tabList):
@@ -142,8 +141,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabWidget.setCurrentWidget(tab_widget)
 
   def _exportVolumes(self):
-    """
-    Export every volume of RVesselX to specified user directory.
+    """Export every volume of RVesselX to specified user directory.
     Does nothing if no user directory is selected.
     """
     # Query output directory from user and early return in case of cancel
@@ -160,10 +158,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       vol.exportToDirectory(selectedDir)
 
   def _volumesToExport(self):
-    """
-    Creates list of GeometryExporter associated with every element to export (ie Vessels, liver and tumors)
+    """Creates list of GeometryExporter associated with every element to export (ie Vessels, liver and tumors)
 
-    :return: List[GeometryExporter]
+    Returns
+    -------
+      List[GeometryExporter]
     """
     # Aggregate every volume to export
     volumesToExport = []
@@ -174,8 +173,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return [vol for vol in volumesToExport if vol is not None]
 
   def _createTabButton(self, buttonIcon, nextTab=None):
-    """
-    Creates a button linking to a given input tab. If input tab is None, button will be disabled
+    """Creates a button linking to a given input tab. If input tab is None, button will be disabled
 
     Parameters
     ----------
@@ -197,7 +195,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return tabButton
 
   def _createPreviousNextArrowsLayout(self, previous_tab=None, next_tab=None):
-    """ Creates HBox layout with previous and next arrows pointing to previous Tab and Next tab given as input.
+    """Creates HBox layout with previous and next arrows pointing to previous Tab and Next tab given as input.
 
     If input tabs are None, button will be present but disabled.
 
@@ -235,8 +233,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
 
 class TemporaryDir(object):
-  """
-  Helper context manager for creating and removing temporary directory for testing purposes
+  """Helper context manager for creating and removing temporary directory for testing purposes
   """
 
   def __init__(self, dirSuffix="RVesselX"):
@@ -252,6 +249,29 @@ class TemporaryDir(object):
     import shutil
     shutil.rmtree(self._dir)
     pass
+
+
+class FakeLogic(IRVesselXModuleLogic):
+  """Fake logic for faster tests of vessel tree
+  """
+
+  def __init__(self, returnedVessel=None):
+    self.returnedVessel = returnedVessel
+    self._input = None
+
+  def setReturnedVessel(self, vessel):
+    self._vessel = vessel
+
+  @property
+  def returnedVessel(self):
+    return self._vessel
+
+  @returnedVessel.setter
+  def returnedVessel(self, value):
+    self._vessel = value
+
+  def extractVessel(self, startPoint, endPoint):
+    return self._vessel
 
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
@@ -401,7 +421,8 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
-    vessel = logic.extractVessel(sourceVolume, startPoint, endPoint)
+    logic.setInputVolume(sourceVolume)
+    vessel = logic.extractVessel(startPoint, endPoint)
 
     self.assertIsNotNone(vessel.segmentedVolume)
     self.assertIsNotNone(vessel.segmentedModel)
@@ -429,7 +450,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     vessel = self._createVesselWithArbitraryData()
 
     # Add vessel to tree widget
-    tree = VesselTree()
+    tree = VesselTree(FakeLogic())
     treeItem = tree.addVessel(vessel)
 
     # Remove vessel from scene using the delete button trigger
@@ -454,7 +475,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     vesselLeaf.startPoint = vesselParent.endPoint
 
     # Add vessel to tree widget
-    tree = VesselTree()
+    tree = VesselTree(FakeLogic())
     treeItem = tree.addVessel(vesselParent)
     treeLeafItem = tree.addVessel(vesselLeaf)
 
@@ -486,7 +507,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     vesselSubChild2.startPoint = vesselChild3.endPoint
 
     # Create tree and add vessels to the tree
-    tree = VesselTree()
+    tree = VesselTree(FakeLogic())
     treeItemParent = tree.addVessel(vesselParent)
     treeItemChild = tree.addVessel(vesselChild)
     treeItemChild2 = tree.addVessel(vesselChild2)
@@ -519,7 +540,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     vesselSubChild.startPoint = vesselChild.endPoint
 
     # Create tree and add vessels to the tree
-    tree = VesselTree()
+    tree = VesselTree(FakeLogic())
     treeItemParent = tree.addVessel(vesselParent)
     treeItemChild = tree.addVessel(vesselChild)
     treeItemChild2 = tree.addVessel(vesselChild2)
@@ -544,9 +565,6 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     with self.assertRaises(ValueError):
       logic._applyCenterlineFilter(None, None, None)
-
-    with self.assertRaises(ValueError):
-      logic.extractVessel(None, None, None)
 
   def testGeometryExporterSavesVolumesAsNiftiAndModelsAsVtkFiles(self):
     # Create non empty model and volume nodes (empty nodes are not exported)
@@ -584,3 +602,64 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     exporter = vessel.getGeometryExporter()
     self.assertEqual(expCenterline, exporter[vesselName + "CenterLine"])
     self.assertEqual(expVolume, exporter[vesselName])
+
+  def testAfterEditingIsFinishedItemHasVesselStartAndEndPointNodes(self):
+    # Create vessel
+    vesselName = "AVesselName"
+    vessel = self._createVesselWithArbitraryData(vesselName)
+    vessel.startPoint.SetName("Start")
+    vessel.endPoint.SetName("End")
+
+    # Populate vessel in tree (will trigger edit stop)
+    tree = VesselTree(FakeLogic())
+    item = tree.addVessel(vessel)
+
+    # Verify start and end are correctly set to vessel values
+    self.assertEqual(vessel.startPoint, item.startPoint)
+    self.assertEqual(vessel.endPoint, item.endPoint)
+
+  def testAfterStopEditIfFirstEditOrderVesselInTree(self):
+    # Create vessels
+    vesselParent = self._createVesselWithArbitraryData("parent")
+    vesselChild = self._createVesselWithArbitraryData("child")
+    vesselChild.startPoint = vesselParent.endPoint
+
+    # Create tree and add vessels to the tree
+    logic = FakeLogic()
+    tree = VesselTree(logic)
+
+    # Add parent
+    logic.setReturnedVessel(vesselParent)
+    treeItemParent = tree.addNewVessel()
+    tree.stopEditMode(treeItemParent)
+
+    # Add child
+    logic.setReturnedVessel(vesselChild)
+    treeItemChild = tree.addNewVessel()
+    tree.stopEditMode(treeItemChild)
+
+    # Assert child parent has been set to parent vessel
+    self.assertEqual(treeItemParent, treeItemChild.parent())
+
+  def testAfterEditingVesselRemoveOldOneFromScene(self):
+    class FakeVessel(Vessel):
+      def __init__(self):
+        Vessel.__init__(self)
+        self.wasRemovedFromScene = False
+
+      @staticmethod
+      def copyFrom(other):
+        fake = FakeVessel()
+        for key in other.__dict__.keys():
+          setattr(fake, key, getattr(other, key))
+        return fake
+
+      def removeFromScene(self):
+        self.wasRemovedFromScene = True
+
+    oldVessel = FakeVessel.copyFrom(self._createVesselWithArbitraryData())
+    tree = VesselTree(FakeLogic())
+    item = tree.addVessel(oldVessel)
+
+    tree.stopEditMode(item)
+    self.assertTrue(oldVessel.wasRemovedFromScene)

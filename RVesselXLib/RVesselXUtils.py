@@ -95,17 +95,31 @@ def addInCollapsibleLayout(childWidget, parentLayout, collapsibleText, isCollaps
 
 
 class WidgetUtils(object):
-  """
-  Helper class to extract widgets linked to an existing widget representation
+  """Helper class to extract widgets linked to an existing widget representation
   """
 
   @staticmethod
   def getChildrenContainingName(widget, childString):
-    return [child for child in widget.children() if childString.lower() in child.name.lower()]
+    if not hasattr(widget, "children"):
+      return []
+    else:
+      return [child for child in widget.children() if childString.lower() in child.name.lower()]
 
   @staticmethod
-  def getChildContainingName(widget, childString):
+  def getFirstChildContainingName(widget, childString):
     children = WidgetUtils.getChildrenContainingName(widget, childString)
+    return children[0] if children else None
+
+  @staticmethod
+  def getChildrenOfType(widget, childType):
+    if not hasattr(widget, "children"):
+      return []
+    else:
+      return [child for child in widget.children() if isinstance(child, childType)]
+
+  @staticmethod
+  def getFirstChildOfType(widget, childType):
+    children = WidgetUtils.getChildrenOfType(widget, childType)
     return children[0] if children else None
 
   @staticmethod
@@ -116,16 +130,15 @@ class WidgetUtils(object):
     return hiddenChildren
 
   @staticmethod
-  def hideChildContainingName(widget, childString):
-    hiddenChild = WidgetUtils.getChildContainingName(widget, childString)
+  def hideFirstChildContainingName(widget, childString):
+    hiddenChild = WidgetUtils.getFirstChildContainingName(widget, childString)
     if hiddenChild:
       hiddenChild.visible = False
     return hiddenChild
 
 
 class Settings(object):
-  """
-  Helper class to get and set settings in Slicer with RVesselX tag
+  """Helper class to get and set settings in Slicer with RVesselX tag
   """
 
   @staticmethod
@@ -154,22 +167,25 @@ class Settings(object):
 
 
 class GeometryExporter(object):
-  """
-  Helper object to export mrml types to given output directory
+  """Helper object to export mrml types to given output directory
   """
 
   def __init__(self, **elementsToExport):
-    """
-    Class can be instantiated with dictionary of elements to export. Key represents the export name of the element and
+    """Class can be instantiated with dictionary of elements to export. Key represents the export name of the element and
     value the slicer MRML Node to export
-    :param elementsToExport: keyword args of elements to export
+
+    Parameters
+    ----------
+    elementsToExport: keyword args of elements to export
     """
     self._elementsToExport = elementsToExport
 
   def exportToDirectory(self, selectedDir):
-    """
-    Export all stored elements to selected directory.
-    :param selectedDir: str. Path to export directory
+    """Export all stored elements to selected directory.
+
+    Parameters
+    ----------
+    selectedDir: str. Path to export directory
     """
     for elementName, elementNode in self._elementsToExport.items():
       # Select format depending on node type
@@ -183,11 +199,15 @@ class GeometryExporter(object):
 
   @staticmethod
   def _elementExportExtension(elementNode):
-    """
-    Extracts export extension for input node given its class. Volumes will be exported as NIFTI files, Models as VTK
+    """Extracts export extension for input node given its class. Volumes will be exported as NIFTI files, Models as VTK
     files. Other nodes are not supported and function will return None.
-    :param elementNode: slicer.vtkMRMLNode type
-    :return: str or None
+
+    Parameters
+    ----------
+    elementNode: slicer.vtkMRMLNode type
+    Returns
+    -------
+      str or None
     """
     if isinstance(elementNode, slicer.vtkMRMLVolumeNode):  # Export volumes as NIFTI files
       return ".nii"
@@ -204,3 +224,24 @@ class GeometryExporter(object):
 
   def keys(self):
     return self._elementsToExport.keys()
+
+
+def raiseValueErrorIfInvalidType(**kwargs):
+  """Verify input type satisfies the expected type and raise in case it doesn't.
+
+  Expected input dictionary : "valueName":(value, "expectedType").
+  If value is None or value is not an instance of expectedType, method will raise ValueError with text indicating
+  valueName, value and expected type
+  """
+
+  for valueName, values in kwargs.items():
+    # Get value and expect type from dictionary
+    value, expType = values
+
+    # Get type from slicer in case of string input
+    if isinstance(expType, str):
+      expType = getattr(slicer, expType)
+
+    # Verify value is of correct instance
+    if not isinstance(value, expType):
+      raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))

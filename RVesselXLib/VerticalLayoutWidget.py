@@ -2,8 +2,7 @@ import qt
 
 
 class VerticalLayoutWidget(qt.QWidget):
-  """
-  Widget with default QVBoxLayout and access to it.
+  """Widget with default QVBoxLayout and access to it.
   """
 
   def __init__(self):

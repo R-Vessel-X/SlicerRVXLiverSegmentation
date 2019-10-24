@@ -1,20 +1,6 @@
-import qt
 import slicer
+
 from RVesselXUtils import GeometryExporter
-
-
-class Icons(object):
-  """ Object responsible for the different icons in the module. The module doesn't have any icons internally but pulls
-  icons from slicer and the other modules.
-  """
-
-  toggleVisibility = qt.QIcon(":/Icons/VisibleOrInvisible.png")
-  visibleOn = qt.QIcon(":/Icons/VisibleOn.png")
-  visibleOff = qt.QIcon(":/Icons/VisibleOff.png")
-  editSegmentation = qt.QIcon(":/Icons/Paint.png")
-  editPoint = qt.QIcon(":/Icons/AnnotationEditPoint.png")
-  delete = qt.QIcon(":/Icons/SnapshotDelete.png")
-  cut3d = qt.QIcon(":/Icons/Medium/SlicerEditCut.png")
 
 
 class Vessel(object):
@@ -39,11 +25,13 @@ class Vessel(object):
     self.segmentedVoronoiModel = None
     self.name = name
     self.isVisible = True
-    Vessel._createdCount += 1
+    self._inputSource = None
 
   @staticmethod
   def defaultName():
-    return "Vessel_" + str(Vessel._createdCount)
+    name = "Vessel_" + str(Vessel._createdCount)
+    Vessel._createdCount += 1
+    return name
 
   def toggleVisibility(self):
     """Shows/Hides segmented volume, model and center line in the scene.
@@ -74,10 +62,22 @@ class Vessel(object):
       self.segmentedCenterline.SetName(self._name + "_Centerline")
 
   def _wasSegmented(self):
-    """ True if vessel contains a segmented volume and center line (Creation of volumes is handled by
-    RVesselXModuleLogic object
+    """True if vessel contains a segmented volume and center line (Creation of volumes is handled by RVesselXModuleLogic
+    object
     """
     return self.segmentedVolume is not None and self.segmentedCenterline is not None
+
+  def lockExtremities(self, isLocked):
+    """Lock start and end point markups in the scene to avoid unwanted user edition
+
+    Parameters
+    ----------
+    isLocked: If true, locks markups else frees them
+    """
+    if self.startPoint is not None:
+      self.startPoint.SetLocked(isLocked)
+    if self.endPoint is not None:
+      self.endPoint.SetLocked(isLocked)
 
   def setExtremities(self, startPoint, endPoint):
     """Adds start and end points of the vessel to the structure. The points will be locked in the UI to avoid accidental
@@ -85,9 +85,7 @@ class Vessel(object):
     """
     self.startPoint = startPoint
     self.endPoint = endPoint
-
-    self.startPoint.SetLocked(True)
-    self.endPoint.SetLocked(True)
+    self.lockExtremities(True)
 
   def setVesselnessVolume(self, vesselnessVolume):
     """Adds preprocessed vesselness input volume to the vessel. The vesselness volume corresponds to the output of
@@ -164,211 +162,22 @@ class Vessel(object):
       elements = [elements]
     return [elt for elt in elements if elt is not None]
 
+  def setInputSource(self, inputSource):
+    self._inputSource = inputSource
+
   def removeFromScene(self):
-    """
-    Removes all the associated models of the vessel from mrml scene except for start and end points
+    """Removes all the associated models of the vessel from mrml scene except for start and end points
     """
     self._removeFromScene([self.segmentedCenterline, self.segmentedModel, self.segmentedVolume, self.segmentationSeeds,
                            self.segmentedVoronoiModel, self.vesselnessVolume])
 
   def getGeometryExporter(self):
     """
-    :return: Returns GeometryExporter object containing vessel volume and center line for user export.
+    Returns
+    -------
+      Returns GeometryExporter object containing vessel volume and center line for user export.
     """
     exporter = GeometryExporter()
     exporter[self.name] = self.segmentedVolume
     exporter[self.name + "CenterLine"] = self.segmentedCenterline
     return exporter
-
-
-class NoEditDelegate(qt.QStyledItemDelegate):
-  """
-  Helper class to avoid being able to edit columns aside from name in VesselTree
-  """
-
-  def __init__(self, parent):
-    super(NoEditDelegate, self).__init__(parent)
-
-  def createEditor(self, parent, option, index):
-    return None
-
-
-class VesselTree(object):
-  """Class responsible for creating Vessel QTreeWidget in the Vessel tab. Created tree contains all the segmented
-  vessels in the UI and allows renaming, editing and ordering the vessels with each other.
-  """
-
-  class ColumnIndex(object):
-    """Helper class holding the different indices of the vessel tree buttons
-    """
-    name = 0
-    visibility = 1
-    editPoint = 2
-    editSegmentation = 3
-    cut3d = 4
-    delete = 5
-
-  def __init__(self):
-    c = VesselTree.ColumnIndex()
-    self._itemIcons = {c.name: None, c.visibility: Icons.visibleOn, c.editPoint: Icons.editPoint,
-                       c.editSegmentation: Icons.editSegmentation, c.cut3d: Icons.cut3d, c.delete: Icons.delete}
-    self._headerIcons = dict(self._itemIcons)
-    self._headerIcons[c.visibility] = Icons.toggleVisibility
-
-    self._columnCount = max(self._headerIcons.keys()) + 1
-    self._itemDict = {}
-    self._initTreeWidget()
-
-  def _initTreeWidget(self):
-    """Initializes the QTreeWidget and configures drag and drop behaviour as well as button connections.
-    """
-    self._tree = qt.QTreeWidget()
-    self._tree.setColumnCount(self._columnCount)
-
-    # Configure tree to have first section stretched and last sections to be at right of the layout
-    # other columns will always be at minimum size fitting the icons
-    self._tree.header().setSectionResizeMode(0, qt.QHeaderView.Stretch)
-    self._tree.header().setStretchLastSection(False)
-
-    for i in range(1, self._columnCount):
-      self._tree.header().setSectionResizeMode(i, qt.QHeaderView.ResizeToContents)
-      self._tree.setItemDelegateForColumn(i, NoEditDelegate(self._tree))
-
-    # No header text except for first column (vessel name). Other columns have icons instead
-    self._tree.setHeaderLabels(["" for _ in range(self._tree.columnCount)])
-    self._tree.setHeaderLabel("Vessel Name")
-
-    # Set header columns icons
-    self._setWidgetItemIcon(self._tree.headerItem(), self._headerIcons)
-
-    # Connect click button to handler
-    self._tree.connect("itemClicked(QTreeWidgetItem*, int)", self.triggerVesselButton)
-    self._tree.connect("itemChanged(QTreeWidgetItem*, int)", self._renameVessel)
-
-    # Enable reordering by drag and drop
-    self._tree.setDragEnabled(True)
-    self._tree.setDropIndicatorShown(True)
-    self._tree.setDragDropMode(qt.QAbstractItemView.InternalMove)
-    self._tree.viewport().setAcceptDrops(True)
-
-  def getVesselGeometryExporters(self):
-    """
-    :return: List[GeometryExporter] list of exporters for vessels stored in vessel Tree
-    """
-    return [vessel.getGeometryExporter() for vessel in self._itemDict.values()]
-
-  def _renameVessel(self, item, column):
-    """On tree edition, only allow the name of the vessel to be edited. Text in the button columns is locked to empty.
-    """
-    if column == 0 and item in self._itemDict:
-      self._itemDict[item].name = item.text(column)
-
-  def getWidget(self):
-    """
-    Returns
-    -------
-    QTreeWidget
-    """
-    return self._tree
-
-  def _removeItem(self, item, vessel):
-    """ Remove item and associated children from tree
-
-    Parameters
-    ----------
-    item: QTreeWidgetItem
-      Item to remove from tree
-    vessel: Vessel
-      Vessel associated with input QTreeWidgetItem
-    """
-    # remove vessel from scene
-    vessel.removeFromScene()
-
-    # Remove children from vessel
-    for child in item.takeChildren():
-      self._removeItem(child, self._itemDict[child])
-
-    # Remove from parent
-    parentItem = item.parent()
-    if parentItem is not None:  # Case is leaf -> remove from parent
-      parentItem.removeChild(item)
-    else:  # Else remove from tree
-      vesselIndex = self._tree.indexFromItem(item).row()
-      self._tree.takeTopLevelItem(vesselIndex)
-
-    # remove item from dictionary
-    self._itemDict.pop(item)
-
-  def triggerVesselButton(self, item, column):
-    """Forwards QTreeWidget action to the associated Vessel object.
-
-    Parameters
-    ----------
-    item: QTreeWidgetItem
-      Item whose column was clicked
-    column: int
-      Index of the clicked column
-    """
-    vessel = self._itemDict[item]
-
-    if column == VesselTree.ColumnIndex.visibility:
-      vessel.toggleVisibility()
-      item.setIcon(VesselTree.ColumnIndex.visibility, Icons.visibleOn if vessel.isVisible else Icons.visibleOff)
-    elif column == VesselTree.ColumnIndex.delete:
-      self._removeItem(item, vessel)
-
-  def _setWidgetItemIcon(self, item, iconList):
-    """Sets icon list ot the item. Length of iconList is expected to be greater or equal to the number of columns of
-    the item.
-
-    Parameters
-    ----------
-    item: QTreeWidgetItem
-    iconList: List[QIcon]
-    """
-    for i in range(self._columnCount):
-      icon = iconList[i]
-      if icon is not None:
-        item.setIcon(i, icon)
-
-  def _findParent(self, vessel):
-    """ If one parent end point corresponds to vessel start point, returns this item as parent. Else returns None
-
-    :param vessel: Vessel for which we are looking for parent
-    :return: QItemWidget or None
-    """
-    for itemParent, vesselParent in self._itemDict.items():
-      if vessel.startPoint == vesselParent.endPoint:
-        return itemParent
-
-    return None
-
-  def addVessel(self, vessel):
-    """
-    Adds vessel in the vessel tree widget and returns created QTreeWidgetItem. This item can be used when adding leafs
-    to the item.
-
-    :param vessel: Vessel
-    :return: qt.QTreeWidgetItem
-    """
-    item = qt.QTreeWidgetItem()
-    item.setText(0, vessel.name)
-
-    # set item as editable to be able to rename vessel and drop enabled to enable reordering the items in tree
-    item.setFlags(item.flags() | qt.Qt.ItemIsEditable | qt.Qt.ItemIsDragEnabled | qt.Qt.ItemIsDropEnabled)
-    itemParent = self._findParent(vessel)
-    if itemParent is None:
-      self._tree.addTopLevelItem(item)
-    else:
-      itemParent.addChild(item)
-      itemParent.setExpanded(True)
-
-    self._setWidgetItemIcon(item, self._itemIcons)
-    self._itemDict[item] = vessel
-
-    return item
-
-  def containsItem(self, treeItem):
-    """ Returns true if tree contains item, false otherwise
-    """
-    return treeItem in self._itemDict.keys()
