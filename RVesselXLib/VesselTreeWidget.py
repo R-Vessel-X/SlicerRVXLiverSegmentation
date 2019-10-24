@@ -14,7 +14,7 @@ class Icons(object):
   visibleOn = qt.QIcon(":/Icons/VisibleOn.png")
   visibleOff = qt.QIcon(":/Icons/VisibleOff.png")
   editSegmentation = qt.QIcon(":/Icons/Paint.png")
-  editPoint = qt.QIcon(":/Icons/AnnotationEditPoint.png")
+  editPoint = qt.QIcon(":/Icons/Paint.png")
   delete = qt.QIcon(":/Icons/SnapshotDelete.png")
   cut3d = qt.QIcon(":/Icons/Medium/SlicerEditCut.png")
 
