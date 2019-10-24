@@ -13,7 +13,7 @@ class RVesselXModule(ScriptedLoadableModule):
   def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "R Vessel X"
-    self.parent.categories = ["Examples"]
+    self.parent.categories = [self.parent.title]
     self.parent.dependencies = []
     self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS"]
     self.parent.helpText = """
@@ -107,9 +107,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Initialize Variables
     self.logic = RVesselXModuleLogic()
     self._dataTab = DataWidget()
-    self._liverTab = SegmentWidget(segmentNodeName="Liver", segmentNames=["LiverIn", "LiverOut"])
+    self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
+                                   segmentNames=["LiverIn", "LiverOut"])
     self._vesselsTab = VesselWidget(self.logic)
-    self._tumorTab = SegmentWidget(segmentNodeName="Tumors")
+    self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors")
 
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
@@ -134,7 +135,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     for i, tab in enumerate(self._tabList):
       prev_tab = self._tabList[i - 1] if i - 1 >= 0 else None
       next_tab = self._tabList[i + 1] if i + 1 < len(self._tabList) else None
-      tab.addLayout(self._createPreviousNextArrowsLayout(previous_tab=prev_tab, next_tab=next_tab))
+      tab.insertLayout(0, self._createPreviousNextArrowsLayout(previous_tab=prev_tab, next_tab=next_tab))
 
   def _setCurrentTab(self, tab_widget):
     # Change tab to new widget
@@ -190,6 +191,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     tabButton.setIcon(buttonIcon)
     if nextTab is not None:
       tabButton.connect('clicked()', lambda tab=nextTab: self._setCurrentTab(tab))
+      tabButton.setText(nextTab.name)
     else:
       tabButton.enabled = False
     return tabButton

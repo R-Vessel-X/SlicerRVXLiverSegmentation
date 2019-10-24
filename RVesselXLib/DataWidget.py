@@ -17,7 +17,7 @@ class DataWidget(VerticalLayoutWidget):
     Configure DataTab with load DICOM and Load Data buttons, Input volume selection, Volume 2D and 3D rendering
     """
 
-    VerticalLayoutWidget.__init__(self)
+    VerticalLayoutWidget.__init__(self, "Data Tab")
 
     # Add load MRI button #
     inputLayout = qt.QHBoxLayout()

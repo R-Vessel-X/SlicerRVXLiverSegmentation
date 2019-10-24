@@ -1,6 +1,5 @@
 import qt
 
-from RVesselXUtils import createSingleMarkupFiducial
 from VerticalLayoutWidget import VerticalLayoutWidget
 from RVesselXLib import VesselTree
 
@@ -21,7 +20,7 @@ class VesselWidget(VerticalLayoutWidget):
     ----------
     logic: RVesselXModuleLogic
     """
-    VerticalLayoutWidget.__init__(self)
+    VerticalLayoutWidget.__init__(self, "Vessel Tab")
 
     self._vesselStartSelector = None
     self._vesselEndSelector = None
@@ -32,29 +31,24 @@ class VesselWidget(VerticalLayoutWidget):
 
     # Visualisation tree for Vessels
     self._vesselTree = VesselTree(self._logic)
+    self._verticalLayout.addWidget(self._createAddVesselButton())
     self._verticalLayout.addWidget(self._vesselTree.getWidget())
-    self._verticalLayout.addLayout(self._createExtractVesselLayout())
 
     # Connect vessel tree edit change to update add button status
     self._vesselTree.addEditChangedCallback(self._updateAddButtonStatus)
 
-  def _createExtractVesselLayout(self):
-    """Creates Layout with vessel start point selector, end point selector and extract vessel button. Button is set to
-    be active only when input volume, start and end points are valid.
+  def _createAddVesselButton(self):
+    """Creates add vessel button responsible for adding new row in the tree.
 
     Returns
     ------
-    QFormLayout
+    QPushButton
     """
-    formLayout = qt.QFormLayout()
-
     # Add Vessel Button
     self._addVesselButton = qt.QPushButton("Add Vessel")
     self._addVesselButton.connect("clicked(bool)", self._vesselTree.addNewVessel)
-    formLayout.addRow("", self._addVesselButton)
     self._updateAddButtonStatus()
-
-    return formLayout
+    return self._addVesselButton
 
   def _updateAddButtonStatus(self):
     self._addVesselButton.setEnabled(self._inputVolume is not None and not self._vesselTree.isEditing())

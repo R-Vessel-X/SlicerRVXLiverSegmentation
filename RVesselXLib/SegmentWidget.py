@@ -11,8 +11,8 @@ class SegmentWidget(VerticalLayoutWidget):
   Can be configured with named segmentation node and prepared segments
   """
 
-  def __init__(self, segmentNodeName, segmentNames=None):
-    VerticalLayoutWidget.__init__(self)
+  def __init__(self, segmentWidgetName, segmentNodeName, segmentNames=None):
+    VerticalLayoutWidget.__init__(self, segmentWidgetName)
 
     if segmentNames is None:
       segmentNames = []
