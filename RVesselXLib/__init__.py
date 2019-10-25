@@ -1,6 +1,6 @@
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget
-from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic
+from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic, VesselnessFilterParameters
 from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, warn, warnLineSep, info, lineSep, \
   addInCollapsibleLayout, createInputNodeSelector, createSingleMarkupFiducial
 from .Vessel import Vessel

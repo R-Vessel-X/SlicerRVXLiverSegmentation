@@ -444,19 +444,14 @@ class VesselTree(object):
   def stopEditMode(self, item, vessel=None):
     # Enable editing and drag and drop ofr item and its parents
     self._enableEditingForItemAndItsParents(item)
-    isFirstEdit = item.vessel is None
-
-    if not isFirstEdit:
-      item.vessel.removeFromScene()
-
-    if vessel is None:
-      vessel = self._logic.extractVessel(item.startPoint, item.endPoint)
-
-    # Set vessel
-    item.vessel = vessel
 
     # Lock vessel extremities
     item.lockExtremities(True)
+
+    # Update vessel
+    if vessel is None:
+      vessel = self._logic.extractVessel(item.startPoint, item.endPoint)
+    self._setItemVessel(item, vessel)
 
     # Save last used end node
     self._lastEndNode = item.endPoint
@@ -470,10 +465,6 @@ class VesselTree(object):
     item.setText(self._iCol.startPoint, item.startPointName())
     item.setText(self._iCol.endPoint, item.endPointName())
     item.setIcon(self._iCol.editPoint, self._itemIcons[self._iCol.editPoint])
-
-    # Update the position of the item in the tree if the item is not already set in the tree
-    if item.parent() is None and isFirstEdit:
-      self._updateVesselHierarchy(item)
 
     # Update editing status for item
     self._updateItemEditStatus(item, isEditing=False)
@@ -497,3 +488,31 @@ class VesselTree(object):
     """ Returns true if tree contains item, false otherwise
     """
     return treeItem in self._itemList
+
+  def updateItemVessels(self):
+    """ For each item, updates the extracted vessel.
+    """
+    for item in self._itemList:
+      if item.hasVessel():
+        self._setItemVessel(item, self._logic.extractVessel(item.vessel.startPoint, item.vessel.endPoint))
+
+  def _setItemVessel(self, item, vessel):
+    isFirstEdit = item.vessel is None
+
+    if not isFirstEdit:
+      item.vessel.removeFromScene()
+
+    # Set vessel
+    item.vessel = vessel
+
+    # Update the position of the item in the tree if the item is not already set in the tree
+    if item.parent() is None and isFirstEdit:
+      self._updateVesselHierarchy(item)
+
+  def vesselCount(self):
+    """
+    Returns
+    -------
+      int - None empty vessel count in the tree
+    """
+    return len([item for item in self._itemList if item.hasVessel()])

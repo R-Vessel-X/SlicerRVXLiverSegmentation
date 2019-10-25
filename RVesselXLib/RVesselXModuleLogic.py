@@ -44,16 +44,43 @@ class VMTKModule(object):
     return slicer.modules.CenterlineComputationWidget.logic
 
 
+class VesselnessFilterParameters(object):
+  """Object holding the parameters for the vesselness filter algorithm. Init constructs vesselness filter with default
+  parameters
+  """
+
+  def __init__(self):
+    self.minimumDiameter = 1
+    self.maximumDiameter = 7
+    self.suppressPlatesPercent = 10
+    self.suppressBlobsPercent = 10
+    self.vesselContrast = 100
+
+
 class IRVesselXModuleLogic(object):
   """
-  Pure interface definition for Logic module.
+  Interface definition for Logic module.
   """
+
+  def __init__(self):
+    self._vesselnessFilterParam = VesselnessFilterParameters()
 
   def setInputVolume(self, inputVolume):
     pass
 
   def extractVessel(self, startPoint, endPoint):
     return None
+
+  def updateVesselnessFilter(self, startPoint):
+    pass
+
+  @property
+  def vesselnessFilterParameters(self):
+    return self._vesselnessFilterParam
+
+  @vesselnessFilterParameters.setter
+  def vesselnessFilterParameters(self, value):
+    self._vesselnessFilterParam = value
 
 
 class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
@@ -184,14 +211,14 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
   def _applyVesselnessFilter(self, sourceVolume, startPoint):
     """Apply VMTK VesselnessFilter to source volume given start point. Returns ouput volume with vesselness information
 
-
     Parameters
     ----------
     sourceVolume: vtkMRMLScalarVolumeNode
       Volume which will be labeled with vesselness information
-    startPoint: vtkMRMLMarkupsFiducialNode
+    startPoint: vtkMRMLMarkupsFiducialNode or None
       Start point of the vessel. Gives indication on the target diameter of the vessel which will be
       filtered by the method.
+      If start point is None, vessel contrast and maximum diameters will be read from vesselness parameters.
 
     Returns
     -------
@@ -199,8 +226,12 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Volume with vesselness information
     """
     # Type checking
-    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
-                                 startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"))
+    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"))
+    if startPoint is None:
+      isContrastCalculated = False
+    else:
+      isContrastCalculated = True
+      raiseValueErrorIfInvalidType(startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"))
 
     # Get module logic from VMTK Vesselness Filtering module
     vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
@@ -208,27 +239,27 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     # Create output node
     vesselnessFiltered = self._createLabelMapVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered")
 
-    # Extract diameter size from start point position
-    vesselPositionRas = [0, 0, 0]
-    startPoint.GetNthFiducialPosition(0, vesselPositionRas)
-    vesselPositionIJK = vesselnessLogic.getIJKFromRAS(sourceVolume, vesselPositionRas)
-    maximumDetectedDiameter = vesselnessLogic.getDiameter(sourceVolume.GetImageData(), vesselPositionIJK)
-    minimumDiameterDefaultValue = 1
-
-    # Extract contrast from seed
-    contrastMeasure = vesselnessLogic.calculateContrastMeasure(sourceVolume.GetImageData(), vesselPositionIJK,
-                                                               maximumDetectedDiameter)
+    if isContrastCalculated:
+      # Extract diameter size from start point position
+      vesselPositionRas = [0, 0, 0]
+      startPoint.GetNthFiducialPosition(0, vesselPositionRas)
+      vesselPositionIJK = vesselnessLogic.getIJKFromRAS(sourceVolume, vesselPositionRas)
+      self._vesselnessFilterParam.maximumDiameter = vesselnessLogic.getDiameter(sourceVolume.GetImageData(),
+                                                                                vesselPositionIJK)
+      # Extract contrast from seed
+      self._vesselnessFilterParam.vesselContrast = vesselnessLogic.calculateContrastMeasure(sourceVolume.GetImageData(),
+                                                                                            vesselPositionIJK,
+                                                                                            self._vesselnessFilterParam.maximumDiameter)
+    maximumVesselDiameter = self._vesselnessFilterParam.maximumDiameter
+    contrastMeasure = self._vesselnessFilterParam.vesselContrast
 
     # Calculate alpha and beta parameters from suppressPlates and suppressBlobs parameters
-    # For now = default VMTK Values (may be made available to user)
-    suppressPlatesDefaultValue = 10
-    suppresBlobsDefaultValue = 10
-    alpha = vesselnessLogic.alphaFromSuppressPlatesPercentage(suppressPlatesDefaultValue)
-    beta = vesselnessLogic.betaFromSuppressBlobsPercentage(suppresBlobsDefaultValue)
+    alpha = vesselnessLogic.alphaFromSuppressPlatesPercentage(self._vesselnessFilterParam.suppressPlatesPercent)
+    beta = vesselnessLogic.betaFromSuppressBlobsPercentage(self._vesselnessFilterParam.suppressBlobsPercent)
 
     # Scale minimum and maximum diameters with volume spacing
-    minimumDiameter = minimumDiameterDefaultValue * min(sourceVolume.GetSpacing())
-    maximumDiameter = maximumDetectedDiameter * min(sourceVolume.GetSpacing())
+    minimumDiameter = self._vesselnessFilterParam.minimumDiameter * min(sourceVolume.GetSpacing())
+    maximumDiameter = maximumVesselDiameter * min(sourceVolume.GetSpacing())
 
     # Compute vesselness volume
     vesselnessLogic.computeVesselnessVolume(sourceVolume, vesselnessFiltered, maximumDiameterMm=maximumDiameter,
@@ -413,6 +444,13 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
   def _areExtremitiesValid(startPoint, endPoint):
     return RVesselXModuleLogic._isPointValid(startPoint) and RVesselXModuleLogic._isPointValid(endPoint)
 
+  def updateVesselnessFilter(self, startPoint):
+    # Early return in case the inputs is not properly defined
+    if self._inputVolume is None:
+      return
+
+    self._vesselnessVolumes[self._inputVolume] = self._applyVesselnessFilter(self._inputVolume, startPoint)
+
   def extractVessel(self, startPoint, endPoint):
     """ Extracts vessel from source volume, given start point and end point
 
@@ -428,25 +466,25 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vessel : Vessel or None
       extracted vessel with associated informations if inputs valid, else None
     """
+    import time
     # Early return in case the inputs are not properly defined
     if self._inputVolume is None or not self._areExtremitiesValid(startPoint, endPoint):
       return None
-
-    sourceVolume = self._inputVolume
 
     # Create vessel which will hold every information of the vessel extracted in logic module
     vessel = Vessel()
     vessel.setExtremities(startPoint, endPoint)
 
-    # Apply vesselness filter
-    if sourceVolume not in self._vesselnessVolumes.keys():
-      self._vesselnessVolumes[sourceVolume] = self._applyVesselnessFilter(sourceVolume, startPoint)
+    # Update vesselness filter if it was never calculated for current input volume
+    if self._inputVolume not in self._vesselnessVolumes.keys():
+      self.updateVesselnessFilter(startPoint)
+      time.sleep(1)  # Short sleep for this thread to enable volume to be updated
 
-    vesselnessVolume = self._vesselnessVolumes[sourceVolume]
+    vesselnessVolume = self._vesselnessVolumes[self._inputVolume]
     vessel.setVesselnessVolume(vesselnessVolume)
 
     # Call levelSetSegmentation
-    levelSetSeeds, levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(sourceVolume, vesselnessVolume,
+    levelSetSeeds, levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(self._inputVolume, vesselnessVolume,
                                                                                    startPoint, endPoint)
     vessel.setSegmentation(seeds=levelSetSeeds, volume=levelSetVolume, model=levelSetModel)
 
