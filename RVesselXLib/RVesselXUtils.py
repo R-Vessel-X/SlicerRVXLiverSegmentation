@@ -18,6 +18,40 @@ def warnLineSep():
   lineSep(isWarning=True)
 
 
+def jumpSlicesToLocation(location):
+  """Helper function to position all the different slices to input location.
+
+  Parameters
+  ----------
+  location: List[float] with x, y, z components
+  """
+  slicer.modules.markups.logic().JumpSlicesToLocation(location[0], location[1], location[2], True)
+
+
+def jumpSlicesToNthMarkupPosition(markupNode, i_nthMarkup):
+  """Helper function to position all the different slices to the nth markup position in input node
+
+  Parameters
+  ----------
+  markupNode: vtkMRMLMarkupsFiducialNode
+    Fiducial node with at least i_nthMarkup + 1 nodes
+  i_nthMarkup: int or None
+    Index of the markup we want to center the slices on
+  """
+  # Early return if incorrect markupNode or index
+  if not isinstance(markupNode, slicer.vtkMRMLMarkupsFiducialNode):
+    return
+
+  isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
+  if i_nthMarkup is None or not isMarkupIndexInRange:
+    return
+
+  # Get fiducial position and center slices to it
+  pos = [0] * 3
+  markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
+  jumpSlicesToLocation(pos)
+
+
 def createInputNodeSelector(nodeType, toolTip, callBack=None):
   """Creates node selector with given input node type, tooltip and callback when currentNodeChanged signal is emitted
 
@@ -67,17 +101,39 @@ def createSingleMarkupFiducial(toolTip, markupName, markupColor=qt.QColor("red")
   -------
   qSlicerSimpleMarkupsWidget
   """
-  seedFiducialsNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
-  seedFiducialsNodeSelector.objectName = markupName + 'NodeSelector'
-  seedFiducialsNodeSelector.toolTip = toolTip
-  seedFiducialsNodeSelector.setNodeBaseName(markupName)
-  seedFiducialsNodeSelector.tableWidget().hide()
-  seedFiducialsNodeSelector.defaultNodeColor = markupColor
-  seedFiducialsNodeSelector.markupsSelectorComboBox().noneEnabled = False
-  seedFiducialsNodeSelector.markupsPlaceWidget().placeMultipleMarkups = slicer.qSlicerMarkupsPlaceWidget.ForcePlaceSingleMarkup
-  seedFiducialsNodeSelector.setMRMLScene(slicer.mrmlScene)
-  slicer.app.connect('mrmlSceneChanged(vtkMRMLScene*)', seedFiducialsNodeSelector, 'setMRMLScene(vtkMRMLScene*)')
-  return seedFiducialsNodeSelector
+  markupNodeSelector = slicer.qSlicerSimpleMarkupsWidget()
+  markupNodeSelector.objectName = markupName + 'NodeSelector'
+  markupNodeSelector.toolTip = toolTip
+  markupNodeSelector.setNodeBaseName(markupName)
+  markupNodeSelector.tableWidget().hide()
+  markupNodeSelector.defaultNodeColor = markupColor
+  markupNodeSelector.markupsSelectorComboBox().noneEnabled = False
+  markupNodeSelector.markupsPlaceWidget().placeMultipleMarkups = slicer.qSlicerMarkupsPlaceWidget.ForcePlaceSingleMarkup
+  markupNodeSelector.setMRMLScene(slicer.mrmlScene)
+  slicer.app.connect('mrmlSceneChanged(vtkMRMLScene*)', markupNodeSelector, 'setMRMLScene(vtkMRMLScene*)')
+  return markupNodeSelector
+
+
+def createMultipleMarkupFiducial(toolTip, markupName, markupColor=qt.QColor("red")):
+  """Creates node selector for vtkMarkupFiducial type containing only multiple points.
+
+  Parameters
+  ----------
+  toolTip: str
+    Input selector hover text
+  markupName: str
+    Default name for the created markups when new markup is selected
+  markupColor: (option) QColor
+    Default color for the newly created markups (default = red)
+
+  Returns
+  -------
+  qSlicerSimpleMarkupsWidget
+  """
+  markupNodeSelector = createSingleMarkupFiducial(toolTip=toolTip, markupName=markupName, markupColor=markupColor)
+  markupNodeSelector.markupsPlaceWidget().placeMultipleMarkups = slicer.qSlicerMarkupsPlaceWidget.ForcePlaceMultipleMarkups
+  markupNodeSelector.markupsPlaceWidget().setPlaceModePersistency(True)
+  return markupNodeSelector
 
 
 def addInCollapsibleLayout(childWidget, parentLayout, collapsibleText, isCollapsed=True):

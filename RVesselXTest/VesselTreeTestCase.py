@@ -1,8 +1,9 @@
+import logging
 import unittest
 
 import slicer
 
-from RVesselXLib import VesselTree, Vessel
+from RVesselXLib import VesselTree, Vessel, VesselBranchTree
 from RVesselXTest import createVesselWithArbitraryData, createNonEmptyModel, createNonEmptyVolume, FakeLogic
 
 
@@ -212,3 +213,223 @@ class VesselTreeTestCase(unittest.TestCase):
     self.assertEqual(treeItemParent, treeItemChild.parent())
     self.assertEqual(treeItemParent, treeItemChild2.parent())
     self.assertEqual(treeItemChild, treeItemSubChild.parent())
+
+
+class VesselBranchTreeTestCase(unittest.TestCase):
+  def testWhenTreeIsEmptyInsertAfterNoneCreatesRoot(self):
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("NodeId", "NodeName", None)
+    self.assertEqual("NodeId", branchWidget.getRootNodeId())
+
+  def testWhenTreeIsEmptyInsertBeforeNoneCreatesRoot(self):
+    branchWidget = VesselBranchTree()
+    branchWidget.insertBeforeNode("NodeId", "NodeName", None)
+    self.assertEqual("NodeId", branchWidget.getRootNodeId())
+
+  def testWhenInsertAfterNoneAndRootExistsSetsNewNodeAsTopLevelItem(self):
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("PrevRootId", "PrevRootName", None)
+    branchWidget.insertAfterNode("NewRootId", "NewRootName", None)
+
+    self.assertEqual(sorted([[None, "NewRootId"], [None, "PrevRootId"]]), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenInsertAfterNodeNewNodeIsAddedAsChild(self):
+    # ParentId
+    #     |_ Child1Id
+    #     |_ Child2Id
+    #             |_ SubChild1Id
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child2Id")
+
+    expTree = [  #
+      [None, "ParentId"],  #
+      ["ParentId", "Child1Id"],  #
+      ["ParentId", "Child2Id"],  #
+      ["Child2Id", "SubChild1Id"]  #
+    ]
+
+    self.assertEqual(expTree, branchWidget.getTreeParentList())
+
+  def testWhenInsertBeforeNodeNewNodeIsInsertedBetweenNodeParentAndNode(self):
+    # Before Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #     |_ Child2Id
+    #
+    # After Tree
+    # ParentId
+    #     |_ InsertedId
+    #             |_ Child1Id
+    #                     |_ SubChild1Id
+    #     |_ Child2Id
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
+
+    # Insert child
+    branchWidget.insertBeforeNode("InsertedId", "Inserted", "Child1Id")
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "ParentId"],  #
+      ["ParentId", "Child2Id"],  #
+      ["ParentId", "InsertedId"],  #
+      ["InsertedId", "Child1Id"],  #
+      ["Child1Id", "SubChild1Id"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenInsertBeforeNodeAndParentIsNoneNewNodeIsAddedAsTopItem(self):
+    # Before Tree
+    # ParentId
+    #     |_ Child1Id
+    # ParentId2
+    #     |_ Child2Id
+    #
+    # After Tree
+    # ParentId
+    #     |_ Child1Id
+    # InsertedId
+    #     |_ ParentId2
+    #               |_ Child2Id
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("ParentId2", "Parent2", None)
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId2")
+
+    # Insert child
+    branchWidget.insertBeforeNode("InsertedId", "Inserted", "ParentId2")
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "ParentId"],  #
+      [None, "InsertedId"],  #
+      ["ParentId", "Child1Id"],  #
+      ["InsertedId", "ParentId2"],  #
+      ["ParentId2", "Child2Id"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenRemovingIntermediateNodeConnectsChildrenNodesToParentNode(self):
+    # Before Tree
+    # ParentId
+    #     |_ childToDeleteId
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #
+    # After Tree
+    # ParentId
+    #     |_ SubChild1Id
+    #     |_ SubChild2Id
+    #     |_ Child2Id
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("childToDeleteId", "childToDelete", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "childToDeleteId")
+    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "childToDeleteId")
+
+    # Remove child
+    branchWidget.removeNode("childToDeleteId")
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "ParentId"],  #
+      ["ParentId", "SubChild1Id"],  #
+      ["ParentId", "SubChild2Id"],  #
+      ["ParentId", "Child2Id"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def _createArbitraryTree(self):
+    # Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #             |_ SubChild3Id
+
+    # Create tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
+    branchWidget.insertAfterNode("SubChild3Id", "SubChild3", "Child2Id")
+    return branchWidget
+
+  def testParentNodeCanBeAccessedViaGetter(self):
+    # Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #             |_ SubChild3Id
+
+    branchWidget = self._createArbitraryTree()
+
+    # Verify getters
+    self.assertEqual("Child1Id", branchWidget.getParentNodeId("SubChild2Id"))
+    self.assertEqual("ParentId", branchWidget.getParentNodeId("Child1Id"))
+    self.assertEqual(None, branchWidget.getParentNodeId("ParentId"))
+
+  def testWhenAccessingLastSiblingGetNextSiblingNodeReturnsNone(self):
+    # Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #             |_ SubChild3Id
+
+    branchWidget = self._createArbitraryTree()
+    self.assertEqual("SubChild2Id", branchWidget.getNextSiblingNodeId("SubChild1Id"))
+    self.assertEqual(None, branchWidget.getNextSiblingNodeId("SubChild2Id"))
+
+  def testWhenAccessingFirstSiblingGetPreviousSiblingNodeReturnsNone(self):
+    # Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #             |_ SubChild3Id
+
+    branchWidget = self._createArbitraryTree()
+    self.assertEqual("SubChild1Id", branchWidget.getPreviousSiblingNodeId("SubChild2Id"))
+    self.assertEqual(None, branchWidget.getPreviousSiblingNodeId("SubChild1Id"))
+
+  def testWhenGettingChildrenReturnsListOfDirectChildren(self):
+    # Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #             |_ SubChild3Id
+
+    branchWidget = self._createArbitraryTree()
+
+    # Verify getters
+    self.assertEqual(["Child1Id", "Child2Id"], branchWidget.getChildrenNodeId("ParentId"))
+    self.assertEqual([], branchWidget.getChildrenNodeId("SubChild3Id"))

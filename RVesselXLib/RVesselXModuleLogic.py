@@ -147,7 +147,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     return slicer.mrmlScene.AddNode(fiducialPoint)
 
   @staticmethod
-  def _createLabelMapVolumeNodeBasedOnModel(modelVolume, volumeName):
+  def createLabelMapVolumeNodeBasedOnModel(modelVolume, volumeName):
     """Creates new LabelMapVolume node which reproduces the input node orientation, spacing, and origins
 
     Parameters
@@ -189,7 +189,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     newModelNode.SetName(slicer.mrmlScene.GetUniqueNameByString(modelName))
     return RVesselXModuleLogic._addToScene(newModelNode)
 
-  def _getFiducialPositions(self, fiducialNode):
+  @staticmethod
+  def _getFiducialPositions(fiducialNode):
     """ Extracts positions from input fiducial node and returns it as array of positions
 
     Parameters
@@ -237,7 +238,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
 
     # Create output node
-    vesselnessFiltered = self._createLabelMapVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered")
+    vesselnessFiltered = RVesselXModuleLogic.createLabelMapVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered")
 
     if isContrastCalculated:
       # Extract diameter size from start point position
@@ -268,8 +269,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     return vesselnessFiltered
 
-  def _applyLevelSetSegmentation(self, sourceVolume, vesselnessVolume, startPoint, endPoint):
-    """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input startPoint and endPoint.
+  @staticmethod
+  def _applyLevelSetSegmentationFromNodePositions(sourceVolume, vesselnessVolume, seedsPositions, endPositions):
+    """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input seed positions and end positions
 
     Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
 
@@ -279,15 +281,17 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Original volume (before vesselness filter
     vesselnessVolume : vtkMRMLLabelMapVolumeNode
       Volume after filtering by vesselness filter
-    startPoint : vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint : vtkMRMLMarkupsFiducialNode
-      End point for the vessel
+    seedsPositions : List[List[float]]
+      Seed positions for the vessel
+    endPositions : List[List[float]]
+      End positions for the vessel
 
     Returns
     -------
     LevelSetSeeds : vtkMRMLMarkupsFiducialNode
-      Nodes used as seeds during level set segmentation (aggregate of start point and end point)
+      Nodes used as seeds during level set segmentation (aggregate of seedsPositions and endPositions)
+    LevelSetStoppers : vtkMRMLMarkupsFiducialNode
+      Nodes used as stoppers during level set segmentation (aggregate of start point and end point)
     LevelSetSegmentation : vtkMRMLLabelMapVolumeNode
       segmentation volume output
     LevelSetModel : vtkMRMLModelNode
@@ -295,29 +299,27 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
-                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"),
-                                 startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
-                                 endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
+                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"))
 
     # Get module logic from VMTK LevelSetSegmentation
     segmentationWidget = VMTKModule.getLevelSetSegmentationWidget()
     segmentationLogic = VMTKModule.getLevelSetSegmentationLogic()
 
     # Create output volume node
-    outputVolume = self._createLabelMapVolumeNodeBasedOnModel(sourceVolume, "LevelSetSegmentation")
-    outputModel = self._createModelNode("LevelSetSegmentationModel")
+    outVolume = RVesselXModuleLogic.createLabelMapVolumeNodeBasedOnModel(sourceVolume, "LevelSetSegmentation")
 
     # Copy paste code from LevelSetSegmentation start method
     # https://github.com/vmtk/SlicerExtension-VMTK/blob/master/LevelSetSegmentation/LevelSetSegmentation.py
 
     # Aggregate start point and end point as seeds for vessel extraction
-    seedsPositions = self._getFiducialPositions(startPoint) + self._getFiducialPositions(endPoint)
+    allSeedsPositions = seedsPositions + endPositions
 
     # now we need to convert the fiducials to vtkIdLists
-    seedsNodes = self._createFiducialNode("LevelSetSegmentationSeeds", *seedsPositions)
+    seedsNodes = RVesselXModuleLogic._createFiducialNode("LevelSetSegmentationSeeds", *allSeedsPositions)
+    stoppersNodes = RVesselXModuleLogic._createFiducialNode("LevelSetSegmentationStoppers", *endPositions)
     seeds = segmentationWidget.convertFiducialHierarchyToVtkIdList(seedsNodes, vesselnessVolume)
-    stoppers = segmentationWidget.convertFiducialHierarchyToVtkIdList(endPoint,
-                                                                      vesselnessVolume) if endPoint else vtk.vtkIdList()
+    stoppers = segmentationWidget.convertFiducialHierarchyToVtkIdList(stoppersNodes,
+                                                                      vesselnessVolume) if stoppersNodes else vtk.vtkIdList()
 
     # the input image for the initialization
     inputImage = vtk.vtkImageData()
@@ -357,29 +359,81 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     labelMap.DeepCopy(segmentationLogic.buildSimpleLabelMap(evolImageData, 5, 0))
 
     # propagate the label map to the node
-    outputVolume.SetAndObserveImageData(labelMap)
+    outVolume.SetAndObserveImageData(labelMap)
 
     # currentVesselnessNode
-    slicer.util.setSliceViewerLayers(background=sourceVolume, foreground=vesselnessVolume, label=outputVolume,
+    slicer.util.setSliceViewerLayers(background=sourceVolume, foreground=vesselnessVolume, label=outVolume,
                                      foregroundOpacity=0.1)
 
-    # generate 3D model
-    model = vtk.vtkPolyData()
+    # Construct model boundary mesh
+    outModel = RVesselXModuleLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
+
+    return seedsNodes, stoppersNodes, outVolume, outModel
+
+  @staticmethod
+  def createVolumeBoundaryModel(sourceVolume, modelName, imageData=None, threshold=0.0):
+    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"))
+    if imageData is None:
+      imageData = sourceVolume.GetImageData()
+
+    raiseValueErrorIfInvalidType(imageData=(imageData, vtk.vtkImageData))
 
     # we need the ijkToRas transform for the marching cubes call
     ijkToRasMatrix = vtk.vtkMatrix4x4()
-    outputVolume.GetIJKToRASMatrix(ijkToRasMatrix)
+    sourceVolume.GetIJKToRASMatrix(ijkToRasMatrix)
 
-    # call marching cubes
-    model.DeepCopy(segmentationLogic.marchingCubes(evolImageData, ijkToRasMatrix, 0.0))
+    # generate 3D model and call marching cubes
+    modelPolyData = vtk.vtkPolyData()
+    modelPolyData.DeepCopy(
+      VMTKModule.getLevelSetSegmentationLogic().marchingCubes(imageData, ijkToRasMatrix, threshold))
 
-    # propagate model to nodes
-    outputModel.SetAndObservePolyData(model)
-    outputModel.CreateDefaultDisplayNodes()
+    # Create model node and associate model poly data
+    modelNode = RVesselXModuleLogic._createModelNode(modelName)
+    modelNode.SetAndObservePolyData(modelPolyData)
+    modelNode.CreateDefaultDisplayNodes()
 
-    return seedsNodes, outputVolume, outputModel
+    return modelNode
 
-  def _closestPointOnSurfaceAsIdList(self, surface, point):
+  @staticmethod
+  def _applyLevelSetSegmentation(sourceVolume, vesselnessVolume, startPoint, endPoint):
+    """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input startPoint and endPoint.
+
+    Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
+
+    Parameters
+    ----------
+    sourceVolume : vtkMRMLScalarVolumeNode
+      Original volume (before vesselness filter
+    vesselnessVolume : vtkMRMLLabelMapVolumeNode
+      Volume after filtering by vesselness filter
+    startPoint : vtkMRMLMarkupsFiducialNode
+      Start point for the vessel
+    endPoint : vtkMRMLMarkupsFiducialNode
+      End point for the vessel
+
+    Returns
+    -------
+    LevelSetSeeds : vtkMRMLMarkupsFiducialNode
+      Nodes used as seeds during level set segmentation (aggregate of start point and end point)
+    LevelSetSegmentation : vtkMRMLLabelMapVolumeNode
+      segmentation volume output
+    LevelSetModel : vtkMRMLModelNode
+      Model after marching cubes on the segmentation data
+    """
+    # Type checking
+    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
+                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"),
+                                 startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
+                                 endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
+
+    startPos = RVesselXModuleLogic._getFiducialPositions(startPoint)
+    endPos = RVesselXModuleLogic._getFiducialPositions(endPoint)
+    seedsNodes, stoppersNodes, outVolume, outModel = RVesselXModuleLogic._applyLevelSetSegmentationFromNodePositions(
+      sourceVolume, vesselnessVolume, startPos, endPos)
+    return seedsNodes, outVolume, outModel
+
+  @staticmethod
+  def _closestPointOnSurfaceAsIdList(surface, point):
     pointList = vtk.vtkIdList()
 
     pointLocator = vtk.vtkPointLocator()
@@ -390,7 +444,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     pointList.InsertNextId(sourceId)
     return pointList
 
-  def _applyCenterlineFilter(self, levelSetSegmentationModel, startPoint, endPoint):
+  @staticmethod
+  def _applyCenterlineFilter(levelSetSegmentationModel, startPoint, endPoint):
     """ Extracts centerline from input level set segmentation model (ie : vessel polyData) and start and end points
 
     Parameters
@@ -419,16 +474,20 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     # Extract mesh and source and target point lists from input data
     segmentationMesh = levelSetSegmentationModel.GetPolyData()
-    sourceIdList = self._closestPointOnSurfaceAsIdList(segmentationMesh, self._getFiducialPositions(startPoint)[0])
-    targetIdList = self._closestPointOnSurfaceAsIdList(segmentationMesh, self._getFiducialPositions(endPoint)[0])
+    sourceIdList = RVesselXModuleLogic._closestPointOnSurfaceAsIdList(segmentationMesh,
+                                                                      RVesselXModuleLogic._getFiducialPositions(
+                                                                        startPoint)[0])
+    targetIdList = RVesselXModuleLogic._closestPointOnSurfaceAsIdList(segmentationMesh,
+                                                                      RVesselXModuleLogic._getFiducialPositions(
+                                                                        endPoint)[0])
 
     # Calculate center line poly data
     centerLinePolyData, voronoiPolyData = centerLineLogic.computeCenterlines(segmentationMesh, sourceIdList,
                                                                              targetIdList)
 
     # Create output voronoi model and centerline model
-    centerLineModel = self._createModelNode("CenterLineModel")
-    voronoiModel = self._createModelNode("VoronoiModel")
+    centerLineModel = RVesselXModuleLogic._createModelNode("CenterLineModel")
+    voronoiModel = RVesselXModuleLogic._createModelNode("VoronoiModel")
 
     centerLineModel.SetAndObservePolyData(centerLinePolyData)
     voronoiModel.SetAndObservePolyData(voronoiPolyData)
@@ -451,6 +510,21 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     self._vesselnessVolumes[self._inputVolume] = self._applyVesselnessFilter(self._inputVolume, startPoint)
 
+  def _hasVesselnessForInput(self):
+    return self._inputVolume in self._vesselnessVolumes.keys()
+
+  def _updateVesselnessVolume(self, startPoint):
+    import time
+    if not self._hasVesselnessForInput():
+      self.updateVesselnessFilter(startPoint)
+      time.sleep(1)  # Short sleep for this thread to enable volume to be updated
+
+  def extractVesselVolumeFromPosition(self, seedsPositions, endPositions):
+    self._updateVesselnessVolume(None)
+    return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume,
+                                                            self._vesselnessVolumes[self._inputVolume], seedsPositions,
+                                                            endPositions)
+
   def extractVessel(self, startPoint, endPoint):
     """ Extracts vessel from source volume, given start point and end point
 
@@ -466,7 +540,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vessel : Vessel or None
       extracted vessel with associated informations if inputs valid, else None
     """
-    import time
     # Early return in case the inputs are not properly defined
     if self._inputVolume is None or not self._areExtremitiesValid(startPoint, endPoint):
       return None
@@ -476,9 +549,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vessel.setExtremities(startPoint, endPoint)
 
     # Update vesselness filter if it was never calculated for current input volume
-    if self._inputVolume not in self._vesselnessVolumes.keys():
-      self.updateVesselnessFilter(startPoint)
-      time.sleep(1)  # Short sleep for this thread to enable volume to be updated
+    self._updateVesselnessVolume(startPoint)
 
     vesselnessVolume = self._vesselnessVolumes[self._inputVolume]
     vessel.setVesselnessVolume(vesselnessVolume)
