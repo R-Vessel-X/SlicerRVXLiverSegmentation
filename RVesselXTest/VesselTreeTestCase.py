@@ -346,7 +346,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "childToDeleteId")
 
     # Remove child
-    branchWidget.removeNode("childToDeleteId")
+    wasRemoved = branchWidget.removeNode("childToDeleteId")
 
     # Verify tree is as after tree
     expTree = [  #
@@ -356,6 +356,70 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["ParentId", "Child2Id"],  #
     ]
 
+    self.assertTrue(wasRemoved)
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenRemovingRootAndHasMultipleChildrenDoesNothing(self):
+    # Before Tree and after tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #     |_ Child2Id
+    #
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
+
+    expTree = branchWidget.getTreeParentList()
+
+    # Remove root
+    wasRemoved = branchWidget.removeNode("ParentId")
+
+    # Verify tree hasn't changed
+    self.assertFalse(wasRemoved)
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenRemovingRootAndHasOneDirectChildSelectsChildAsRoot(self):
+    # Before Tree
+    # ParentId
+    #     |_ Child1Id
+    #             |_ SubChild1Id
+    #             |_ SubChild2Id
+    #             |_ SubChild3Id
+    #
+    # After Tree
+    # |_ Child1Id
+    #         |_ SubChild1Id
+    #         |_ SubChild2Id
+    #         |_ SubChild3Id
+    #
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
+    branchWidget.insertAfterNode("SubChild3Id", "SubChild3", "Child1Id")
+
+    # Remove root
+    wasRemoved = branchWidget.removeNode("ParentId")
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "Child1Id"],  #
+      ["Child1Id", "SubChild1Id"],  #
+      ["Child1Id", "SubChild2Id"],  #
+      ["Child1Id", "SubChild3Id"],  #
+    ]
+
+    self.assertTrue(wasRemoved)
     self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
 
   def _createArbitraryTree(self):

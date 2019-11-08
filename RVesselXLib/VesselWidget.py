@@ -28,20 +28,37 @@ class VesselBranchTree(qt.QTreeWidget):
     qt.QTreeWidget.__init__(self, parent)
     self.setHeaderLabel("Branch Node Name")
     self._branchDict = {}
-    self._callbacks = []
+    self._clickEventCallbacks = []
+    self._keyEventCallbacks = []
     self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
 
     self.setDragEnabled(True)
     self.setDropIndicatorShown(True)
     self.setDragDropMode(qt.QAbstractItemView.InternalMove)
 
+  def keyPressEvent(self, event):
+    """Overridden from qt.QTreeWidget to notify listeners of key event
+
+    Parameters
+    ----------
+    event: qt.QKeyEvent
+    """
+    currentNodeId = self.currentItem().nodeId
+    for callback in self._keyEventCallbacks:
+      callback(currentNodeId, event)
+
+    qt.QTreeWidget.keyPressEvent(self, event)
+
   def _notifyItemClicked(self, item, column):
     item.setExpanded(True)
-    for callback in self._callbacks:
+    for callback in self._clickEventCallbacks:
       callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
 
   def addClickObserver(self, callback):
-    self._callbacks.append(callback)
+    self._clickEventCallbacks.append(callback)
+
+  def addKeyObserver(self, callback):
+    self._keyEventCallbacks.append(callback)
 
   def _takeItem(self, nodeId, nodeName=None):
     if nodeId is None:
@@ -123,11 +140,51 @@ class VesselBranchTree(qt.QTreeWidget):
     self.expandAll()
 
   def removeNode(self, nodeId):
+    """Remove given node from tree.
+
+    If node is root, only remove if it has exactly one direct child and replace root by child. Else does nothing.
+    If intermediate item, move each child of node to node parent.
+
+    Parameters
+    ----------
+    nodeId: str
+      Id of the node to remove from tree
+
+    Returns
+    -------
+    bool - True if node was removed, False otherwise
+    """
     nodeItem = self._branchDict[nodeId]
+    if nodeItem.parent() is None:
+      return self._removeRootItem(nodeItem, nodeId)
+    else:
+      self._removeIntermediateItem(nodeItem, nodeId)
+      return True
+
+  def _removeRootItem(self, nodeItem, nodeId):
+    """Only remove if it has exactly one direct child and replace root by child. Else does nothing.
+
+    Returns
+    -------
+    bool - True if root item was removed, False otherwise
+    """
+    if nodeItem.childCount() == 1:
+      self.takeTopLevelItem(0)
+      child = nodeItem.takeChild(0)
+      self.insertTopLevelItem(0, child)
+      child.setExpanded(True)
+      del self._branchDict[nodeId]
+      return True
+    return False
+
+  def _removeIntermediateItem(self, nodeItem, nodeId):
+    """Move each child of node to node parent and remove item.
+    """
     parentItem = nodeItem.parent()
     parentItem.takeChild(parentItem.indexOfChild(nodeItem))
     for child in nodeItem.takeChildren():
       parentItem.addChild(child)
+    del self._branchDict[nodeId]
 
   def getParentNodeId(self, childNodeId):
     parentItem = self._branchDict[childNodeId].parent()
@@ -330,6 +387,7 @@ class VesselBranchInteractor(object):
 
     self._tree = tree
     self._tree.addClickObserver(self._onTreeClickEvent)
+    self._tree.addKeyObserver(self._onKeyEvent)
     self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
     self._lastNode = None
 
@@ -351,6 +409,24 @@ class VesselBranchInteractor(object):
 
   def _onTreeClickEvent(self, nodeId, keyboardModifier):
     self._selectCurrentNode(nodeId, keyboardModifier)
+
+  def _onKeyEvent(self, nodeId, keyEvent):
+    if keyEvent.key() == qt.Qt.Key_Delete:
+      # Remove node from tree
+      wasRemoved = self._tree.removeNode(nodeId)
+
+      # If node was successfully removed, update markup and treeLine
+      if wasRemoved:
+        # Remove node from markup
+        self._removeFromMarkup(nodeId)
+
+        # Update showed lines
+        self._treeLine.updateTreeLines()
+
+  def _removeFromMarkup(self, nodeId):
+    for i in range(self._markupNode.GetNumberOfFiducials()):
+      if self._markupNode.GetNthFiducialLabel(i) == nodeId:
+        self._markupNode.SetNthFiducialVisibility(i, False)
 
   @vtk.calldata_type(vtk.VTK_INT)
   def _onVesselBranchClicked(self, caller, eventId, callData):
