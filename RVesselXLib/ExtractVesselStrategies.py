@@ -9,16 +9,6 @@ class IExtractVesselStrategy(object):
   Interface object for vessel volume extraction from source vessel branch tree and associated markup.
   """
 
-  def displayName(self):
-    """
-
-    Returns
-    -------
-    str
-      Name of the strategy displayed in the UI
-    """
-    return ""
-
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
     """
     Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
@@ -55,9 +45,6 @@ def mergeVolumes(volumes, volName):
 
 
 class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
-  def displayName(self):
-    return "Extract volume in one go"
-
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
     """
     Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
@@ -99,14 +86,33 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
     return outVolume, outModel
 
 
-class ExtractOneVesselPerBranch(IExtractVesselStrategy):
-  def displayName(self):
-    return "Extract one volume per branch"
+class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
+  """
+  Base class for strategies using VMTK on multiple start + end points and aggregating results as one volume.
+  deriving classes must implement a function returning a list of node pairs constructed from vessel tree and node id
+  position dictionary
+  """
+
+  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+    """
+    Parameters
+    ----------
+    vesselBranchTree: VesselBranchTree
+      Tree containing the hierarchy of the markups
+    idPositionDict: Dict[str,List[float]]
+      Dictionary with nodeId as key and node position as value
+
+    Returns
+    -------
+    List[Tuple[List[float], list[float]]]
+      List of (vessel start position, vessel end position) to extract using VMTK
+    """
+    pass
 
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
     """
     Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
-    Strategy uses VMTK on all markup points at once to extract data.
+    Strategy uses VMTK on each node pair returned by constructNodeBranchPairs method and merges results as output
 
     Parameters
     ----------
@@ -127,13 +133,7 @@ class ExtractOneVesselPerBranch(IExtractVesselStrategy):
     # Extract all the branches in the tree.
     # Loop over all ids
     nodeList = vesselBranchTree.getNodeList()
-    branchList = []
-
-    for node in nodeList:
-      startPos = idPositionDict[node]
-      for child in vesselBranchTree.getChildrenNodeId(node):
-        endPos = idPositionDict[child]
-        branchList.append((startPos, endPos))
+    branchList = self.constructNodeBranchPairs(vesselBranchTree, idPositionDict)
 
     volumes = []
     elementsToRemoveFromScene = []
@@ -150,3 +150,115 @@ class ExtractOneVesselPerBranch(IExtractVesselStrategy):
       slicer.mrmlScene.RemoveNode(volume)
 
     return outVolume, outModel
+
+
+class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
+  """
+  Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
+  Strategy uses VMTK on parent + child pair and merges the results as output.
+
+  Example :
+  node 0
+    |_ node 1-0
+    |_ node 1-1
+        |_node 2-0
+        |_node 2-1
+            |_node 3-1
+
+  Expected VMTK run :
+    Branch [0 & 1-0]
+    Branch [0 & 1-1]
+    Branch [1-1 & 2-0]
+    Branch [1-1 & 2-1]
+    Branch [2-1 & 3-1]
+  """
+
+  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+    """
+    Parameters
+    ----------
+    vesselBranchTree: VesselBranchTree
+      Tree containing the hierarchy of the markups
+    idPositionDict: Dict[str,List[float]]
+      Dictionary with nodeId as key and node position as value
+
+    Returns
+    -------
+    List[Tuple[List[float], list[float]]]
+      List of (vessel start position, vessel end position) to extract using VMTK
+    """
+
+    # Extract all the branches in the tree and return as branch list
+    nodeList = vesselBranchTree.getNodeList()
+    branchList = []
+
+    for node in nodeList:
+      startPos = idPositionDict[node]
+      for child in vesselBranchTree.getChildrenNodeId(node):
+        endPos = idPositionDict[child]
+        branchList.append((startPos, endPos))
+    return branchList
+
+
+class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrategy):
+  """
+  Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
+  Strategy uses VMTK on parent + sub child pair and merges the results as output.
+
+  Example :
+  node 0
+    |_ node 1-0
+    |_ node 1-1
+        |_node 2-0
+        |_node 2-1
+            |_node 3-1
+
+  Expected VMTK run :
+    Branch [0 & 1-0]
+    Branch [0 & 2-0]
+    Branch [0 & 2-1]
+    Branch [1-1 & 3-1]
+  """
+
+  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+    """
+    Parameters
+    ----------
+    vesselBranchTree: VesselBranchTree
+      Tree containing the hierarchy of the markups
+    idPositionDict: Dict[str,List[float]]
+      Dictionary with nodeId as key and node position as value
+
+    Returns
+    -------
+    List[Tuple[List[float], list[float]]]
+      List of (vessel start position, vessel end position) to extract using VMTK
+    """
+    return self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict)
+
+  def parentSubChildBranchPairs(self, vesselBranchTree, idPositionDict, startNode=None):
+    # Initialize branch list
+    branchList = []
+
+    # Initialize start node as tree root if startNode not provided
+    isStartNodeRoot = False
+    if startNode is None:
+      startNode = vesselBranchTree.getRootNodeId()
+      isStartNodeRoot = True
+
+    startPos = idPositionDict[startNode]
+    for child in vesselBranchTree.getChildrenNodeId(startNode):
+      # Construct startNode + subChildren pairs
+      subChildren = vesselBranchTree.getChildrenNodeId(child)
+      for subChild in subChildren:
+        branchList.append((startPos, idPositionDict[subChild]))
+
+      # Special case if starting from root node and current node doesn't have children (to avoid missing the point)
+      # otherwise, the node will be contained in a previous parent + subChild pair
+      if len(subChildren) == 0 and isStartNodeRoot:
+        branchList.append((startNode, idPositionDict[child]))
+
+      # Call recursively for children
+      branchList += self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict, startNode=child)
+
+    return branchList

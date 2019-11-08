@@ -520,10 +520,11 @@ class VesselWidget(VerticalLayoutWidget):
     return self._addVesselButton
 
   def _extractVessel(self):
-    from ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch
+    from ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch, \
+      ExtractOneVesselPerParentAndSubChildNode
     branchTree = self._vesselIntersectionWidget.getBranchTree()
     branchMarkupNode = self._vesselIntersectionWidget.getBranchMarkupNode()
-    strategy = ExtractOneVesselPerBranch()
+    strategy = ExtractOneVesselPerParentAndSubChildNode()
     self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                      branchMarkupNode,
                                                                                                      self._logic)
