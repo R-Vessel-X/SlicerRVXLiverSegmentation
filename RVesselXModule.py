@@ -4,7 +4,8 @@ import unittest
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
-from RVesselXTest import RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase
+from RVesselXTest import RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase, \
+  ExtractVesselStrategyTestCase
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -234,6 +235,6 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def runTest(self):
-    testCases = [RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase]
+    testCases = [RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
