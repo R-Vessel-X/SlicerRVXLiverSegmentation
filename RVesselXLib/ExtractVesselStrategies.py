@@ -1,5 +1,6 @@
 import slicer
 
+from RVesselXUtils import getMarkupIdPositionDictionary
 from RVesselXModuleLogic import RVesselXModuleLogic
 
 
@@ -36,26 +37,6 @@ class IExtractVesselStrategy(object):
       Tuple containing extracted volume information and associated poly data model
     """
     pass
-
-
-def getMarkupIdPositionDictionary(markup):
-  """
-  Parameters
-  ----------
-  markup : vtkMRMLMarkupsFiducialNode
-
-  Returns
-  -------
-  Dict[str, List[float]]
-    Dictionary containing the node ids contained in the markup node and its associated positions
-  """
-  markupDict = {}
-  for i in range(markup.GetNumberOfFiducials()):
-    nodeId = markup.GetNthFiducialLabel(i)
-    nodePosition = [0] * 3
-    markup.GetNthFiducialPosition(i, nodePosition)
-    markupDict[nodeId] = nodePosition
-  return markupDict
 
 
 def mergeVolumes(volumes, volName):

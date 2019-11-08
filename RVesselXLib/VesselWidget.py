@@ -5,7 +5,7 @@ import qt
 import slicer
 
 from RVesselXLib import VesselTree, VesselnessFilterParameters, createSingleMarkupFiducial, \
-  createMultipleMarkupFiducial, jumpSlicesToNthMarkupPosition
+  createMultipleMarkupFiducial, jumpSlicesToNthMarkupPosition, GeometryExporter, getMarkupIdPositionDictionary
 from VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -184,6 +184,120 @@ class VesselBranchTree(qt.QTreeWidget):
     return nodeList
 
 
+class TreeDrawer(object):
+  """
+  Class responsible for drawing lines between the different vessel nodes
+  """
+
+  def __init__(self, vesselTree, markupFiducial):
+    """
+    Parameters
+    ----------
+    vesselTree: VesselBranchTree
+    markupFiducial: vtkMRMLMarkupsFiducialNode
+    """
+    self._tree = vesselTree
+    self._markupFiducial = markupFiducial
+
+    self._polyLine = vtk.vtkPolyLineSource()
+    self._polyLine.SetClosed(False)
+    self._lineModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
+    self._lineModel.SetAndObservePolyData(self._polyLine.GetOutput())
+    self._lineModel.CreateDefaultDisplayNodes()
+    self._lineModel.SetName("VesselBranchNodeTree")
+    self._updateNodeCoordDict()
+
+  def _updateNodeCoordDict(self):
+    """Update node coordinates associated with node ID for the current tree
+
+    Returns
+    -------
+    Dict[str, List[float]]
+      Dictionary containing the node ids contained in the markup node and its associated positions
+    """
+    self._nodeCoordDict = getMarkupIdPositionDictionary(self._markupFiducial)
+
+  def updateTreeLines(self):
+    """Updates the lines between the different nodes of the tree. Uses the last set line width and color
+    """
+    # Update nodes coordinates
+    self._updateNodeCoordDict()
+
+    # Force modification by resetting number of points to 0 (other wise update will not be visible if only points
+    # position has changed)
+    self._polyLine.SetNumberOfPoints(0)
+    coordList = self._extractTreeLinePointSequence()
+    self._polyLine.SetNumberOfPoints(len(coordList))
+    for i, coord in enumerate(coordList):
+      self._polyLine.SetPoint(i, *coord)
+
+    # Trigger poly line update
+    self._polyLine.Update()
+
+  def _extractTreeLinePointSequence(self, parentId=None):
+    """Constructs a coordinate sequence starting from parentId node recursively.
+
+    example :
+    parent
+      |_ child
+            |_ sub child
+      |_ child2
+
+    Previous tree will generate coordinates : [parent, child, sub child, child, parent, child2, parent]
+    This coordinate construction enables using only one poly line instead of multiple lines at the expense of
+    constructed lines number
+
+    Parameters
+    ----------
+    parentId: str or None
+      Starting point of the recursion. If none, will start from tree root
+
+    Returns
+    -------
+    List[List[float]]
+      Coordinate sequence for polyLine construction
+    """
+    if parentId is None:
+      parentId = self._tree.getRootNodeId()
+
+    parentCoord = self._nodeCoordinate(parentId)
+    pointSeq = [parentCoord]
+    for childId in self._tree.getChildrenNodeId(parentId):
+      pointSeq += self._extractTreeLinePointSequence(childId)
+      pointSeq.append(parentCoord)
+    return pointSeq
+
+  def _nodeCoordinate(self, nodeId):
+    return self._nodeCoordDict[nodeId]
+
+  def setColor(self, lineColor):
+    """
+    Parameters
+    ----------
+    lineColor: qt.QColor
+      New color for line. Call updateTreeLines to apply to tree.
+    """
+    self._lineModel.GetDisplayNode().SetColor(lineColor.red(), lineColor.green(), lineColor.blue())
+
+  def setLineWidth(self, lineWidth):
+    """
+    Parameters
+    ----------
+    lineWidth: float
+      New line width for lines of the tree.  Call updateTreeLines to apply to tree.
+    """
+    self._lineModel.GetDisplayNode().SetLineWidth(lineWidth)
+
+  def setVisible(self, isVisible):
+    """
+    Parameters
+    ----------
+    isVisible: bool
+      If true, will show tree in mrmlScene. Else will hide tree model
+    """
+    self._lineModel.SetDisplayVisibility(isVisible)
+
+
 class VesselBranchInteractor(object):
   """
   Object responsible for handling interaction with the branch tree and the markup in the 3D and 2D views.
@@ -202,10 +316,17 @@ class VesselBranchInteractor(object):
     tree: VesselBranchTree
     markupNode: slicer.vtkMRMLMarkupsFiducialNode
     """
+    # Representation of the tree
+    self._treeLine = TreeDrawer(vesselTree=tree, markupFiducial=markupNode)
+    self._treeLine.setColor(qt.QColor("red"))
+    self._treeLine.setLineWidth(4.0)
+
     # Connect tree and markup events to interactor
     self._markupNode = markupNode
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupAddedEvent, self._onVesselBranchAdded)
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointClickedEvent, self._onVesselBranchClicked)
+    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent,
+                                 lambda *args: self._treeLine.updateTreeLines())
 
     self._tree = tree
     self._tree.addClickObserver(self._onTreeClickEvent)
@@ -250,6 +371,7 @@ class VesselBranchInteractor(object):
     self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter if not keyboardModifier & qt.Qt.ShiftModifier else VesselBranchInteractor.SelectionMode.insertBefore
     self._lastNode = nodeId
     self._jumpSlicesToNode(nodeId)
+    self._treeLine.updateTreeLines()
 
   def _jumpSlicesToNode(self, nodeId):
     """Center all slices to input node position
@@ -286,6 +408,7 @@ class VesselBranchInteractor(object):
     else:
       self._tree.insertBeforeNode(nodeName, nodeName, self._lastNode)
     self._lastNode = nodeName
+    self._treeLine.updateTreeLines()
 
 
 class VesselBranchWidget(qt.QWidget):
@@ -366,6 +489,8 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselEndSelector = None
     self._vesselTree = None
     self._vesselnessVolume = None
+    self._vesselVolumeNode = None
+    self._vesselModelNode = None
     self._inputVolume = None
     self._logic = logic
     self._vesselIntersectionWidget = VesselBranchWidget()
@@ -399,7 +524,9 @@ class VesselWidget(VerticalLayoutWidget):
     branchTree = self._vesselIntersectionWidget.getBranchTree()
     branchMarkupNode = self._vesselIntersectionWidget.getBranchMarkupNode()
     strategy = ExtractOneVesselPerBranch()
-    strategy.extractVesselVolumeFromVesselBranchTree(branchTree, branchMarkupNode, self._logic)
+    self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
+                                                                                                     branchMarkupNode,
+                                                                                                     self._logic)
 
   def _createAdvancedVesselnessFilterOptionWidget(self):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -538,4 +665,4 @@ class VesselWidget(VerticalLayoutWidget):
       self._updateButtonStatusAndFilterParameters()
 
   def getGeometryExporters(self):
-    return self._vesselTree.getVesselGeometryExporters()
+    return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode)]

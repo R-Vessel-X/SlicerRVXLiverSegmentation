@@ -301,3 +301,23 @@ def raiseValueErrorIfInvalidType(**kwargs):
     # Verify value is of correct instance
     if not isinstance(value, expType):
       raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
+
+
+def getMarkupIdPositionDictionary(markup):
+  """
+  Parameters
+  ----------
+  markup : vtkMRMLMarkupsFiducialNode
+
+  Returns
+  -------
+  Dict[str, List[float]]
+    Dictionary containing the node ids contained in the markup node and its associated positions
+  """
+  markupDict = {}
+  for i in range(markup.GetNumberOfFiducials()):
+    nodeId = markup.GetNthFiducialLabel(i)
+    nodePosition = [0] * 3
+    markup.GetNthFiducialPosition(i, nodePosition)
+    markupDict[nodeId] = nodePosition
+  return markupDict
