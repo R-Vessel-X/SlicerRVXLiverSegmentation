@@ -585,6 +585,7 @@ class VesselBranchInteractor(object):
     self._lastNode = nodeId
     self._jumpSlicesToNode(nodeId)
     self._treeLine.updateTreeLines()
+    self._updateActiveNode()
 
   def _jumpSlicesToNode(self, nodeId):
     """Center all slices to input node position
@@ -628,7 +629,12 @@ class VesselBranchInteractor(object):
       self._tree.insertBeforeNode(nodeName, nodeName, self._lastNode)
       self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
     self._lastNode = nodeName
+    self._updateActiveNode()
     self._treeLine.updateTreeLines()
+
+  def _updateActiveNode(self):
+    for i in range(self._markupNode.GetNumberOfFiducials()):
+      self._markupNode.SetNthFiducialSelected(i, self._markupNode.GetNthFiducialLabel(i) == self._lastNode)
 
 
 class VesselBranchWidget(qt.QWidget):
