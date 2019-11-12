@@ -147,6 +147,9 @@ class SegmentWidget(VerticalLayoutWidget):
     # Hide node selectors
     self._setNodeSelectorVisible(False)
 
+    # Show segment node
+    self._segmentNode.SetDisplayVisibility(True)
+
     # Call superclass showEvent
     super(SegmentWidget, self).showEvent(event)
 
@@ -163,6 +166,9 @@ class SegmentWidget(VerticalLayoutWidget):
 
     # Show node selectors
     self._setNodeSelectorVisible(True)
+
+    # Hide segment node
+    self._segmentNode.SetDisplayVisibility(False)
 
     # Call superclass hideEvent
     super(SegmentWidget, self).hideEvent(event)
