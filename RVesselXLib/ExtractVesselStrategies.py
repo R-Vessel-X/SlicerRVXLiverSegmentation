@@ -132,7 +132,6 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
 
     # Extract all the branches in the tree.
     # Loop over all ids
-    nodeList = vesselBranchTree.getNodeList()
     branchList = self.constructNodeBranchPairs(vesselBranchTree, idPositionDict)
 
     volumes = []
@@ -256,7 +255,7 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrateg
       # Special case if starting from root node and current node doesn't have children (to avoid missing the point)
       # otherwise, the node will be contained in a previous parent + subChild pair
       if len(subChildren) == 0 and isStartNodeRoot:
-        branchList.append((startNode, idPositionDict[child]))
+        branchList.append((startPos, idPositionDict[child]))
 
       # Call recursively for children
       branchList += self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict, startNode=child)

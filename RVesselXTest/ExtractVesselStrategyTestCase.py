@@ -51,6 +51,24 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     expBranchPairs = [("n0", "n10"), ("n0", "n11")]
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
 
+  def testExtractOneVesselPerParentSubChildConstructsOnePairWhenOnlyOneParentChild(self):
+    # Create tree
+    # n0
+    #     |_ n10
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("n0", "n0", None)
+    branchWidget.insertAfterNode("n10", "n10", "n0")
+
+    posDict = {"n0": [1, 1, 1], "n10": [2, 2, 2]}
+
+    # Create strategy
+    strategy = ExtractOneVesselPerParentAndSubChildNode()
+
+    # Verify only one branch pair is generated
+    actPairs = strategy.constructNodeBranchPairs(branchWidget, posDict)
+    expBranchPairs = [([1, 1, 1], [2, 2, 2])]
+    self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
+
   def testExtractOneVesselPerParentSubChildExcludesDirectParentChildPairsForNonRoot(self):
     # Create tree
     # n0
