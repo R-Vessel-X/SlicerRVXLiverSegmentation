@@ -1,4 +1,7 @@
 import logging
+from collections import defaultdict
+from itertools import count
+
 import vtk
 import ctk
 import qt
@@ -10,6 +13,9 @@ from VerticalLayoutWidget import VerticalLayoutWidget
 
 
 class VesselBranchTreeItem(qt.QTreeWidgetItem):
+  """Helper class holding nodeId and nodeName in the VesselBranchTree
+  """
+
   def __init__(self, nodeId, nodeName):
     qt.QTreeWidgetItem.__init__(self)
     self.setText(0, nodeName)
@@ -24,17 +30,31 @@ class VesselBranchTree(qt.QTreeWidget):
   Class signals when modified or user interacts with the UI.
   """
 
+  class Signal(object):
+    """List of signals handled by VesselBranchTree. To add observer, see VesselBranchTree.addObserver method
+    """
+    _iSig = count(0, 1)
+    clicked = next(_iSig)  # callback(nodeId, qt.QKeyModifiers)
+    keyEvent = next(_iSig)  # callback(nodeId, qt.QKeyEvent)
+    modified = next(_iSig)  # callback()
+
   def __init__(self, parent=None):
     qt.QTreeWidget.__init__(self, parent)
     self.setHeaderLabel("Branch Node Name")
     self._branchDict = {}
-    self._clickEventCallbacks = []
-    self._keyEventCallbacks = []
+    self._callbackDict = defaultdict(list)
     self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
 
     self.setDragEnabled(True)
     self.setDropIndicatorShown(True)
     self.setDragDropMode(qt.QAbstractItemView.InternalMove)
+
+  def dropEvent(self, event):
+    """On drop event, enforce structure of the tree is not broken.
+    """
+    qt.QTreeWidget.dropEvent(self, event)
+    self.enforceOneRoot()
+    self._notifyModified()
 
   def keyPressEvent(self, event):
     """Overridden from qt.QTreeWidget to notify listeners of key event
@@ -44,23 +64,38 @@ class VesselBranchTree(qt.QTreeWidget):
     event: qt.QKeyEvent
     """
     currentNodeId = self.currentItem().nodeId
-    for callback in self._keyEventCallbacks:
+    for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
       callback(currentNodeId, event)
 
     qt.QTreeWidget.keyPressEvent(self, event)
 
   def _notifyItemClicked(self, item, column):
+    """Notify each VesselBranchTree.Signal.clicked observers of click event associated with nodeId which was clicked on
+    and the keyboard modifiers at the time of the click
+    """
     item.setExpanded(True)
-    for callback in self._clickEventCallbacks:
+    for callback in self._callbackDict[VesselBranchTree.Signal.clicked]:
       callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
 
-  def addClickObserver(self, callback):
-    self._clickEventCallbacks.append(callback)
+  def _notifyModified(self):
+    """Notify each VesselBranchTree.Signal.modified observers of modification event
+    """
+    for callback in self._callbackDict[VesselBranchTree.Signal.modified]:
+      callback()
 
-  def addKeyObserver(self, callback):
-    self._keyEventCallbacks.append(callback)
+  def addObserver(self, signal, callback):
+    """
+    Parameters
+    ----------
+    signal: int
+      Signal contained in VesselBranchTree.Signal
+    callback: Callable
+    """
+    self._callbackDict[signal].append(callback)
 
   def _takeItem(self, nodeId, nodeName=None):
+    """Remove item with given item id from the tree. Removes it from its parent if necessary
+    """
     if nodeId is None:
       return None
     elif nodeId in self._branchDict:
@@ -71,6 +106,8 @@ class VesselBranchTree(qt.QTreeWidget):
       return VesselBranchTreeItem(nodeId, nodeName)
 
   def _removeFromParent(self, nodeItem):
+    """Remove input node item from its parent if it is attached to an item or from the TreeWidget if at the root
+    """
     parent = nodeItem.parent()
     if parent is not None:
       parent.removeChild(nodeItem)
@@ -78,6 +115,18 @@ class VesselBranchTree(qt.QTreeWidget):
       self.takeTopLevelItem(self.indexOfTopLevelItem(nodeItem))
 
   def _insertNode(self, nodeId, nodeName, parentId):
+    """Insert the nodeId with input node name as child of the item whose name is parentId. If parentId is None, the item
+    will be added as a root of the tree
+
+    Parameters
+    ----------
+    nodeId: str
+      Unique id of the node to add to the tree
+    nodeName: str
+      Name which will be shown in the tree widget of the new node
+    parentId: str or None
+      Unique id of the parent node. If None will add node as root
+    """
     nodeItem = self._takeItem(nodeId, nodeName)
     if parentId is None:
       self.addTopLevelItem(nodeItem)
@@ -108,6 +157,7 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     self._insertNode(nodeId, nodeName, parentNodeId)
     self.expandAll()
+    self._notifyModified()
 
   def insertBeforeNode(self, nodeId, nodeName, childNodeId):
     """Insert given node brefore the input parent Id. Inserts new node as root if childNodeId is None and tree is
@@ -138,6 +188,7 @@ class VesselBranchTree(qt.QTreeWidget):
       nodeItem.addChild(childItem)
 
     self.expandAll()
+    self._notifyModified()
 
   def removeNode(self, nodeId):
     """Remove given node from tree.
@@ -187,14 +238,38 @@ class VesselBranchTree(qt.QTreeWidget):
     del self._branchDict[nodeId]
 
   def getParentNodeId(self, childNodeId):
+    """
+
+    Parameters
+    ----------
+    childNodeId: str
+      Node for which we want the parent id
+
+    Returns
+    -------
+    str or None
+      Id of the parent item or None if node has no parent
+    """
     parentItem = self._branchDict[childNodeId].parent()
     return parentItem.nodeId if parentItem is not None else None
 
   def getChildrenNodeId(self, parentNodeId):
+    """
+    Returns
+    -------
+    List[str]
+      List of nodeIds of every children associated with parentNodeId
+    """
     parent = self._branchDict[parentNodeId]
     return [parent.child(i).nodeId for i in range(parent.childCount())]
 
   def _getSibling(self, nodeId, nextIncrement):
+    """
+    Returns
+    -------
+    str or None
+      nodeId sibling at iNode + nextIncrement index. None if new index is out of bounds
+    """
     nodeItem = self._branchDict[nodeId]
     parent = nodeItem.parent()
     if parent is None:
@@ -204,12 +279,30 @@ class VesselBranchTree(qt.QTreeWidget):
       return parent.child(iSibling).nodeId if (0 <= iSibling < parent.childCount()) else None
 
   def getNextSiblingNodeId(self, nodeId):
+    """
+    Returns
+    -------
+    str or None
+      nodeId sibling at iNode + 1 index. None if new index is out of bounds
+    """
     return self._getSibling(nodeId, nextIncrement=1)
 
   def getPreviousSiblingNodeId(self, nodeId):
+    """
+    Returns
+    -------
+    str or None
+      nodeId sibling at iNode - 1 index. None if new index is out of bounds
+    """
     return self._getSibling(nodeId, nextIncrement=-1)
 
   def getRootNodeId(self):
+    """
+    Returns
+    -------
+    str or None
+      nodeId of the first root of the tree. None if tree has no root item
+    """
     return self.topLevelItem(0).nodeId if self.topLevelItemCount > 0 else None
 
   def getTreeParentList(self):
@@ -228,17 +321,60 @@ class VesselBranchTree(qt.QTreeWidget):
     return treeParentList
 
   def getNodeList(self):
+    """
+    Returns
+    -------
+    List[str]
+      List of every nodeIds referenced in the tree
+    """
     return self._branchDict.keys()
 
   def isLeaf(self, nodeId):
+    """
+    Returns
+    -------
+    bool
+      True if nodeId has no children item, False otherwise
+    """
     return len(self.getChildrenNodeId(nodeId)) == 0
 
   def _getChildrenAdjacentLists(self, nodeItem):
+    """
+    Returns
+    -------
+    List[List[str]]
+      List of every [parentId, childId] pair starting from nodeItem in the tree.
+    """
     children = [nodeItem.child(i) for i in range(nodeItem.childCount())]
     nodeList = [[nodeItem.nodeId, child.nodeId] for child in children]
     for child in children:
       nodeList += self._getChildrenAdjacentLists(child)
     return nodeList
+
+  def enforceOneRoot(self):
+    """Reorders tree to have only one root item. If elements are defined after root, they will be inserted before
+    current root. Methods is called during drop events.
+    """
+    # Early return if tree has at most one root
+    if self.topLevelItemCount <= 1:
+      return
+
+    # Set current root as second item child
+    newRoot = self.takeTopLevelItem(1)
+    currentRoot = self.takeTopLevelItem(0)
+    newRoot.addChild(currentRoot)
+
+    # Add the new root to the tree
+    self.insertTopLevelItem(0, newRoot)
+
+    # Expand both items
+    newRoot.setExpanded(True)
+    currentRoot.setExpanded(True)
+
+    # Call recursively until the whole tree has only one root
+    self.enforceOneRoot()
+
+    self._notifyModified()
 
 
 class TreeDrawer(object):
@@ -386,8 +522,9 @@ class VesselBranchInteractor(object):
                                  lambda *args: self._treeLine.updateTreeLines())
 
     self._tree = tree
-    self._tree.addClickObserver(self._onTreeClickEvent)
-    self._tree.addKeyObserver(self._onKeyEvent)
+    self._tree.addObserver(VesselBranchTree.Signal.clicked, self._onTreeClickEvent)
+    self._tree.addObserver(VesselBranchTree.Signal.keyEvent, self._onKeyEvent)
+    self._tree.addObserver(VesselBranchTree.Signal.modified, self._treeLine.updateTreeLines)
     self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
     self._lastNode = None
 

@@ -497,3 +497,72 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     # Verify getters
     self.assertEqual(["Child1Id", "Child2Id"], branchWidget.getChildrenNodeId("ParentId"))
     self.assertEqual([], branchWidget.getChildrenNodeId("SubChild3Id"))
+
+  def testWhenReorderingTreeWhenThereExistAnotherRootNodeRootsTreeOnObect(self):
+    # Before Tree
+    # ParentId
+    #     |_ Child1Id
+    # ParentId2
+    #     |_ Child2Id
+    #
+    # After Tree
+    # ParentId2
+    #     |_ ParentId
+    #           |_Child1Id
+    #     |_ Child2Id
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "Child1Id", "ParentId")
+    branchWidget.insertAfterNode("ParentId2", "ParentId2", None)
+    branchWidget.insertAfterNode("Child2Id", "Child2Id", "ParentId2")
+
+    # Enforce one root
+    branchWidget.enforceOneRoot()
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "ParentId2"],  #
+      ["ParentId2", "ParentId"],  #
+      ["ParentId", "Child1Id"],  #
+      ["ParentId2", "Child2Id"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenReorderingTreeReorderingStopsWhenOnlyOneItemIsLeftAsRoot(self):
+    # Before Tree
+    # ParentId1
+    # ParentId2
+    # ParentId3
+    #
+    # After Tree
+    # ParentId3
+    #     |_ ParentId2
+    #           |_ParentId1
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId1", "ParentId1", None)
+    branchWidget.insertAfterNode("ParentId2", "ParentId2", None)
+    branchWidget.insertAfterNode("ParentId3", "ParentId3", None)
+
+    # Enforce one root
+    branchWidget.enforceOneRoot()
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "ParentId3"],  #
+      ["ParentId3", "ParentId2"],  #
+      ["ParentId2", "ParentId1"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenReorderingEmptyTreeDoesNothing(self):
+    # Create empty tree
+    branchWidget = VesselBranchTree()
+
+    # Enforce one root and expect no error
+    branchWidget.enforceOneRoot()
