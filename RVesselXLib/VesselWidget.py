@@ -506,6 +506,37 @@ class VesselBranchWidget(qt.QWidget):
     widgetLayout.addWidget(self._branchTree)
     self.setLayout(widgetLayout)
     self._interactor = VesselBranchInteractor(self._branchTree, self._markupNode)
+    self._stopInteractionAction = self._createStopInteractionAction()
+
+  def enableShortcuts(self, isEnabled):
+    """Enables/Disables the shortcuts for the widget. If enabled, add node and edit node can be disabled by pressing
+    escape key.
+    """
+    if isEnabled:
+      slicer.util.mainWindow().addAction(self._stopInteractionAction)
+    else:
+      slicer.util.mainWindow().removeAction(self._stopInteractionAction)
+
+  def _createStopInteractionAction(self):
+    """
+    Returns
+    -------
+    QAction
+      When triggered, action will stop add node and edit node interactions
+    """
+    action = qt.QAction("Stop branch interaction", self)
+    action.connect("triggered()", self._stopInteraction)
+    action.setShortcut(qt.QKeySequence("esc"))
+    return action
+
+  def _stopInteraction(self):
+    """Stops add node and edit node interactions
+    """
+    if self._addBranchNodeButton.isChecked():
+      self._stopAddBranchNode()
+
+    if self._editBranchNodeButton.isChecked():
+      self._stopEditBranchNode()
 
   def _createVesselsBranchMarkupNode(self):
     """Creates markup node and node selector and connect the interaction node modified event to node status update.
@@ -638,13 +669,13 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselModelNode = None
     self._inputVolume = None
     self._logic = logic
-    self._vesselIntersectionWidget = VesselBranchWidget()
+    self._vesselBranchWidget = VesselBranchWidget()
 
     # Visualisation tree for Vessels
     self._vesselTree = VesselTree(self._logic)
     self._createUpdateVesselsButton()
 
-    self._verticalLayout.addWidget(self._vesselIntersectionWidget)
+    self._verticalLayout.addWidget(self._vesselBranchWidget)
     self._verticalLayout.addWidget(self._createExtractVesselButton())
     self._verticalLayout.addWidget(self._createAdvancedVesselnessFilterOptionWidget())
 
@@ -667,8 +698,8 @@ class VesselWidget(VerticalLayoutWidget):
   def _extractVessel(self):
     from ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch, \
       ExtractOneVesselPerParentAndSubChildNode
-    branchTree = self._vesselIntersectionWidget.getBranchTree()
-    branchMarkupNode = self._vesselIntersectionWidget.getBranchMarkupNode()
+    branchTree = self._vesselBranchWidget.getBranchTree()
+    branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
     strategy = ExtractOneVesselPerParentAndSubChildNode()
     self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                      branchMarkupNode,
@@ -812,3 +843,11 @@ class VesselWidget(VerticalLayoutWidget):
 
   def getGeometryExporters(self):
     return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode)]
+
+  def showEvent(self, event):
+    self._vesselBranchWidget.enableShortcuts(True)
+    super(VesselWidget, self).showEvent(event)
+
+  def hideEvent(self, event):
+    self._vesselBranchWidget.enableShortcuts(False)
+    super(VesselWidget, self).hideEvent(event)

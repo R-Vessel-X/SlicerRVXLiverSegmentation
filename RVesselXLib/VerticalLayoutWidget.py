@@ -23,3 +23,11 @@ class VerticalLayoutWidget(qt.QWidget):
   @property
   def name(self):
     return self._name
+
+  def showEvent(self, event):
+    # Call superclass showEvent
+    qt.QWidget.showEvent(self, event)
+
+  def hideEvent(self, event):
+    # Call superclass hideEvent
+    qt.QWidget.hideEvent(self, event)

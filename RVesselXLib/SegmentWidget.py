@@ -141,7 +141,7 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentationSmooth3d.setChecked(False)
 
     # Call superclass showEvent
-    qt.QWidget.showEvent(self, event)
+    super(SegmentWidget, self).showEvent(event)
 
   def hideEvent(self, event):
     """On hide event, hide the segmentNode 3D
@@ -153,4 +153,4 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentationShow3dButton.setChecked(False)
 
     # Call superclass hideEvent
-    qt.QWidget.hideEvent(self, event)
+    super(SegmentWidget, self).hideEvent(event)
