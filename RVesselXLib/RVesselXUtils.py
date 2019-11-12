@@ -321,3 +321,48 @@ def getMarkupIdPositionDictionary(markup):
     markup.GetNthFiducialPosition(i, nodePosition)
     markupDict[nodeId] = nodePosition
   return markupDict
+
+
+def removeNoneList(elements):
+  """
+  Parameters
+  ----------
+  elements: object or List[object]
+
+  Returns
+  -------
+  List[object] with no None values
+  """
+  if not isinstance(elements, list):
+    elements = [elements]
+  return [elt for elt in elements if elt is not None]
+
+
+def hideFromUser(modelsToHide, hideFromEditor=True):
+  """Hides the input models from the user and from the editor if option is set.
+
+  Parameters
+  ----------
+  modelsToHide: List[vtkMRMLNode] or vtkMRMLNode
+    Objects to hide from the user
+  hideFromEditor: (option) bool
+    If set to true, will hide the nodes from both views and the editor. Else they will be only hidden from views.
+    default = True
+  """
+  for model in removeNoneList(modelsToHide):
+    model.SetDisplayVisibility(False)
+    if hideFromEditor:
+      model.SetHideFromEditors(True)
+
+
+def removeFromMRMLScene(nodesToRemove):
+  """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
+
+  Parameters
+  ----------
+  nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
+    Objects to remove from the scene
+  """
+  nodesInScene = [node for node in removeNoneList(nodesToRemove) if slicer.mrmlScene.IsNodePresent(node)]
+  for node in nodesInScene:
+    slicer.mrmlScene.RemoveNode(node)

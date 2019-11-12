@@ -1,6 +1,4 @@
-import slicer
-
-from RVesselXUtils import GeometryExporter
+from RVesselXUtils import GeometryExporter, hideFromUser, removeFromMRMLScene
 
 
 class Vessel(object):
@@ -94,7 +92,7 @@ class Vessel(object):
     This volume is hidden from the user in the UI.
     """
     self.vesselnessVolume = vesselnessVolume
-    self._hideFromUser(self.vesselnessVolume)
+    hideFromUser(self.vesselnessVolume)
 
   def setSegmentation(self, seeds, volume, model):
     """Adds segmentation seed points, volume and model to the vessel. Segmentation seeds are hidden to the user as they
@@ -106,7 +104,7 @@ class Vessel(object):
     self.segmentedVolume = volume
     self.segmentedModel = model
     self._renameSegmentation()
-    self._removeFromScene(self.segmentationSeeds)
+    removeFromMRMLScene(self.segmentationSeeds)
 
   def setCenterline(self, centerline, voronoiModel):
     """Adds centerline model and voronoi model to the vessel. Voronoi model is removed from the scene as it is not
@@ -117,59 +115,17 @@ class Vessel(object):
     self.segmentedCenterline = centerline
     self.segmentedVoronoiModel = voronoiModel
     self._renameSegmentation()
-    self._removeFromScene(self.segmentedVoronoiModel)
-
-  def _hideFromUser(self, modelsToHide, hideFromEditor=True):
-    """Hides the input models from the user and from the editor if option is set.
-
-    Parameters
-    ----------
-    modelsToHide: List[vtkMRMLNode] or vtkMRMLNode
-      Objects to hide from the user
-    hideFromEditor: (option) bool
-      If set to true, will hide the nodes from both views and the editor. Else they will be only hidden from views.
-      default = True
-    """
-    for model in self._removeNoneList(modelsToHide):
-      model.SetDisplayVisibility(False)
-      if hideFromEditor:
-        model.SetHideFromEditors(True)
-
-  def _removeFromScene(self, nodesToRemove):
-    """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
-
-    Parameters
-    ----------
-    nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
-      Objects to remove from the scene
-    """
-    nodesInScene = [node for node in self._removeNoneList(nodesToRemove) if slicer.mrmlScene.IsNodePresent(node)]
-    for node in nodesInScene:
-      slicer.mrmlScene.RemoveNode(node)
+    removeFromMRMLScene(self.segmentedVoronoiModel)
 
   @staticmethod
-  def _removeNoneList(elements):
-    """
-    Parameters
-    ----------
-    elements: object or List[object]
-
-    Returns
-    -------
-    List[object] with no None values
-    """
-    if not isinstance(elements, list):
-      elements = [elements]
-    return [elt for elt in elements if elt is not None]
-
   def setInputSource(self, inputSource):
     self._inputSource = inputSource
 
   def removeFromScene(self):
     """Removes all the associated models of the vessel from mrml scene except for start and end points
     """
-    self._removeFromScene([self.segmentedCenterline, self.segmentedModel, self.segmentedVolume, self.segmentationSeeds,
-                           self.segmentedVoronoiModel, self.vesselnessVolume])
+    removeFromMRMLScene([self.segmentedCenterline, self.segmentedModel, self.segmentedVolume, self.segmentationSeeds,
+                         self.segmentedVoronoiModel, self.vesselnessVolume])
 
   def getGeometryExporter(self):
     """

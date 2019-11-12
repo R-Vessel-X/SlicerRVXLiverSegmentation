@@ -8,7 +8,8 @@ import qt
 import slicer
 
 from RVesselXLib import VesselTree, VesselnessFilterParameters, createSingleMarkupFiducial, \
-  createMultipleMarkupFiducial, jumpSlicesToNthMarkupPosition, GeometryExporter, getMarkupIdPositionDictionary
+  createMultipleMarkupFiducial, jumpSlicesToNthMarkupPosition, GeometryExporter, getMarkupIdPositionDictionary, \
+  removeFromMRMLScene
 from VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -865,6 +866,9 @@ class VesselWidget(VerticalLayoutWidget):
     # Stop branch vessel widget interaction when extracting vessels
     self._vesselBranchWidget.stopInteraction()
 
+    # Remove previous vessels
+    self._removePreviouslyExtractedVessels()
+
     # Call vessel extraction strategy and inform user of vessel extraction
     branchTree = self._vesselBranchWidget.getBranchTree()
     branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
@@ -880,6 +884,11 @@ class VesselWidget(VerticalLayoutWidget):
                                                                                                      branchMarkupNode,
                                                                                                      self._logic)
     progressDialog.hide()
+
+  def _removePreviouslyExtractedVessels(self):
+    """Remove previous nodes from mrmlScene if necessary.
+    """
+    removeFromMRMLScene([self._vesselVolumeNode, self._vesselModelNode])
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
