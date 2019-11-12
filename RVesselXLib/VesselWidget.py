@@ -488,11 +488,16 @@ class VesselBranchInteractor(object):
 
 
 class VesselBranchWidget(qt.QWidget):
+  """Class holding the widgets for vessel branch node edition.
+
+  Creates the node edition buttons, branch node tree and starts and connects the branch markup node.
+  """
+
   def __init__(self, parent=None):
     qt.QWidget.__init__(self, parent)
 
-    # Create Markups interactors
-    self._createVesselsIBranchMarkup()
+    # Create Markups node
+    self._createVesselsBranchMarkupNode()
 
     # Create layout for the widget
     widgetLayout = qt.QVBoxLayout()
@@ -502,63 +507,103 @@ class VesselBranchWidget(qt.QWidget):
     self.setLayout(widgetLayout)
     self._interactor = VesselBranchInteractor(self._branchTree, self._markupNode)
 
-  def _createVesselsIBranchMarkup(self):
+  def _createVesselsBranchMarkupNode(self):
+    """Creates markup node and node selector and connect the interaction node modified event to node status update.
+    """
     self._markupNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
     self._markupNode.SetName("node")
 
     # Markup node selector will not be shown sor tooltip and markup names are unnecessary
     self._markupNodeSelector = createMultipleMarkupFiducial(toolTip="", markupName="")
-    self._markupNodeSelector.markupsPlaceWidget().connect("activeMarkupsPlaceModeChanged(bool)",
-                                                          self._placeMarkupChanged)
 
     # Connect scene interaction node to add node update
     interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
     if interactionNode is not None:
       interactionNode.AddObserver(vtk.vtkCommand.ModifiedEvent, lambda *x: self._updateAddNodeStatus())
 
-  def _placeMarkupChanged(self, enabled):
-    logging.warn("Place markup changed")
-    if self._markupNodeSelector.currentNode() == self._markupNode:
-      self._addBranchNodeButton.setChecked(enabled)
-      self._toggleAddBranchNode()
-
   def _createButtonLayout(self):
+    """Create layout with and Add Node button and an Edit Node button
+
+    Returns
+    -------
+    QHBoxLayout
+    """
     buttonLayout = qt.QHBoxLayout()
-    self._addBranchNodeButton = self._createButton("Add Intersections", self._toggleAddBranchNode, isCheckable=True)
+    self._addBranchNodeButton = self._createButton("Add branching node", self._toggleAddBranchNode, isCheckable=True)
+    self._editBranchNodeButton = self._createButton("Edit branching node", self._toggleEditBranchNode, isCheckable=True)
     buttonLayout.addWidget(self._addBranchNodeButton)
-    buttonLayout.addWidget(self._createButton("Edit Intersections", self._editBranchNode))
+    buttonLayout.addWidget(self._editBranchNodeButton)
     return buttonLayout
 
   def _createButton(self, name, callback, isCheckable=False):
+    """Helper method to create a button with a text, callback and checkable status
+
+    Parameters
+    ----------
+    name: str
+      Label of the button
+    callback: Callable
+      Called method when button is clicked
+    isCheckable: bool
+      If true, the button will be checkable
+
+    Returns
+    -------
+    QPushButton
+    """
     button = qt.QPushButton(name)
     button.connect("clicked(bool)", callback)
     button.setCheckable(isCheckable)
     return button
 
   def _updateAddNodeStatus(self):
+    """Update add node button status. Call when the place mode has changed for the MRML scene
+    """
     self._addBranchNodeButton.setChecked(self._markupNodeSelector.markupsPlaceWidget().placeModeEnabled)
     self._toggleAddBranchNode()
 
   def _toggleAddBranchNode(self):
+    """Depending on the add branch node button checked states, either starts to add branch nodes or stop it
+    """
     if self._addBranchNodeButton.isChecked():
-      self._startBranchNodeAdd()
+      self._startAddBranchNode()
     else:
-      self._stopBranchNodeAdd()
+      self._stopAddBranchNode()
 
-  def _startBranchNodeAdd(self):
+  def _startAddBranchNode(self):
+    """Starts adding branch nodes in the scene by enabling markups selector place mode and stops branch node editing
+    """
+    self._stopEditBranchNode()
     self._markupNodeSelector.setCurrentNode(self._markupNode)
     self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(True)
-    self._markupNode.SetLocked(True)
     self._addBranchNodeButton.setChecked(True)
 
-  def _stopBranchNodeAdd(self):
+  def _stopAddBranchNode(self):
+    """Stops adding branch nodes in the scene
+    """
     self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(False)
     self._addBranchNodeButton.setChecked(False)
 
-  def _editBranchNode(self):
-    # Deactivate vessel intersection add and enable markup node displacement
-    self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(False)
+  def _toggleEditBranchNode(self):
+    """Depending on the edit branch node button checked status, either starts branch node editing or stops it
+    """
+    if self._editBranchNodeButton.isChecked():
+      self._startEditBranchNode()
+    else:
+      self._stopEditBranchNode()
+
+  def _startEditBranchNode(self):
+    """Starts node editing by unlocking markup node and stops node adding
+    """
+    self._stopAddBranchNode()
     self._markupNode.SetLocked(False)
+    self._editBranchNodeButton.setChecked(True)
+
+  def _stopEditBranchNode(self):
+    """Stops node editing by locking markup node
+    """
+    self._markupNode.SetLocked(True)
+    self._editBranchNodeButton.setChecked(False)
 
   def getBranchTree(self):
     return self._branchTree
