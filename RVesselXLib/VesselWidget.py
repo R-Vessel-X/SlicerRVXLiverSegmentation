@@ -636,6 +636,9 @@ class VesselBranchInteractor(object):
     for i in range(self._markupNode.GetNumberOfFiducials()):
       self._markupNode.SetNthFiducialSelected(i, self._markupNode.GetNthFiducialLabel(i) == self._lastNode)
 
+  def setVisibleInScene(self, isVisible):
+    self._treeLine.setVisible(isVisible)
+
 
 class VesselBranchWidget(qt.QWidget):
   """Class holding the widgets for vessel branch node edition.
@@ -791,6 +794,14 @@ class VesselBranchWidget(qt.QWidget):
 
   def getBranchMarkupNode(self):
     return self._markupNode
+
+  def setVisibleInScene(self, isVisible):
+    """If isVisible, markups and tree will be shown in scene, else they will be hidden
+    """
+    for i in range(self._markupNode.GetNumberOfFiducials()):
+      self._markupNode.SetNthMarkupVisibility(i, isVisible)
+
+    self._interactor.setVisibleInScene(isVisible)
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -996,8 +1007,10 @@ class VesselWidget(VerticalLayoutWidget):
 
   def showEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(True)
+    self._vesselBranchWidget.setVisibleInScene(True)
     super(VesselWidget, self).showEvent(event)
 
   def hideEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(False)
+    self._vesselBranchWidget.setVisibleInScene(False)
     super(VesselWidget, self).hideEvent(event)
