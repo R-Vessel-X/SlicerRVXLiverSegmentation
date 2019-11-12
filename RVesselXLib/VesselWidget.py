@@ -511,25 +511,49 @@ class VesselBranchWidget(qt.QWidget):
     self._markupNodeSelector.markupsPlaceWidget().connect("activeMarkupsPlaceModeChanged(bool)",
                                                           self._placeMarkupChanged)
 
+    # Connect scene interaction node to add node update
+    interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+    if interactionNode is not None:
+      interactionNode.AddObserver(vtk.vtkCommand.ModifiedEvent, lambda *x: self._updateAddNodeStatus())
+
   def _placeMarkupChanged(self, enabled):
+    logging.warn("Place markup changed")
     if self._markupNodeSelector.currentNode() == self._markupNode:
-      self._markupNode.SetLocked(enabled)
+      self._addBranchNodeButton.setChecked(enabled)
+      self._toggleAddBranchNode()
 
   def _createButtonLayout(self):
     buttonLayout = qt.QHBoxLayout()
-    buttonLayout.addWidget(self._createButton("Add Intersections", self._addBranchNode))
+    self._addBranchNodeButton = self._createButton("Add Intersections", self._toggleAddBranchNode, isCheckable=True)
+    buttonLayout.addWidget(self._addBranchNodeButton)
     buttonLayout.addWidget(self._createButton("Edit Intersections", self._editBranchNode))
     return buttonLayout
 
-  def _createButton(self, name, callback):
+  def _createButton(self, name, callback, isCheckable=False):
     button = qt.QPushButton(name)
     button.connect("clicked(bool)", callback)
+    button.setCheckable(isCheckable)
     return button
 
-  def _addBranchNode(self):
-    # Activate vessel node and set markups place to true
+  def _updateAddNodeStatus(self):
+    self._addBranchNodeButton.setChecked(self._markupNodeSelector.markupsPlaceWidget().placeModeEnabled)
+    self._toggleAddBranchNode()
+
+  def _toggleAddBranchNode(self):
+    if self._addBranchNodeButton.isChecked():
+      self._startBranchNodeAdd()
+    else:
+      self._stopBranchNodeAdd()
+
+  def _startBranchNodeAdd(self):
     self._markupNodeSelector.setCurrentNode(self._markupNode)
     self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(True)
+    self._markupNode.SetLocked(True)
+    self._addBranchNodeButton.setChecked(True)
+
+  def _stopBranchNodeAdd(self):
+    self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(False)
+    self._addBranchNodeButton.setChecked(False)
 
   def _editBranchNode(self):
     # Deactivate vessel intersection add and enable markup node displacement
