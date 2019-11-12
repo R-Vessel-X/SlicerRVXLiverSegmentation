@@ -880,9 +880,14 @@ class VesselWidget(VerticalLayoutWidget):
 
     # Trigger process events to properly show progress dialog
     slicer.app.processEvents()
-    self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
-                                                                                                     branchMarkupNode,
-                                                                                                     self._logic)
+    try:
+      self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
+                                                                                                       branchMarkupNode,
+                                                                                                       self._logic)
+    except Exception:
+      qt.QMessageBox.warning(self, "Failed to extract vessels", "An error happened while extracting vessels."
+                                                                "\nMake sure there are at least two nodes"
+                                                                " in the branch tree")
     progressDialog.hide()
 
   def _removePreviouslyExtractedVessels(self):
