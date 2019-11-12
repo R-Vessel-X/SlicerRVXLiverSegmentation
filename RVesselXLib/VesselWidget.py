@@ -678,11 +678,11 @@ class VesselBranchWidget(qt.QWidget):
       When triggered, action will stop add node and edit node interactions
     """
     action = qt.QAction("Stop branch interaction", self)
-    action.connect("triggered()", self._stopInteraction)
+    action.connect("triggered()", self.stopInteraction)
     action.setShortcut(qt.QKeySequence("esc"))
     return action
 
-  def _stopInteraction(self):
+  def stopInteraction(self):
     """Stops add node and edit node interactions
     """
     if self._addBranchNodeButton.isChecked():
@@ -857,14 +857,29 @@ class VesselWidget(VerticalLayoutWidget):
     return self._addVesselButton
 
   def _extractVessel(self):
+    """Extract vessels from vessel branch tree. Disable tree interaction and inform user of algorithm processing.
+    """
     from ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch, \
       ExtractOneVesselPerParentAndSubChildNode
+
+    # Stop branch vessel widget interaction when extracting vessels
+    self._vesselBranchWidget.stopInteraction()
+
+    # Call vessel extraction strategy and inform user of vessel extraction
     branchTree = self._vesselBranchWidget.getBranchTree()
     branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
     strategy = ExtractOneVesselPerParentAndSubChildNode()
+    progressDialog = slicer.util.createProgressDialog(parent=self, windowTitle="Extracting vessels",
+                                                      labelText="Extracting vessels volume from branch nodes."
+                                                                "\nThis may take a minute...")
+    progressDialog.show()
+
+    # Trigger process events to properly show progress dialog
+    slicer.app.processEvents()
     self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                      branchMarkupNode,
                                                                                                      self._logic)
+    progressDialog.hide()
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
