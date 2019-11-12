@@ -52,9 +52,9 @@ class VesselnessFilterParameters(object):
   def __init__(self):
     self.minimumDiameter = 1
     self.maximumDiameter = 7
-    self.suppressPlatesPercent = 10
-    self.suppressBlobsPercent = 10
-    self.vesselContrast = 100
+    self.suppressPlatesPercent = 50
+    self.suppressBlobsPercent = 50
+    self.vesselContrast = 5
 
 
 class IRVesselXModuleLogic(object):
