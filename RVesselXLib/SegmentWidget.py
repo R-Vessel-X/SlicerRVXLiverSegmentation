@@ -34,8 +34,7 @@ class SegmentWidget(VerticalLayoutWidget):
                                   if "surface" in action.text.lower()][0]
 
     # Hide segmentation node and master volume node
-    self._segmentationWidget.setMasterVolumeNodeSelectorVisible(False)
-    self._segmentationWidget.setSegmentationNodeSelectorVisible(False)
+    self._setNodeSelectorVisible(False)
 
     # Add segmentation volume for the widget
     self._segmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
@@ -47,6 +46,10 @@ class SegmentWidget(VerticalLayoutWidget):
 
     self._verticalLayout.addWidget(self._segmentUi)
     self._layoutList = []
+
+  def _setNodeSelectorVisible(self, isVisible):
+    self._segmentationWidget.setMasterVolumeNodeSelectorVisible(isVisible)
+    self._segmentationWidget.setSegmentationNodeSelectorVisible(isVisible)
 
   def setInputNode(self, node):
     """Modify input to given input node and update segmentation master volume
@@ -121,7 +124,8 @@ class SegmentWidget(VerticalLayoutWidget):
 
   def showEvent(self, event):
     """On show events, reset layout to have proper showing of only instance of segmentation UI.
-    Sets the segmentation UI segmentNode linked to current instance of widget and show node 3D
+    Sets the segmentation UI segmentNode linked to current instance of widget and show node 3D.
+    Also hides the node selection as the selection node should be set to instantiated segment node only.
 
     Parameters
     ----------
@@ -140,17 +144,25 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentationShow3dButton.setChecked(True)
     self._segmentationSmooth3d.setChecked(False)
 
+    # Hide node selectors
+    self._setNodeSelectorVisible(False)
+
     # Call superclass showEvent
     super(SegmentWidget, self).showEvent(event)
 
   def hideEvent(self, event):
-    """On hide event, hide the segmentNode 3D
+    """On hide event, hide the segmentNode 3D.
+    Also shows the node selection as the widget instance is shared for all of slicer app. User may need to access
+    segmentation widget for other purposes.
 
     Parameters
     ----------
     event: QEvent
     """
     self._segmentationShow3dButton.setChecked(False)
+
+    # Show node selectors
+    self._setNodeSelectorVisible(True)
 
     # Call superclass hideEvent
     super(SegmentWidget, self).hideEvent(event)
