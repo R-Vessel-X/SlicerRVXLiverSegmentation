@@ -614,12 +614,19 @@ class VesselBranchInteractor(object):
     return None
 
   def _onVesselBranchAdded(self, *args):
+    """Adds a new node in the markupNode and insert this node in the tree depending on the previous node id.
+    Newly added node becomes new root for later node added to the tree.
+
+    If previous insertion mode was insert before, it is changed back to insert after current node to ease adding
+    missed intersection and iterating from it to new vessel branch.
+    """
     iNode = self._markupNode.GetNumberOfFiducials() - 1
     nodeName = self._markupNode.GetNthFiducialLabel(iNode)
     if self._insertMode == VesselBranchInteractor.SelectionMode.insertAfter:
       self._tree.insertAfterNode(nodeName, nodeName, self._lastNode)
     else:
       self._tree.insertBeforeNode(nodeName, nodeName, self._lastNode)
+      self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
     self._lastNode = nodeName
     self._treeLine.updateTreeLines()
 
