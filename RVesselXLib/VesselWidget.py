@@ -866,6 +866,13 @@ class VesselWidget(VerticalLayoutWidget):
                                                                                                      branchMarkupNode,
                                                                                                      self._logic)
 
+  def _setExtractedVolumeVisible(self, isVisible):
+    if self._vesselVolumeNode is None or self._vesselModelNode is None:
+      return
+
+    self._vesselVolumeNode.SetDisplayVisibility(isVisible)
+    self._vesselModelNode.SetDisplayVisibility(isVisible)
+
   def _createAdvancedVesselnessFilterOptionWidget(self):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
     filterOptionCollapsibleButton.text = "Vesselness Filter Options"
@@ -1008,9 +1015,11 @@ class VesselWidget(VerticalLayoutWidget):
   def showEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(True)
     self._vesselBranchWidget.setVisibleInScene(True)
+    self._setExtractedVolumeVisible(True)
     super(VesselWidget, self).showEvent(event)
 
   def hideEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(False)
     self._vesselBranchWidget.setVisibleInScene(False)
+    self._setExtractedVolumeVisible(False)
     super(VesselWidget, self).hideEvent(event)
