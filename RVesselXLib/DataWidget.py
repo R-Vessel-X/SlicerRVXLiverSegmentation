@@ -1,3 +1,5 @@
+import logging
+
 import qt
 import slicer
 
@@ -19,25 +21,25 @@ class DataWidget(VerticalLayoutWidget):
 
     VerticalLayoutWidget.__init__(self, "Data Tab")
 
-    # Add load MRI button #
+    # Create input layout
     inputLayout = qt.QHBoxLayout()
-
     inputLabel = qt.QLabel("Volume: ")
     inputLayout.addWidget(inputLabel)
 
-    # Wrap input selector changed method in a timer call so that the volume can be correctly set first
-    def inputChangedCallback(node):
-      qt.QTimer.singleShot(0, lambda: self.onInputSelectorNodeChanged(node))
-
+    # Create input volume selector and connect callback to selection changed signal
+    self._volumeDisplayNode = None
+    self._sceneObserver = None
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
-                                                 callBack=inputChangedCallback)
+                                                 callBack=self.onInputSelectorNodeChanged)
 
     inputLayout.addWidget(self.inputSelector)
 
+    # Create load DICOM button
     loadDicomButton = qt.QPushButton("Load DICOM")
     loadDicomButton.connect("clicked(bool)", self.onLoadDICOMClicked)
     inputLayout.addWidget(loadDicomButton)
 
+    # Create load DATA button
     loadDataButton = qt.QPushButton("Load Data")
     loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
     inputLayout.addWidget(loadDataButton)
@@ -58,9 +60,9 @@ class DataWidget(VerticalLayoutWidget):
 
     # Hide Volume Rendering Selector and its label
     self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
-                                                                               "VisibilityCheckBox")
+                                                                                    "VisibilityCheckBox")
     self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
-                                                                             "VolumeNodeComboBox")
+                                                                                  "VolumeNodeComboBox")
 
     # Add stretch
     self._verticalLayout.addStretch(1)
@@ -87,9 +89,26 @@ class DataWidget(VerticalLayoutWidget):
     ----------
     node: vtkMRMLNode
     """
-    if node is not None:
-      for callback in self._inputNodeChangedCallbacks:
-        callback(node)
+    if node:
+      self._removePreviousNodeAddedObserverFromScene()
+
+      # If node not yet properly initialized, attach observer to image change.
+      # Else notify image changed and save node as new input volume
+      if node.GetImageData() is None:
+        self._attachNodeAddedObserverToScene(node)
+      else:
+        self._notifyInputChanged(node)
+
+  def _removePreviousNodeAddedObserverFromScene(self):
+    slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+
+  def _attachNodeAddedObserverToScene(self, node):
+    self._sceneObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
+                                                       lambda *x: self.onInputSelectorNodeChanged(node))
+
+  def _notifyInputChanged(self, node):
+    for callback in self._inputNodeChangedCallbacks:
+      callback(node)
 
   def onLoadDICOMClicked(self):
     """Show DICOM Widget as popup
@@ -136,21 +155,29 @@ class DataWidget(VerticalLayoutWidget):
     ----------
     volumeNode: vtkMRMLVolumeNode
     """
-    if volumeNode is not None:
-      volRenLogic = slicer.modules.volumerendering.logic()
-      displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
-      displayNode.SetVisibility(True)
-      slicer.util.resetThreeDViews()
+    if volumeNode is None:
+      return
 
-      # Load preset
-      # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
-      scalarRange = volumeNode.GetImageData().GetScalarRange()
-      if scalarRange[1] - scalarRange[0] < 1500:
-        # small dynamic range, probably MRI
-        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
-      else:
-        # larger dynamic range, probably CT
-        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
+    volRenLogic = slicer.modules.volumerendering.logic()
+
+    # hide previous node if necessary
+    if self._volumeDisplayNode:
+      self._volumeDisplayNode.SetVisibility(False)
+
+    # Create new display node for input volume
+    self._volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+    self._volumeDisplayNode.SetVisibility(True)
+    slicer.util.resetThreeDViews()
+
+    # Load preset
+    # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+    scalarRange = volumeNode.GetImageData().GetScalarRange()
+    if scalarRange[1] - scalarRange[0] < 1500:
+      # small dynamic range, probably MRI
+      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
+    else:
+      # larger dynamic range, probably CT
+      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
   def getInputNode(self):
     """
