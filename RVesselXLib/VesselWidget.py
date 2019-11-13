@@ -64,9 +64,10 @@ class VesselBranchTree(qt.QTreeWidget):
     ----------
     event: qt.QKeyEvent
     """
-    currentNodeId = self.currentItem().nodeId
-    for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-      callback(currentNodeId, event)
+    if self.currentItem():
+      currentNodeId = self.currentItem().nodeId
+      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
+        callback(currentNodeId, event)
 
     qt.QTreeWidget.keyPressEvent(self, event)
 
@@ -221,14 +222,19 @@ class VesselBranchTree(qt.QTreeWidget):
     -------
     bool - True if root item was removed, False otherwise
     """
-    if nodeItem.childCount() == 1:
+    if nodeItem.childCount() > 1:
+      return False
+    else:
+      # Delete root item
       self.takeTopLevelItem(0)
-      child = nodeItem.takeChild(0)
-      self.insertTopLevelItem(0, child)
-      child.setExpanded(True)
       del self._branchDict[nodeId]
+
+      # Set child as new root item if necessary
+      if nodeItem.childCount() == 1:
+        child = nodeItem.takeChild(0)
+        self.insertTopLevelItem(0, child)
+        child.setExpanded(True)
       return True
-    return False
 
   def _removeIntermediateItem(self, nodeItem, nodeId):
     """Move each child of node to node parent and remove item.
@@ -455,6 +461,10 @@ class TreeDrawer(object):
     if parentId is None:
       parentId = self._tree.getRootNodeId()
 
+    # Early return if tree is empty
+    if not parentId:
+      return []
+
     parentCoord = self._nodeCoordinate(parentId)
     pointSeq = [parentCoord]
     for childId in self._tree.getChildrenNodeId(parentId):
@@ -557,6 +567,10 @@ class VesselBranchInteractor(object):
 
       # If node was successfully removed, update markup and treeLine
       if wasRemoved:
+        # Update last node if it was removed
+        if self._lastNode == nodeId:
+          self._lastNode = self._tree.getRootNodeId()
+
         # Remove node from markup
         self._removeFromMarkup(nodeId)
 

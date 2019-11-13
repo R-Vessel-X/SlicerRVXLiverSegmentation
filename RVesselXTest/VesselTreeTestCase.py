@@ -431,6 +431,18 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     self.assertFalse(wasRemoved)
     self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
 
+  def testWhenRemovingRootWhenLastRemainingRemovesRoot(self):
+    # Create tree with one root
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "Parent", None)
+
+    # Remove root and expect success
+    wasRemoved = branchWidget.removeNode("ParentId")
+
+    # Verify tree is empty
+    self.assertTrue(wasRemoved)
+    self.assertEqual([], branchWidget.getTreeParentList())
+
   def testWhenRemovingRootAndHasOneDirectChildSelectsChildAsRoot(self):
     # Before Tree
     # ParentId
