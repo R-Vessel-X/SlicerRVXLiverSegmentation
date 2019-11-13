@@ -520,6 +520,7 @@ class VesselBranchInteractor(object):
     self._markupNode = markupNode
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupAddedEvent, self._onVesselBranchAdded)
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointClickedEvent, self._onVesselBranchClicked)
+    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self._onVesselBranchClicked)
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent,
                                  lambda *args: self._treeLine.updateTreeLines())
 
@@ -569,7 +570,7 @@ class VesselBranchInteractor(object):
 
   @vtk.calldata_type(vtk.VTK_INT)
   def _onVesselBranchClicked(self, caller, eventId, callData):
-    nodeId = self._markupNode.GetNthFiducialAssociatedNodeID(callData)
+    nodeId = self._markupNode.GetNthFiducialLabel(callData)
     self._selectCurrentNode(nodeId, qt.QGuiApplication.keyboardModifiers())
 
   def _selectCurrentNode(self, nodeId, keyboardModifier):
