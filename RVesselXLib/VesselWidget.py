@@ -11,6 +11,7 @@ from RVesselXLib import VesselTree, VesselnessFilterParameters, createSingleMark
   createMultipleMarkupFiducial, jumpSlicesToNthMarkupPosition, GeometryExporter, getMarkupIdPositionDictionary, \
   removeFromMRMLScene
 from VerticalLayoutWidget import VerticalLayoutWidget
+from VesselTreeWidget import Icons
 
 
 class VesselBranchTreeItem(qt.QTreeWidgetItem):
@@ -22,6 +23,7 @@ class VesselBranchTreeItem(qt.QTreeWidgetItem):
     self.setText(0, nodeName)
     self.nodeId = nodeId
     self.nodeName = nodeName
+    self.setIcon(1, Icons.delete)
 
 
 class VesselBranchTree(qt.QTreeWidget):
@@ -36,19 +38,33 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     _iSig = count(0, 1)
     clicked = next(_iSig)  # callback(nodeId, qt.QKeyModifiers)
-    keyEvent = next(_iSig)  # callback(nodeId, qt.QKeyEvent)
+    keyEvent = next(_iSig)  # callback(nodeId, qt.QKey)
     modified = next(_iSig)  # callback()
 
   def __init__(self, parent=None):
     qt.QTreeWidget.__init__(self, parent)
-    self.setHeaderLabel("Branch Node Name")
+
     self._branchDict = {}
     self._callbackDict = defaultdict(list)
-    self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
 
+    # Configure tree widget
+    self.setColumnCount(2)
+    self.setHeaderLabels(["Branch Node Name", ""])
+
+    # Configure tree to have first section stretched and last sections to be at right of the layout
+    # other columns will always be at minimum size fitting the icons
+    self.header().setSectionResizeMode(0, qt.QHeaderView.Stretch)
+    self.header().setStretchLastSection(False)
+    self.header().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+    self.headerItem().setIcon(1, Icons.delete)
+
+    # Enable reordering by drag and drop
     self.setDragEnabled(True)
     self.setDropIndicatorShown(True)
     self.setDragDropMode(qt.QAbstractItemView.InternalMove)
+
+    # Connect click event to notify signal
+    self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
 
   def dropEvent(self, event):
     """On drop event, enforce structure of the tree is not broken.
@@ -67,7 +83,7 @@ class VesselBranchTree(qt.QTreeWidget):
     if self.currentItem():
       currentNodeId = self.currentItem().nodeId
       for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-        callback(currentNodeId, event)
+        callback(currentNodeId, event.key())
 
     qt.QTreeWidget.keyPressEvent(self, event)
 
@@ -75,9 +91,13 @@ class VesselBranchTree(qt.QTreeWidget):
     """Notify each VesselBranchTree.Signal.clicked observers of click event associated with nodeId which was clicked on
     and the keyboard modifiers at the time of the click
     """
-    item.setExpanded(True)
-    for callback in self._callbackDict[VesselBranchTree.Signal.clicked]:
-      callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
+    if column == 1:
+      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
+        callback(item.nodeId, qt.Qt.Key_Delete)
+    else:
+      item.setExpanded(True)
+      for callback in self._callbackDict[VesselBranchTree.Signal.clicked]:
+        callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
 
   def _notifyModified(self):
     """Notify each VesselBranchTree.Signal.modified observers of modification event
@@ -560,8 +580,8 @@ class VesselBranchInteractor(object):
   def _onTreeClickEvent(self, nodeId, keyboardModifier):
     self._selectCurrentNode(nodeId, keyboardModifier)
 
-  def _onKeyEvent(self, nodeId, keyEvent):
-    if keyEvent.key() == qt.Qt.Key_Delete:
+  def _onKeyEvent(self, nodeId, key):
+    if key == qt.Qt.Key_Delete:
       # Remove node from tree
       wasRemoved = self._tree.removeNode(nodeId)
 

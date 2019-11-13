@@ -7,5 +7,5 @@ from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, warn, warnLi
 from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch, \
   ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromNodePairsStrategy
 from .Vessel import Vessel
-from .VesselTreeWidget import VesselTree, VesselTreeItem
+from .VesselTreeWidget import VesselTree, VesselTreeItem, Icons
 from .VesselWidget import VesselWidget, VesselBranchTree, VesselBranchWidget
