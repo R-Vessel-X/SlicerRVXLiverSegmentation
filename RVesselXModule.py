@@ -120,9 +120,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self.logic = RVesselXModuleLogic()
     self._dataTab = DataWidget()
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
-                                   segmentNames=["LiverIn", "LiverOut"])
+                                   segmentNames=["Liver In", "Liver Out"])
     self._vesselsTab = VesselWidget(self.logic)
-    self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors")
+    self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
+                                   segmentNames=["Tumor", "Not Tumor"])
 
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
