@@ -221,17 +221,44 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("NodeId", "NodeName", None)
     self.assertEqual("NodeId", branchWidget.getRootNodeId())
 
+  def testInsertAfterEmptyIsEquivalentToInsertAfterNone(self):
+    branchWidget1 = VesselBranchTree()
+    branchWidget1.insertAfterNode("NodeId", "NodeId", None)
+    branchWidget1.insertAfterNode("NodeId2", "NodeId2", None)
+
+    branchWidget2 = VesselBranchTree()
+    branchWidget2.insertAfterNode("NodeId", "NodeId", "")
+    branchWidget2.insertAfterNode("NodeId2", "NodeId2", "")
+    self.assertEqual(branchWidget1.getTreeParentList(), branchWidget2.getTreeParentList())
+
   def testWhenTreeIsEmptyInsertBeforeNoneCreatesRoot(self):
     branchWidget = VesselBranchTree()
     branchWidget.insertBeforeNode("NodeId", "NodeName", None)
     self.assertEqual("NodeId", branchWidget.getRootNodeId())
 
-  def testWhenInsertAfterNoneAndRootExistsSetsNewNodeAsTopLevelItem(self):
+  def testWhenTreeIsNotEmptyInsertBeforeNoneReplacesRoot(self):
+    branchWidget = VesselBranchTree()
+    branchWidget.insertBeforeNode("NodeId", "NodeId", None)
+    branchWidget.insertBeforeNode("NodeId2", "NodeId2", None)
+    self.assertEqual("NodeId2", branchWidget.getRootNodeId())
+
+  def testInsertBeforeEmptyIsEquivalentToInsertBeforeNone(self):
+    branchWidget1 = VesselBranchTree()
+    branchWidget1.insertBeforeNode("NodeId", "NodeId", None)
+    branchWidget1.insertBeforeNode("NodeId2", "NodeId2", None)
+
+    branchWidget2 = VesselBranchTree()
+    branchWidget2.insertBeforeNode("NodeId", "NodeId", "")
+    branchWidget2.insertBeforeNode("NodeId2", "NodeId2", "")
+    self.assertEqual(branchWidget1.getTreeParentList(), branchWidget2.getTreeParentList())
+
+  def testWhenInsertAfterNoneAndRootExistsSetsNewNodeAsNewRoot(self):
     branchWidget = VesselBranchTree()
     branchWidget.insertAfterNode("PrevRootId", "PrevRootName", None)
     branchWidget.insertAfterNode("NewRootId", "NewRootName", None)
 
-    self.assertEqual(sorted([[None, "NewRootId"], [None, "PrevRootId"]]), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(sorted([[None, "NewRootId"], ["NewRootId", "PrevRootId"]]),
+                     sorted(branchWidget.getTreeParentList()))
 
   def testWhenInsertAfterNodeNewNodeIsAddedAsChild(self):
     # ParentId
@@ -288,37 +315,56 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
 
-  def testWhenInsertBeforeNodeAndParentIsNoneNewNodeIsAddedAsTopItem(self):
+  def testWhenInsertBeforeNodeAndParentIsNoneNewNodeIsAddedAsRootItem(self):
     # Before Tree
     # ParentId
     #     |_ Child1Id
-    # ParentId2
-    #     |_ Child2Id
     #
     # After Tree
-    # ParentId
-    #     |_ Child1Id
     # InsertedId
-    #     |_ ParentId2
-    #               |_ Child2Id
+    #     |_ ParentId
+    #         |_ ChildId
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("ParentId2", "Parent2", None)
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId2")
+    branchWidget.insertAfterNode("ParentId", "ParentId", None)
+    branchWidget.insertAfterNode("ChildId", "ChildId", "ParentId")
 
     # Insert child
-    branchWidget.insertBeforeNode("InsertedId", "Inserted", "ParentId2")
+    branchWidget.insertBeforeNode("InsertedId", "InsertedId", None)
 
     # Verify tree is as after tree
     expTree = [  #
-      [None, "ParentId"],  #
       [None, "InsertedId"],  #
-      ["ParentId", "Child1Id"],  #
-      ["InsertedId", "ParentId2"],  #
-      ["ParentId2", "Child2Id"],  #
+      ["InsertedId", "ParentId"],  #
+      ["ParentId", "ChildId"],  #
+    ]
+
+    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+
+  def testWhenInsertBeforeRootNewNodeIsAddedAsRootItem(self):
+    # Before Tree
+    # ParentId
+    #     |_ ChildId
+    #
+    # After Tree
+    # InsertedId
+    #     |_ ParentId
+    #         |_ ChildId
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", "ParentId", None)
+    branchWidget.insertAfterNode("ChildId", "ChildId", "ParentId")
+
+    # Insert child
+    branchWidget.insertBeforeNode("InsertedId", "InsertedId", "ParentId")
+
+    # Verify tree is as after tree
+    expTree = [  #
+      [None, "InsertedId"],  #
+      ["InsertedId", "ParentId"],  #
+      ["ParentId", "ChildId"],  #
     ]
 
     self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))

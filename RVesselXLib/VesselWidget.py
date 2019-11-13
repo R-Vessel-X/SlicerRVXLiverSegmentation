@@ -126,11 +126,15 @@ class VesselBranchTree(qt.QTreeWidget):
     nodeName: str
       Name which will be shown in the tree widget of the new node
     parentId: str or None
-      Unique id of the parent node. If None will add node as root
+      Unique id of the parent node. If None or "" will add node as root
     """
     nodeItem = self._takeItem(nodeId, nodeName)
-    if parentId is None:
+    if not parentId:
+      hasRoot = self.topLevelItemCount > 0
       self.addTopLevelItem(nodeItem)
+      if hasRoot:
+        rootItem = self.takeTopLevelItem(0)
+        nodeItem.addChild(rootItem)
     else:
       self._branchDict[parentId].addChild(nodeItem)
 
@@ -161,8 +165,7 @@ class VesselBranchTree(qt.QTreeWidget):
     self._notifyModified()
 
   def insertBeforeNode(self, nodeId, nodeName, childNodeId):
-    """Insert given node brefore the input parent Id. Inserts new node as root if childNodeId is None and tree is
-    empty. If root is already present in the tree and child = None is used will raise an error.
+    """Insert given node before the input parent Id. Inserts new node as root if childNodeId is None.
 
     Parameters
     ----------
@@ -171,16 +174,14 @@ class VesselBranchTree(qt.QTreeWidget):
     nodeName: str
       Representation label of the node
     childNodeId: str or None
-      Unique ID of the child node before which the new node will be inserted.
+      Unique ID of the child node before which the new node will be inserted. If None or "" will insert node at root.
 
     Raises
     ------
       ValueError
         If childNodeId is not None and doesn't exist in the tree
-      ValueError
-        If childNodeId is None and tree is not empty
     """
-    if childNodeId is None and self.topLevelItemCount == 0:
+    if not childNodeId:
       self._insertNode(nodeId, nodeName, None)
     else:
       parentNodeId = self.getParentNodeId(childNodeId)
