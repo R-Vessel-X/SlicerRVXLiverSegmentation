@@ -1,6 +1,7 @@
+import unittest
+
 import qt
 import slicer
-import unittest
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
@@ -32,6 +33,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     Liver Tab : Responsible for Liver segmentation
     Vessel Tab : Responsible for vessel segmentation
   """
+  enableReloadOnSceneClear = True
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
@@ -43,6 +45,17 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._vesselsTab = None
     self._tumorTab = None
     self._tabList = []
+    self._obs = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, lambda *x: self.reloadModule())
+
+  def cleanup(self):
+    slicer.mrmlScene.RemoveObserver(self._obs)
+    ScriptedLoadableModuleWidget.cleanup(self)
+
+  def reloadModule(self):
+    """Reload module only if reloading is enabled (ie : not when testing module)
+    """
+    if RVesselXModuleWidget.enableReloadOnSceneClear:
+      slicer.util.reloadScriptedModule(self.moduleName)
 
   def _configureLayout(self):
     # Define layout #
@@ -235,6 +248,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
 class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def runTest(self):
+    # Disable module reloading between tests
+    RVesselXModuleWidget.enableReloadOnSceneClear = False
+
+    # Gather tests for the plugin and run them in a test suite
     testCases = [RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
+
+    # Reactivate module reloading and cleanup slicer scene
+    RVesselXModuleWidget.enableReloadOnSceneClear = True
+    slicer.mrmlScene.Clear()
