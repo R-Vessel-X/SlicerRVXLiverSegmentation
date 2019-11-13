@@ -707,20 +707,28 @@ class VesselBranchWidget(qt.QWidget):
       interactionNode.AddObserver(vtk.vtkCommand.ModifiedEvent, lambda *x: self._updateAddNodeStatus())
 
   def _createButtonLayout(self):
-    """Create layout with and Add Node button and an Edit Node button
+    """Create layout with Extract vessels, Add Node button and an Edit Node button
 
     Returns
     -------
-    QHBoxLayout
+    QLayout
     """
-    buttonLayout = qt.QHBoxLayout()
+
+    # Create add and edit layout
+    addEditButtonLayout = qt.QHBoxLayout()
     self._addBranchNodeButton = self._createButton("Add branching node", self._toggleAddBranchNode, isCheckable=True)
     self._editBranchNodeButton = self._createButton("Edit branching node", self._toggleEditBranchNode, isCheckable=True)
-    buttonLayout.addWidget(self._addBranchNodeButton)
-    buttonLayout.addWidget(self._editBranchNodeButton)
+    addEditButtonLayout.addWidget(self._addBranchNodeButton)
+    addEditButtonLayout.addWidget(self._editBranchNodeButton)
+
+    # Create vertical layout and add Add and edit buttons on top of extract button
+    buttonLayout = qt.QVBoxLayout()
+    buttonLayout.addLayout(addEditButtonLayout)
+    self.extractVesselsButton = self._createButton("Extract Vessels from node tree")
+    buttonLayout.addWidget(self.extractVesselsButton)
     return buttonLayout
 
-  def _createButton(self, name, callback, isCheckable=False):
+  def _createButton(self, name, callback=None, isCheckable=False):
     """Helper method to create a button with a text, callback and checkable status
 
     Parameters
@@ -737,7 +745,8 @@ class VesselBranchWidget(qt.QWidget):
     QPushButton
     """
     button = qt.QPushButton(name)
-    button.connect("clicked(bool)", callback)
+    if callback is not None:
+      button.connect("clicked(bool)", callback)
     button.setCheckable(isCheckable)
     return button
 
@@ -832,30 +841,18 @@ class VesselWidget(VerticalLayoutWidget):
     self._inputVolume = None
     self._logic = logic
     self._vesselBranchWidget = VesselBranchWidget()
+    self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
 
     # Visualisation tree for Vessels
     self._vesselTree = VesselTree(self._logic)
     self._createUpdateVesselsButton()
 
     self._verticalLayout.addWidget(self._vesselBranchWidget)
-    self._verticalLayout.addWidget(self._createExtractVesselButton())
     self._verticalLayout.addWidget(self._createAdvancedVesselnessFilterOptionWidget())
 
     # Connect vessel tree edit change to update add button status
     self._updateButtonStatusAndFilterParameters()
     self._vesselTree.addEditChangedCallback(self._updateButtonStatusAndFilterParameters)
-
-  def _createExtractVesselButton(self):
-    """Creates add vessel button responsible for adding new row in the tree.
-
-    Returns
-    ------
-    QPushButton
-    """
-    # Add Vessel Button
-    self._addVesselButton = qt.QPushButton("Extract Vessel")
-    self._addVesselButton.connect("clicked(bool)", self._extractVessel)
-    return self._addVesselButton
 
   def _extractVessel(self):
     """Extract vessels from vessel branch tree. Disable tree interaction and inform user of algorithm processing.
@@ -1020,7 +1017,7 @@ class VesselWidget(VerticalLayoutWidget):
     and vessels populate the tree, vessels can be updated using new filter parameters.
     """
     isEnabled = self._inputVolume is not None and not self._vesselTree.isEditing()
-    self._addVesselButton.setEnabled(isEnabled)
+    self._vesselBranchWidget.extractVesselsButton.setEnabled(isEnabled)
     self._updateVesselsButton.setEnabled(isEnabled and self._vesselTree.vesselCount() > 0)
     self._updateVesselnessFilterParameters(self._logic.vesselnessFilterParameters)
 
