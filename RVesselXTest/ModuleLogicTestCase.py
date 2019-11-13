@@ -4,7 +4,7 @@ import unittest
 import slicer
 
 from RVesselXLib import RVesselXModuleLogic, GeometryExporter
-from RVesselXTest import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
+from TestUtils import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
 
 
 class RVesselXModuleTestCase(unittest.TestCase):
@@ -22,9 +22,6 @@ class RVesselXModuleTestCase(unittest.TestCase):
     startPosition = [176.9, -17.4, 52.7]
     endPosition = [174.704, -23.046, 76.908]
 
-    startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", startPosition)
-    endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", endPosition)
-
     # Crop volume
     roi = slicer.vtkMRMLAnnotationROINode()
     roi.Initialize(slicer.mrmlScene)
@@ -38,13 +35,12 @@ class RVesselXModuleTestCase(unittest.TestCase):
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
     logic.setInputVolume(sourceVolume)
-    vessel = logic.extractVessel(startPoint, endPoint)
+    seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition],
+                                                                                           [endPosition])
 
-    self.assertIsNotNone(vessel.segmentedVolume)
-    self.assertIsNotNone(vessel.segmentedModel)
-    self.assertNotEqual(0, vessel.segmentedModel.GetPolyData().GetNumberOfCells())
-    self.assertIsNotNone(vessel.segmentedCenterline)
-    self.assertNotEqual(0, vessel.segmentedCenterline.GetPolyData().GetNumberOfCells())
+    self.assertIsNotNone(outVolume)
+    self.assertIsNotNone(outModel)
+    self.assertNotEqual(0, outModel.GetPolyData().GetNumberOfCells())
 
   def testLogicRaisesErrorWhenCalledWithNoneInputs(self):
     logic = RVesselXModuleLogic()

@@ -25,9 +25,11 @@ class VerticalLayoutWidget(qt.QWidget):
     return self._name
 
   def showEvent(self, event):
-    # Call superclass showEvent
+    """Overridden for easier use in deriving classes.
+    """
     qt.QWidget.showEvent(self, event)
 
   def hideEvent(self, event):
-    # Call superclass hideEvent
+    """Overridden for easier use in deriving classes.
+    """
     qt.QWidget.hideEvent(self, event)

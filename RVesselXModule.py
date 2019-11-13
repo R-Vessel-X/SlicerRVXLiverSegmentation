@@ -5,8 +5,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
-from RVesselXTest import RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase, \
-  ExtractVesselStrategyTestCase
+from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -28,10 +27,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   For more information on the R-Vessel-X project, please visit :
   https://anr.fr/Projet-ANR-18-CE45-0018
 
-  Module is composed of 3 tabs :
+  Module is composed of 4 tabs :
     Data Tab : Responsible for loading DICOM data in Slicer
     Liver Tab : Responsible for Liver segmentation
     Vessel Tab : Responsible for vessel segmentation
+    Tumor Tab : Responsible for tumor segmentation
   """
   enableReloadOnSceneClear = True
 
@@ -48,11 +48,15 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._obs = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, lambda *x: self.reloadModule())
 
   def cleanup(self):
+    """Cleanup called before reloading module. Removes mrmlScene observer to avoid multiple setup of the module
+    """
     slicer.mrmlScene.RemoveObserver(self._obs)
     ScriptedLoadableModuleWidget.cleanup(self)
 
   def reloadModule(self):
-    """Reload module only if reloading is enabled (ie : not when testing module)
+    """Reload module only if reloading is enabled (ie : not when testing module).
+
+    Implementation closely resembles super class onReload method but without verbosity and with enabling handled.
     """
     if RVesselXModuleWidget.enableReloadOnSceneClear:
       slicer.util.reloadScriptedModule(self.moduleName)
@@ -84,7 +88,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
 
   def _configure3DViewWithMaximumIntensityProjection(self):
-    """Configures 3D View to render volumes with raycast maximum intensity projection configuration.
+    """Configures 3D View to render volumes with ray casting maximum intensity projection configuration.
     Background is set to black color.
 
     This rendering allows to see the vessels and associated segmented areas making it possible to see if parts of the
@@ -102,6 +106,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     view.SetRaycastTechnique(2)
 
   def _addTab(self, tab, tabName):
+    """Add input tab to the tab widget and to the tab list.
+
+    Parameters
+    ----------
+    tab: qt.QWidget
+    tabName: str
+      Display label of the tab
+    """
     self._tabWidget.addTab(tab, tabName)
     self._tabList.append(tab)
 
@@ -253,7 +265,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     RVesselXModuleWidget.enableReloadOnSceneClear = False
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXModuleTestCase, VesselTreeTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
+    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 

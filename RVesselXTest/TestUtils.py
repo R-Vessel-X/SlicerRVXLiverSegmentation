@@ -1,7 +1,7 @@
 import slicer
 import vtk
 
-from RVesselXLib import IRVesselXModuleLogic, Vessel, RVesselXModuleLogic
+from RVesselXLib import IRVesselXModuleLogic
 
 
 class TemporaryDir(object):
@@ -68,30 +68,6 @@ def createEmptyVolume(volumeName):
   emptyVolume.UnRegister(None)
   emptyVolume.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
   return emptyVolume
-
-
-def createVesselWithArbitraryData(vesselName=None):
-  from itertools import count
-
-  v = Vessel(vesselName)
-  pt = ([i, 0, 0] for i in count(start=0, step=1))
-
-  startPoint = RVesselXModuleLogic._createFiducialNode("startPoint", next(pt))
-  endPoint = RVesselXModuleLogic._createFiducialNode("endPoint", next(pt))
-  seedPoints = RVesselXModuleLogic._createFiducialNode("seedPoint", next(pt), next(pt))
-
-  segmentationVol = createEmptyVolume("segVolume")
-  vesselVol = createEmptyVolume("vesselVolume")
-  segmentationModel = RVesselXModuleLogic._createModelNode("segModel")
-  centerlineModel = RVesselXModuleLogic._createModelNode("centerlineModel")
-  voronoiModel = RVesselXModuleLogic._createModelNode("voronoiModel")
-
-  # Create volumes associated with vessel extraction
-  v.setExtremities(startPoint=startPoint, endPoint=endPoint)
-  v.setSegmentation(seeds=seedPoints, volume=segmentationVol, model=segmentationModel)
-  v.setCenterline(centerline=centerlineModel, voronoiModel=voronoiModel)
-  v.setVesselnessVolume(vesselnessVolume=vesselVol)
-  return v
 
 
 def createNonEmptyVolume(volumeName="VolumeName"):

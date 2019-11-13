@@ -1,17 +1,16 @@
 import slicer
 
-from RVesselXUtils import getMarkupIdPositionDictionary
 from RVesselXModuleLogic import RVesselXModuleLogic
+from RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
 
 
 class IExtractVesselStrategy(object):
-  """
-  Interface object for vessel volume extraction from source vessel branch tree and associated markup.
+  """Interface object for vessel volume extraction from source vessel branch tree and associated markup.
   """
 
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
-    """
-    Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
+    """Extract vessel volume and model from input data.
+    The data are expected to be unchanged when the algorithm has run.
 
     Parameters
     ----------
@@ -30,6 +29,17 @@ class IExtractVesselStrategy(object):
 
 
 def mergeVolumes(volumes, volName):
+  """Merges volumes nodes into a single volume node with volName label. Also returns extracted volume surface mesh.
+
+  Parameters
+  ----------
+  volumes: List[vtkMRMLVolumeNode]
+  volName: str
+
+  Returns
+  -------
+  Tuple[vtkMRMLVolumeNode, vtkMRMLModelNode]
+  """
   # Extract list of volumes as list of np arrays
   npVolumes = [slicer.util.arrayFromVolume(volume).astype(int) for volume in volumes]
 
@@ -39,16 +49,18 @@ def mergeVolumes(volumes, volName):
     mergedVol |= npVolumes[i]
 
   # Create output volume in slicer
-  outVol = RVesselXModuleLogic.createLabelMapVolumeNodeBasedOnModel(volumes[0], volName)
+  outVol = createLabelMapVolumeNodeBasedOnModel(volumes[0], volName)
   slicer.util.updateVolumeFromArray(outVol, mergedVol)
   return outVol, RVesselXModuleLogic.createVolumeBoundaryModel(outVol, volName + "Model", threshold=1)
 
 
 class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
+  """Strategy uses VMTK on all markup points at once to extract data.
+  """
+
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
-    """
-    Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
-    Strategy uses VMTK on all markup points at once to extract data.
+    """Extract vessel volume and model from input data.
+    The data are expected to be unchanged when the algorithm has run.
 
     Parameters
     ----------
@@ -87,8 +99,7 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
 
 
 class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
-  """
-  Base class for strategies using VMTK on multiple start + end points and aggregating results as one volume.
+  """Base class for strategies using VMTK on multiple start + end points and aggregating results as one volume.
   deriving classes must implement a function returning a list of node pairs constructed from vessel tree and node id
   position dictionary
   """
@@ -110,9 +121,8 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
     pass
 
   def extractVesselVolumeFromVesselBranchTree(self, vesselBranchTree, vesselBranchMarkup, logic):
-    """
-    Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
-    Strategy uses VMTK on each node pair returned by constructNodeBranchPairs method and merges results as output
+    """Extract vessel volume and model from input data.
+    The data are expected to be unchanged when the algorithm has run.
 
     Parameters
     ----------
@@ -152,9 +162,7 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
 
 
 class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
-  """
-  Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
-  Strategy uses VMTK on parent + child pair and merges the results as output.
+  """Strategy uses VMTK on parent + child pair and merges the results as output.
 
   Example :
   node 0
@@ -200,9 +208,7 @@ class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
 
 
 class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrategy):
-  """
-  Extract vessel volume and model from input data. The data are expected to be unchanged when the algorithm has run.
-  Strategy uses VMTK on parent + sub child pair and merges the results as output.
+  """Strategy uses VMTK on parent + sub child pair and merges the results as output.
 
   Example :
   node 0

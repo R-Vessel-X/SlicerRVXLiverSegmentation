@@ -48,6 +48,9 @@ class SegmentWidget(VerticalLayoutWidget):
     self._layoutList = []
 
   def _setNodeSelectorVisible(self, isVisible):
+    """Changes visibility for master volume selector and segmentation node selector. Both selectors need to be hidden
+    when integrated in the RVesselX plugin but shown otherwise.
+    """
     self._segmentationWidget.setMasterVolumeNodeSelectorVisible(isVisible)
     self._segmentationWidget.setSegmentationNodeSelectorVisible(isVisible)
 

@@ -1,9 +1,7 @@
-import logging
-
 import qt
 import slicer
 
-from RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils
+from RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton
 from VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -32,18 +30,10 @@ class DataWidget(VerticalLayoutWidget):
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
                                                  callBack=self.onInputSelectorNodeChanged)
 
+    # Add load DICOM and load DATA button to the layout
     inputLayout.addWidget(self.inputSelector)
-
-    # Create load DICOM button
-    loadDicomButton = qt.QPushButton("Load DICOM")
-    loadDicomButton.connect("clicked(bool)", self.onLoadDICOMClicked)
-    inputLayout.addWidget(loadDicomButton)
-
-    # Create load DATA button
-    loadDataButton = qt.QPushButton("Load Data")
-    loadDataButton.connect("clicked(bool)", self.onLoadDataClicked)
-    inputLayout.addWidget(loadDataButton)
-
+    inputLayout.addWidget(createButton("Load DICOM", self.onLoadDICOMClicked))
+    inputLayout.addWidget(createButton("Load Data", self.onLoadDataClicked))
     self._verticalLayout.addLayout(inputLayout)
 
     # Add Volume information
@@ -71,9 +61,8 @@ class DataWidget(VerticalLayoutWidget):
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
 
   def addInputNodeChangedCallback(self, callback):
-    """
-    Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to a
-    valid value, the callback will be called.
+    """Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to
+    a valid value, the callback will be called.
 
     Parameters
     ----------
@@ -82,22 +71,24 @@ class DataWidget(VerticalLayoutWidget):
     self._inputNodeChangedCallbacks.append(callback)
 
   def onInputSelectorNodeChanged(self, node):
-    """
-    On input changed and with a valid input node, notifies all callbacks of new node value
+    """On input changed and with a valid input node, notifies all callbacks of new node value
 
     Parameters
     ----------
     node: vtkMRMLNode
     """
-    if node:
-      self._removePreviousNodeAddedObserverFromScene()
+    # Early return if invalid node
+    if not node:
+      return
 
-      # If node not yet properly initialized, attach observer to image change.
-      # Else notify image changed and save node as new input volume
-      if node.GetImageData() is None:
-        self._attachNodeAddedObserverToScene(node)
-      else:
-        self._notifyInputChanged(node)
+    self._removePreviousNodeAddedObserverFromScene()
+
+    # If node not yet properly initialized, attach observer to image change.
+    # Else notify image changed and save node as new input volume
+    if node.GetImageData() is None:
+      self._attachNodeAddedObserverToScene(node)
+    else:
+      self._notifyInputChanged(node)
 
   def _removePreviousNodeAddedObserverFromScene(self):
     slicer.mrmlScene.RemoveObserver(self._sceneObserver)
@@ -155,6 +146,7 @@ class DataWidget(VerticalLayoutWidget):
     ----------
     volumeNode: vtkMRMLVolumeNode
     """
+    # Early return if invalid volume node
     if volumeNode is None:
       return
 
@@ -183,6 +175,7 @@ class DataWidget(VerticalLayoutWidget):
     """
     Returns
     -------
+    vtkMRMLVolumeNode
       Current vtkMRMLVolumeNode selected by user in the DataWidget
     """
     return self.inputSelector.currentNode()
