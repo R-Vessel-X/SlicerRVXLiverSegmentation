@@ -61,6 +61,20 @@ class VesselBranchTree(qt.QTreeWidget):
     # Connect click event to notify signal
     self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
 
+  def isInTree(self, nodeId):
+    """
+    Parameters
+    ----------
+    nodeId: str
+      Id of the node which may ne in the tree.
+
+    Returns
+    -------
+    bool
+      True if nodeId is part of the tree, False otherwise.
+    """
+    return nodeId in self._branchDict.keys()
+
   def dropEvent(self, event):
     """On drop event, enforce structure of the tree is not broken.
     """
@@ -818,6 +832,7 @@ class VesselBranchWidget(qt.QWidget):
     """If isVisible, markups and tree will be shown in scene, else they will be hidden
     """
     for i in range(self._markupNode.GetNumberOfFiducials()):
-      self._markupNode.SetNthMarkupVisibility(i, isVisible)
+      isNodeVisible = isVisible and self._branchTree.isInTree(self._markupNode.GetNthFiducialLabel(i))
+      self._markupNode.SetNthMarkupVisibility(i, isNodeVisible)
 
     self._interactor.setVisibleInScene(isVisible)
