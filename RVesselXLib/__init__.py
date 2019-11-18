@@ -7,6 +7,6 @@ from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, addInCollaps
   createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, raiseValueErrorIfInvalidType, removeNoneList, \
   Icons
 from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerBranch, \
-  ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromNodePairsStrategy
+  ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromVesselSeedPointsStrategy, VesselSeedPoints
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
 from .VesselWidget import VesselWidget

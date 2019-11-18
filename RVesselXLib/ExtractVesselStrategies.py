@@ -4,6 +4,142 @@ from RVesselXModuleLogic import RVesselXModuleLogic
 from RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
 
 
+class VesselSeedPoints(object):
+  """Helper class containing the different seed points to use for vessel VMTK extraction.
+  """
+
+  def __init__(self, idPositionDict, pointIdList=None):
+    """
+    Parameters
+    ----------
+    idPositionDict: Dict[str, List[Float]]
+      Dictionary with nodeId as key and node position as value
+    pointIdList: List[str] or None
+      List of points to add to the vessel seed points
+    """
+    self._idPositionDict = idPositionDict
+    self._pointList = []
+    self._pointIdList = []
+
+    if pointIdList is not None:
+      for pointId in pointIdList:
+        self.appendPoint(pointId)
+
+  def appendPoint(self, pointId):
+    """Adds input point id to the current seed list.
+
+    Parameters
+    ----------
+    pointId: str - Id of the point to add to list
+    """
+    self._pointIdList.append(pointId)
+    self._pointList.append(self._idPositionDict[pointId])
+
+  def isValid(self):
+    return len(self._pointList) > 1
+
+  def getSeedPositions(self):
+    """
+    Returns
+    -------
+    List[List[float]] - List containing all the nodes before last in the seed list if valid else empty list.
+    """
+    return self._pointList[:-1] if self.isValid() else []
+
+  def getStopperPositions(self):
+    """
+    Returns
+    -------
+    List[List[float]] - List containing last node position in the seed list if valid else empty list.
+    """
+    return [self._pointList[-1]] if self.isValid() else []
+
+  def copy(self):
+    """
+    Returns
+    -------
+    VesselSeedPoints - Deep copy of current object
+    """
+    copy = VesselSeedPoints(self._idPositionDict.copy())
+    copy._pointIdList = list(self._pointIdList)
+    copy._pointList = list(self._pointList)
+    return copy
+
+  @staticmethod
+  def combine(first, second):
+    """Combine two VesselSeedPoints into one VesselSeedPoints. Second vessel seed points will be added to first list.
+    To be correctly combined, first last id must correspond to second first id. Else method will raise a ValueError.
+
+    Parameters
+    ----------
+    first: VesselSeedPoints
+      First list of vessel points
+    second: VesselSeedPoints
+      Second list of vessel points. List will be added after first list.
+
+    Returns
+    -------
+    VesselSeedPoints combining both lists.
+
+    Raises
+    ------
+    ValueError if either first or second is Invalid or if first last point doesn't correspond to second first point.
+    """
+    if not isinstance(first, VesselSeedPoints) or not isinstance(second, VesselSeedPoints):
+      raise ValueError("Combine expects %s types. Got %s and %s types" % (
+        VesselSeedPoints.__name__, type(first).__name__, type(second).__name__))
+
+    if not first.isValid() or not second.isValid() or first.lastPointId() != second.firstPointId():
+      raise ValueError("Cannot combine vessel seed points %s and %s" % (first, second))
+
+    combined = first.copy()
+    combined._pointList += second._pointList[1:]
+    combined._pointIdList += second._pointIdList[1:]
+    return combined
+
+  def firstPointId(self):
+    """
+    Returns
+    -------
+    str or None
+      First point id in the vessel seeds
+    """
+    return self._pointIdList[0] if self.isValid() else None
+
+  def lastPointId(self):
+    """
+    Returns
+    -------
+    str or None
+      Last point is in the vessel seeds
+    """
+    return self._pointIdList[-1] if self.isValid() else None
+
+  def __repr__(self):
+    return str(self._pointIdList)
+
+  def __eq__(self, other):
+    if not isinstance(other, VesselSeedPoints):
+      return False
+    else:
+      return (self._pointIdList, self._pointList) == (other._pointIdList, other._pointList)
+
+  def __ne__(self, other):
+    return not self == other
+
+  def __le__(self, other):
+    return self.getSeedPositions() + self.getStopperPositions() <= other.getSeedPositions() + other.getStopperPositions()
+
+  def __lt__(self, other):
+    return self.getSeedPositions() + self.getStopperPositions() < other.getSeedPositions() + other.getStopperPositions()
+
+  def __ge__(self, other):
+    return not self.__lt__(other)
+
+  def __gt__(self, other):
+    return not self.__le__(other)
+
+
 class IExtractVesselStrategy(object):
   """Interface object for vessel volume extraction from source vessel branch tree and associated markup.
   """
@@ -98,13 +234,13 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
     return outVolume, outModel
 
 
-class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
+class ExtractVesselFromVesselSeedPointsStrategy(IExtractVesselStrategy):
   """Base class for strategies using VMTK on multiple start + end points and aggregating results as one volume.
   deriving classes must implement a function returning a list of node pairs constructed from vessel tree and node id
   position dictionary
   """
 
-  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+  def constructVesselSeedList(self, vesselBranchTree, idPositionDict):
     """
     Parameters
     ----------
@@ -115,8 +251,7 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
 
     Returns
     -------
-    List[Tuple[List[float], list[float]]]
-      List of (vessel start position, vessel end position) to extract using VMTK
+    List[VesselSeedPoints] - List of VesselSeedPoints to extract using VMTK
     """
     pass
 
@@ -142,12 +277,13 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
 
     # Extract all the branches in the tree.
     # Loop over all ids
-    branchList = self.constructNodeBranchPairs(vesselBranchTree, idPositionDict)
+    vesselSeedList = self.constructVesselSeedList(vesselBranchTree, idPositionDict)
 
     volumes = []
     elementsToRemoveFromScene = []
-    for branch in branchList:
-      seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition([branch[0]], [branch[1]])
+    for vesselSeeds in vesselSeedList:
+      seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition(
+        vesselSeeds.getSeedPositions(), vesselSeeds.getStopperPositions())
       elementsToRemoveFromScene.append(seedsNodes)
       elementsToRemoveFromScene.append(stoppersNodes)
       elementsToRemoveFromScene.append(outModel)
@@ -161,7 +297,7 @@ class ExtractVesselFromNodePairsStrategy(IExtractVesselStrategy):
     return outVolume, outModel
 
 
-class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
+class ExtractOneVesselPerBranch(ExtractVesselFromVesselSeedPointsStrategy):
   """Strategy uses VMTK on parent + child pair and merges the results as output.
 
   Example :
@@ -180,7 +316,7 @@ class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
     Branch [2-1 & 3-1]
   """
 
-  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+  def constructVesselSeedList(self, vesselBranchTree, idPositionDict):
     """
     Parameters
     ----------
@@ -191,23 +327,20 @@ class ExtractOneVesselPerBranch(ExtractVesselFromNodePairsStrategy):
 
     Returns
     -------
-    List[Tuple[List[float], list[float]]]
-      List of (vessel start position, vessel end position) to extract using VMTK
+    List[VesselSeedPoints] - List of VesselSeedPoints to extract using VMTK
     """
 
     # Extract all the branches in the tree and return as branch list
     nodeList = vesselBranchTree.getNodeList()
-    branchList = []
+    vesselSeedList = []
 
     for node in nodeList:
-      startPos = idPositionDict[node]
       for child in vesselBranchTree.getChildrenNodeId(node):
-        endPos = idPositionDict[child]
-        branchList.append((startPos, endPos))
-    return branchList
+        vesselSeedList.append(VesselSeedPoints(idPositionDict, [node, child]))
+    return vesselSeedList
 
 
-class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrategy):
+class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromVesselSeedPointsStrategy):
   """Strategy uses VMTK on parent + sub child pair and merges the results as output.
 
   Example :
@@ -225,7 +358,7 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrateg
     Branch [1-1 & 3-1]
   """
 
-  def constructNodeBranchPairs(self, vesselBranchTree, idPositionDict):
+  def constructVesselSeedList(self, vesselBranchTree, idPositionDict):
     """
     Parameters
     ----------
@@ -236,14 +369,13 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrateg
 
     Returns
     -------
-    List[Tuple[List[float], list[float]]]
-      List of (vessel start position, vessel end position) to extract using VMTK
+    List[VesselSeedPoints] - List of VesselSeedPoints to extract using VMTK
     """
     return self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict)
 
   def parentSubChildBranchPairs(self, vesselBranchTree, idPositionDict, startNode=None):
-    # Initialize branch list
-    branchList = []
+    # Initialize vessel seed list
+    vesselSeedList = []
 
     # Initialize start node as tree root if startNode not provided
     isStartNodeRoot = False
@@ -251,19 +383,18 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromNodePairsStrateg
       startNode = vesselBranchTree.getRootNodeId()
       isStartNodeRoot = True
 
-    startPos = idPositionDict[startNode]
     for child in vesselBranchTree.getChildrenNodeId(startNode):
       # Construct startNode + subChildren pairs
       subChildren = vesselBranchTree.getChildrenNodeId(child)
       for subChild in subChildren:
-        branchList.append((startPos, idPositionDict[subChild]))
+        vesselSeedList.append(VesselSeedPoints(idPositionDict, [startNode, subChild]))
 
       # Special case if starting from root node and current node doesn't have children (to avoid missing the point)
       # otherwise, the node will be contained in a previous parent + subChild pair
       if len(subChildren) == 0 and isStartNodeRoot:
-        branchList.append((startPos, idPositionDict[child]))
+        vesselSeedList.append(VesselSeedPoints(idPositionDict, [startNode, child]))
 
       # Call recursively for children
-      branchList += self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict, startNode=child)
+      vesselSeedList += self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict, startNode=child)
 
-    return branchList
+    return vesselSeedList

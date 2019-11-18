@@ -1,11 +1,32 @@
 import unittest
 
-from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerBranch, VesselBranchTree
+from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerBranch, VesselBranchTree, \
+  VesselSeedPoints
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):
   def fakePosDictWithIdAsPosition(self, *args):
     return {arg: arg for arg in args}
+
+  def testVesselSeedPointsReturnsAllButLastNodePositionAsSeedPositions(self):
+    posDict = {str(i): [i] * 3 for i in range(5)}
+    vesselSeed = VesselSeedPoints(posDict)
+    vesselSeed.appendPoint("2")
+    vesselSeed.appendPoint("1")
+    vesselSeed.appendPoint("4")
+
+    self.assertEqual([[2, 2, 2], [1, 1, 1]], vesselSeed.getSeedPositions())
+    self.assertEqual([[4, 4, 4]], vesselSeed.getStopperPositions())
+
+  def testVesselSeedPointsCanBeConstructedWithIdList(self):
+    posDict = {str(i): [i] * 3 for i in range(5)}
+    v1 = VesselSeedPoints(posDict)
+    v1.appendPoint("2")
+    v1.appendPoint("1")
+    v1.appendPoint("4")
+
+    v2 = VesselSeedPoints(posDict, ["2", "1", "4"])
+    self.assertEqual(v1, v2)
 
   def testExtractOneVesselConstructsBranchListForEachParentChildNodePair(self):
     # Create tree
@@ -27,8 +48,12 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     strategy = ExtractOneVesselPerBranch()
 
     # Verify each pair was created
-    actPairs = strategy.constructNodeBranchPairs(branchWidget, posDict)
-    expBranchPairs = [("n0", "n10"), ("n0", "n11"), ("n10", "n20"), ("n10", "n21")]
+    actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
+    expBranchPairs = [  #
+      VesselSeedPoints(posDict, ("n0", "n10")),  #
+      VesselSeedPoints(posDict, ("n0", "n11")),  #
+      VesselSeedPoints(posDict, ("n10", "n20")),  #
+      VesselSeedPoints(posDict, ("n10", "n21"))]
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
 
   def testExtractOneVesselPerParentSubChildConstructsBranchListWithOneLevelChildWhenUnderRoot(self):
@@ -47,8 +72,10 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     strategy = ExtractOneVesselPerParentAndSubChildNode()
 
     # Verify direct children were not omitted
-    actPairs = strategy.constructNodeBranchPairs(branchWidget, posDict)
-    expBranchPairs = [("n0", "n10"), ("n0", "n11")]
+    actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
+    expBranchPairs = [  #
+      VesselSeedPoints(posDict, ("n0", "n10")),  #
+      VesselSeedPoints(posDict, ("n0", "n11"))]
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
 
   def testExtractOneVesselPerParentSubChildConstructsOnePairWhenOnlyOneParentChild(self):
@@ -65,8 +92,8 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     strategy = ExtractOneVesselPerParentAndSubChildNode()
 
     # Verify only one branch pair is generated
-    actPairs = strategy.constructNodeBranchPairs(branchWidget, posDict)
-    expBranchPairs = [([1, 1, 1], [2, 2, 2])]
+    actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
+    expBranchPairs = [VesselSeedPoints(posDict, ("n0", "n10"))]
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
 
   def testExtractOneVesselPerParentSubChildExcludesDirectParentChildPairsForNonRoot(self):
@@ -91,6 +118,10 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     strategy = ExtractOneVesselPerParentAndSubChildNode()
 
     # Verify produced branches
-    actPairs = strategy.constructNodeBranchPairs(branchWidget, posDict)
-    expBranchPairs = [("n0", "n10"), ("n0", "n20"), ("n0", "n21"), ("n11", "n31")]
+    actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
+    expBranchPairs = [  #
+      VesselSeedPoints(posDict, ("n0", "n10")),  #
+      VesselSeedPoints(posDict, ("n0", "n20")),  #
+      VesselSeedPoints(posDict, ("n0", "n21")),  #
+      VesselSeedPoints(posDict, ("n11", "n31"))]
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
