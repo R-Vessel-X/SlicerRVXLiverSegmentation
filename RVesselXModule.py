@@ -87,6 +87,43 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, layoutDescription)
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
 
+  def setup(self):
+    """Setups widget in Slicer UI.
+    """
+    ScriptedLoadableModuleWidget.setup(self)
+    # Reset tab list
+    self._tabList = []
+
+    # Configure layout and 3D view
+    self._configureLayout()
+    self._configure3DViewWithMaximumIntensityProjection()
+
+    # Initialize Variables
+    self.logic = RVesselXModuleLogic()
+    self._dataTab = DataWidget()
+    self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
+                                   segmentNames=["Liver In", "Liver Out"])
+    self._vesselsTab = VesselWidget(self.logic)
+    self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
+                                   segmentNames=["Tumor", "Not Tumor"])
+
+    # Create tab widget and add it to layout in collapsible layout
+    self._tabWidget = qt.QTabWidget()
+    self._tabWidget.connect("currentChanged(int)", self._adjustTabSizeToContent)
+    addInCollapsibleLayout(self._tabWidget, self.layout, "R Vessel X", isCollapsed=False)
+
+    # Add widgets to tab widget and connect data tab input change to the liver and vessels tab set input methods
+    self._addTab(self._dataTab, "Data")
+    self._addTab(self._liverTab, "Liver")
+    self._addTab(self._vesselsTab, "Vessels")
+    self._addTab(self._tumorTab, "Tumors")
+    self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._tumorTab.setInputNode)
+
+    # Setup previous and next buttons for the different tabs
+    self._configurePreviousNextTabButtons()
+
   def _configure3DViewWithMaximumIntensityProjection(self):
     """Configures 3D View to render volumes with ray casting maximum intensity projection configuration.
     Background is set to black color.
@@ -117,41 +154,20 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabWidget.addTab(tab, tabName)
     self._tabList.append(tab)
 
-  def setup(self):
-    """Setups widget in Slicer UI.
+  def _adjustTabSizeToContent(self, index):
+    """Update current tab size to adjust to its content.
+
+    Parameters
+    ----------
+    index: int
+      Index of new widget to which the tab size will be adjusted
     """
-    ScriptedLoadableModuleWidget.setup(self)
-    # Reset tab list
-    self._tabList = []
+    for i in range(self._tabWidget.count):
+      self._tabWidget.widget(i).setSizePolicy(qt.QSizePolicy.Ignored, qt.QSizePolicy.Ignored)
 
-    # Configure layout and 3D view
-    self._configureLayout()
-    self._configure3DViewWithMaximumIntensityProjection()
-
-    # Initialize Variables
-    self.logic = RVesselXModuleLogic()
-    self._dataTab = DataWidget()
-    self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
-                                   segmentNames=["Liver In", "Liver Out"])
-    self._vesselsTab = VesselWidget(self.logic)
-    self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
-                                   segmentNames=["Tumor", "Not Tumor"])
-
-    # Create tab widget and add it to layout in collapsible layout
-    self._tabWidget = qt.QTabWidget()
-    addInCollapsibleLayout(self._tabWidget, self.layout, "R Vessel X", isCollapsed=False)
-
-    # Add widgets to tab widget and connect data tab input change to the liver and vessels tab set input methods
-    self._addTab(self._dataTab, "Data")
-    self._addTab(self._liverTab, "Liver")
-    self._addTab(self._vesselsTab, "Vessels")
-    self._addTab(self._tumorTab, "Tumors")
-    self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
-    self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
-    self._dataTab.addInputNodeChangedCallback(self._tumorTab.setInputNode)
-
-    # Setup previous and next buttons for the different tabs
-    self._configurePreviousNextTabButtons()
+    self._tabWidget.widget(index).setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+    self._tabWidget.widget(index).resize(self._tabWidget.widget(index).minimumSizeHint)
+    self._tabWidget.widget(index).adjustSize()
 
   def _configurePreviousNextTabButtons(self):
     """Adds previous and next buttons to tabs added to layout. If previous tab is not defined, button will be grayed out.
