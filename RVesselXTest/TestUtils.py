@@ -42,9 +42,6 @@ class FakeLogic(IRVesselXModuleLogic):
   def returnedVessel(self, value):
     self._vessel = value
 
-  def extractVessel(self, startPoint, endPoint):
-    return self._vessel
-
 
 def cropSourceVolume(sourceVolume, roi):
   cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()

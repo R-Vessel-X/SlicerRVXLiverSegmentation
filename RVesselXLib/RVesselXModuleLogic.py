@@ -1,3 +1,5 @@
+import logging
+
 import slicer
 import vtk
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
@@ -56,6 +58,10 @@ class VesselnessFilterParameters(object):
     self.suppressBlobsPercent = 50
     self.vesselContrast = 5
 
+  def asTuple(self):
+    return (self.minimumDiameter, self.maximumDiameter, self.suppressPlatesPercent, self.suppressBlobsPercent,
+            self.vesselContrast)
+
 
 class IRVesselXModuleLogic(object):
   """Interface definition for Logic module.
@@ -67,10 +73,7 @@ class IRVesselXModuleLogic(object):
   def setInputVolume(self, inputVolume):
     pass
 
-  def extractVessel(self, startPoint, endPoint):
-    return None
-
-  def updateVesselnessVolume(self, startPoint):
+  def updateVesselnessVolume(self):
     pass
 
   @property
@@ -402,19 +405,31 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
   def _areExtremitiesValid(startPoint, endPoint):
     return RVesselXModuleLogic._isPointValid(startPoint) and RVesselXModuleLogic._isPointValid(endPoint)
 
-  def updateVesselnessVolume(self, startPoint):
-    """Update vesselness volume node for current input volume. If startPoint is a valid Markup fiducial node, the
-    method will get the first point and use it to calculate the contrast parameter for the vesselness calculation.
+  def _currentVesselnessKey(self):
+    return self._inputVolume, self.vesselnessFilterParameters.asTuple()
 
-    Parameters
-    ----------
-    startPoint: vtkMRMLMarkupsFiducialNode or None
+  def updateVesselnessVolume(self):
+    """Update vesselness volume node for current input volume and current filter parameters.
+
+    If input node is not defined, no processing will be done. The method will return whether update was processed or
+    not. Update can be cancelled either because of improper input node or if update for given input node + parameters
+    has already been ran before.
+
+    Returns
+    -------
+    bool
+      True if update was done, False otherwise.
     """
-    # Early return in case the inputs is not properly defined
-    if self._inputVolume is None:
-      return
+    # Early return in case the inputs is not properly defined or processing already done for input
+    isInvalidInput = self._inputVolume is None
+    isProcessingAlreadyDone = self._currentVesselnessKey() in self._vesselnessVolumes.keys()
 
-    self._vesselnessVolumes[self._inputVolume] = self._applyVesselnessFilter(self._inputVolume, startPoint)
+    if isInvalidInput or isProcessingAlreadyDone:
+      return False
+
+    self._vesselnessVolumes[self._currentVesselnessKey()] = self._applyVesselnessFilter(self._inputVolume,
+                                                                                        startPoint=None)
+    return True
 
   def _hasVesselnessForInput(self):
     """
@@ -423,15 +438,15 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     bool
       True if vesselness calculation has already been done for the current input volume. False otherwise
     """
-    return self._inputVolume in self._vesselnessVolumes.keys()
+    return self._currentVesselnessKey() in self._vesselnessVolumes.keys()
 
-  def _delayedUpdateVesselnessVolume(self, startPoint):
+  def _delayedUpdateVesselnessVolume(self):
     """Updates vesselness volume if current input has not been updated yet and pauses the thread for the vesselness
     volume to be properly loaded.
     """
     import time
     if not self._hasVesselnessForInput():
-      self.updateVesselnessVolume(startPoint)
+      self.updateVesselnessVolume()
       time.sleep(1)  # Short sleep for this thread to enable volume to be updated
 
   def extractVesselVolumeFromPosition(self, seedsPositions, endPositions):
@@ -456,47 +471,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     LevelSetModel : vtkMRMLModelNode
       Model after marching cubes on the segmentation data
     """
-    self._delayedUpdateVesselnessVolume(None)
+    self._delayedUpdateVesselnessVolume()
     return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume,
-                                                            self._vesselnessVolumes[self._inputVolume], seedsPositions,
-                                                            endPositions)
-
-  def extractVessel(self, startPoint, endPoint):
-    """ Extracts vessel from source volume, given start point and end point
-
-    Parameters
-    ----------
-    startPoint: vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint: vtkMRMLMarkupsFiducialNode
-      End point for the vessel
-
-    Returns
-    -------
-    vessel : Vessel or None
-      extracted vessel with associated informations if inputs valid, else None
-    """
-    # Early return in case the inputs are not properly defined
-    if self._inputVolume is None or not self._areExtremitiesValid(startPoint, endPoint):
-      return None
-
-    # Create vessel which will hold every information of the vessel extracted in logic module
-    vessel = Vessel()
-    vessel.setExtremities(startPoint, endPoint)
-
-    # Update vesselness filter if it was never calculated for current input volume
-    self._delayedUpdateVesselnessVolume(startPoint)
-
-    vesselnessVolume = self._vesselnessVolumes[self._inputVolume]
-    vessel.setVesselnessVolume(vesselnessVolume)
-
-    # Call levelSetSegmentation
-    levelSetSeeds, levelSetVolume, levelSetModel = self._applyLevelSetSegmentation(self._inputVolume, vesselnessVolume,
-                                                                                   startPoint, endPoint)
-    vessel.setSegmentation(seeds=levelSetSeeds, volume=levelSetVolume, model=levelSetModel)
-
-    # Extract centerpoint
-    centerline, voronoiModel = self._applyCenterlineFilter(levelSetModel, startPoint, endPoint)
-    vessel.setCenterline(centerline=centerline, voronoiModel=voronoiModel)
-
-    return vessel
+                                                            self._vesselnessVolumes[self._currentVesselnessKey()],
+                                                            seedsPositions, endPositions)

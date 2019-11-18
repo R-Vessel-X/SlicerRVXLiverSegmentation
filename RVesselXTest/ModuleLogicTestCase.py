@@ -74,3 +74,29 @@ class RVesselXModuleTestCase(unittest.TestCase):
       expVolumePath = os.path.join(outputDir, "VolumeFileName.nii")
       self.assertTrue(os.path.isfile(expModelPath))
       self.assertTrue(os.path.isfile(expVolumePath))
+
+  def testVesselnessFilterIsUpdatedOncePerVolume(self):
+    vol1 = createNonEmptyVolume("vol1")
+    vol2 = createNonEmptyVolume("vol2")
+    logic = RVesselXModuleLogic()
+    logic.setInputVolume(vol1)
+    self.assertTrue(logic.updateVesselnessVolume())
+    self.assertFalse(logic.updateVesselnessVolume())
+
+    logic.setInputVolume(vol2)
+    self.assertTrue(logic.updateVesselnessVolume())
+    self.assertFalse(logic.updateVesselnessVolume())
+
+  def testVesselnessFilterIsUpdatedOncePerParameter(self):
+    vol = createNonEmptyVolume("vol")
+    logic = RVesselXModuleLogic()
+    logic.setInputVolume(vol)
+
+    self.assertTrue(logic.updateVesselnessVolume())
+    self.assertFalse(logic.updateVesselnessVolume())
+
+    p = logic.vesselnessFilterParameters
+    p.vesselContrast += 100
+    logic.vesselnessFilterParameters = p
+    self.assertTrue(logic.updateVesselnessVolume())
+    self.assertFalse(logic.updateVesselnessVolume())

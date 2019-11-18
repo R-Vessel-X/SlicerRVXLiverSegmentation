@@ -51,11 +51,6 @@ class VesselWidget(VerticalLayoutWidget):
     advancedFormLayout = qt.QFormLayout(filterOptionCollapsibleButton)
 
     # Add markups selector
-    self._vesselnessAutoContrastPoint = createSingleMarkupFiducial(
-      "Selected point will enable calculating max vessel diameter and contrast", markupName="vesselnessPoint",
-      markupColor=qt.QColor("green"))
-    advancedFormLayout.addRow("Auto contrast source (optional)", self._vesselnessAutoContrastPoint)
-
     self._minimumDiameterSpinBox = qt.QSpinBox()
     self._minimumDiameterSpinBox.minimum = 1
     self._minimumDiameterSpinBox.maximum = 1000
@@ -160,8 +155,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._logic.vesselnessFilterParameters = parameters
 
     # Explicitly call vesselness filter update
-    startPoint = self._vesselnessAutoContrastPoint.getCurrentNode()
-    self._logic.updateVesselnessVolume(startPoint)
+    self._logic.updateVesselnessVolume()
 
   def _restoreDefaultVesselnessFilterParameters(self):
     """Apply default vesselness filter parameters to the UI
