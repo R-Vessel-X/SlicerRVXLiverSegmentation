@@ -87,6 +87,22 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       layoutNode.AddLayoutDescription(layoutNode.SlicerLayoutUserView, layoutDescription)
     layoutNode.SetViewArrangement(layoutNode.SlicerLayoutUserView)
 
+    # Add button to layout selector toolbar for this custom layout
+    viewToolBar = slicer.util.mainWindow().findChild('QToolBar', 'ViewToolBar')
+    layoutMenu = viewToolBar.widgetForAction(viewToolBar.actions()[0]).menu()
+
+    # Add layout button to menu
+    rVesselXActionText = "RVesselX 2 Panel View"
+    hasRVesselXButton = rVesselXActionText in [action.text for action in layoutMenu.actions()]
+    if not hasRVesselXButton:
+      layoutSwitchAction = layoutMenu.addAction(rVesselXActionText)
+      layoutSwitchAction.setData(layoutNode.SlicerLayoutUserView)
+      layoutSwitchAction.setIcon(qt.QIcon(':Icons/LayoutSideBySideView.png'))
+      layoutSwitchAction.setToolTip(rVesselXActionText)
+      layoutSwitchAction.connect('triggered()',
+                                 lambda: slicer.app.layoutManager().setLayout(layoutNode.SlicerLayoutUserView))
+      layoutMenu.setActiveAction(layoutSwitchAction)
+
   def setup(self):
     """Setups widget in Slicer UI.
     """
