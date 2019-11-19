@@ -105,7 +105,7 @@ class VesselWidget(VerticalLayoutWidget):
   def _extractVessel(self):
     """Extract vessels from vessel branch tree. Disable tree interaction and inform user of algorithm processing.
     """
-    from ExtractVesselStrategies import ExtractOneVesselPerParentAndSubChildNode
+    from ExtractVesselStrategies import ExtractOneVesselPerBranch
 
     # Stop branch vessel widget interaction when extracting vessels
     self._vesselBranchWidget.stopInteraction()
@@ -116,7 +116,7 @@ class VesselWidget(VerticalLayoutWidget):
     # Call vessel extraction strategy and inform user of vessel extraction
     branchTree = self._vesselBranchWidget.getBranchTree()
     branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
-    strategy = ExtractOneVesselPerParentAndSubChildNode()
+    strategy = ExtractOneVesselPerBranch()
     progressDialog = slicer.util.createProgressDialog(parent=self, windowTitle="Extracting vessels",
                                                       labelText="Extracting vessels volume from branch nodes."
                                                                 "\nThis may take a minute...")

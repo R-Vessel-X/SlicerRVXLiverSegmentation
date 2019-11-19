@@ -1,7 +1,8 @@
+import logging
 import unittest
 
-from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerBranch, VesselBranchTree, \
-  VesselSeedPoints
+from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, VesselBranchTree, \
+  VesselSeedPoints, ExtractOneVesselPerBranch
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):
@@ -42,10 +43,10 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("n20", "n20", "n10")
     branchWidget.insertAfterNode("n21", "n21", "n10")
 
-    posDict = self.fakePosDictWithIdAsPosition("n0", "n10", "n11", "n20", "n21")
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 
     # Create strategy
-    strategy = ExtractOneVesselPerBranch()
+    strategy = ExtractOneVesselPerParentChildNode()
 
     # Verify each pair was created
     actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
@@ -112,7 +113,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("n21", "n21", "n11")
     branchWidget.insertAfterNode("n31", "n31", "n21")
 
-    posDict = self.fakePosDictWithIdAsPosition("n0", "n10", "n11", "n20", "n21", "n31")
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 
     # Create strategy
     strategy = ExtractOneVesselPerParentAndSubChildNode()
@@ -124,4 +125,46 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
       VesselSeedPoints(posDict, ("n0", "n20")),  #
       VesselSeedPoints(posDict, ("n0", "n21")),  #
       VesselSeedPoints(posDict, ("n11", "n31"))]
+    self.assertEqual(sorted(expBranchPairs), sorted(actPairs))
+
+  def testExtractOneVesselSeedPerBranchExtractContinuousNodesWithoutChildren(self):
+    # Create Tree
+    # n0
+    #   |_ n10
+    #       |_ n20
+    #           |_n30
+    #           |_n31
+    #               |_ n40
+    #                     |_ n50
+    #           |_n32
+    #
+    # Exp branches
+    # [n0, n10, n20]
+    # [n20, n30]
+    # [n20, n31, n40, n50]
+    # [n20, n32]
+
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("n0", "n0", None)
+    branchWidget.insertAfterNode("n10", "n10", "n0")
+    branchWidget.insertAfterNode("n20", "n20", "n10")
+    branchWidget.insertAfterNode("n30", "n30", "n20")
+    branchWidget.insertAfterNode("n31", "n31", "n20")
+    branchWidget.insertAfterNode("n32", "n32", "n20")
+    branchWidget.insertAfterNode("n40", "n40", "n31")
+    branchWidget.insertAfterNode("n50", "n50", "n40")
+
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
+
+    # Create strategy
+    strategy = ExtractOneVesselPerBranch()
+
+    # Verify produced branches
+    actPairs = strategy.constructVesselSeedList(branchWidget, posDict)
+    expBranchPairs = [  #
+      VesselSeedPoints(posDict, ("n0", "n10", "n20")),  #
+      VesselSeedPoints(posDict, ("n20", "n30")),  #
+      VesselSeedPoints(posDict, ("n20", "n31", "n40", "n50")),  #
+      VesselSeedPoints(posDict, ("n20", "n32"))]
+
     self.assertEqual(sorted(expBranchPairs), sorted(actPairs))

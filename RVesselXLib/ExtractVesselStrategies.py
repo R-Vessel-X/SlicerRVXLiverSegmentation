@@ -297,7 +297,7 @@ class ExtractVesselFromVesselSeedPointsStrategy(IExtractVesselStrategy):
     return outVolume, outModel
 
 
-class ExtractOneVesselPerBranch(ExtractVesselFromVesselSeedPointsStrategy):
+class ExtractOneVesselPerParentChildNode(ExtractVesselFromVesselSeedPointsStrategy):
   """Strategy uses VMTK on parent + child pair and merges the results as output.
 
   Example :
@@ -396,5 +396,66 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromVesselSeedPoints
 
       # Call recursively for children
       vesselSeedList += self.parentSubChildBranchPairs(vesselBranchTree, idPositionDict, startNode=child)
+
+    return vesselSeedList
+
+
+class ExtractOneVesselPerBranch(ExtractVesselFromVesselSeedPointsStrategy):
+  """Strategy uses continuous nodes without parents to extract VTMK runs
+
+  Example :
+    n0
+      |_ n10
+          |_ n20
+              |_n30
+              |_n31
+                  |_ n40
+                        |_ n50
+              |_n32
+
+  Exp VMTK runs :
+    [n0, n10, n20]
+    [n20, n30]
+    [n20, n31, n40, n50]
+    [n20, n32]
+  """
+
+  def constructVesselSeedList(self, vesselBranchTree, idPositionDict):
+    """
+    Parameters
+    ----------
+    vesselBranchTree: VesselBranchTree
+      Tree containing the hierarchy of the markups
+    idPositionDict: Dict[str,List[float]]
+      Dictionary with nodeId as key and node position as value
+
+    Returns
+    -------
+    List[VesselSeedPoints] - List of VesselSeedPoints to extract using VMTK
+    """
+    return self.constructBranchFromRoot(vesselBranchTree, idPositionDict)
+
+  def constructBranchFromRoot(self, vesselBranchTree, idPositionDict, startNode=None):
+    # Initialize vessel seed list
+    vesselSeedList = []
+
+    # Initialize start node as tree root if startNode not provided
+    if startNode is None:
+      startNode = vesselBranchTree.getRootNodeId()
+
+    for child in vesselBranchTree.getChildrenNodeId(startNode):
+      seedPoints = VesselSeedPoints(idPositionDict)
+      seedPoints.appendPoint(startNode)
+      seedPoints.appendPoint(child)
+
+      # Append children until child reaches leaf or a child with more than one sub child
+      subChild = child
+      while len(vesselBranchTree.getChildrenNodeId(subChild)) == 1:
+        subChild = vesselBranchTree.getChildrenNodeId(subChild)[0]
+        seedPoints.appendPoint(subChild)
+
+      # Call recursively for reached leafs
+      vesselSeedList.append(seedPoints)
+      vesselSeedList += self.constructBranchFromRoot(vesselBranchTree, idPositionDict, startNode=subChild)
 
     return vesselSeedList
