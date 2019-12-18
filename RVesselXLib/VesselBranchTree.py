@@ -5,7 +5,7 @@ import qt
 import slicer
 import vtk
 
-from RVesselXLib import Icons, getMarkupIdPositionDictionary, jumpSlicesToNthMarkupPosition, \
+from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, jumpSlicesToNthMarkupPosition, \
   createMultipleMarkupFiducial, createButton
 
 

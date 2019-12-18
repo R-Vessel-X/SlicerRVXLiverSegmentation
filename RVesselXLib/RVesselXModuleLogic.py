@@ -4,7 +4,7 @@ import slicer
 import vtk
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 
-from RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
+from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
   createModelNode, getFiducialPositions
 
 

@@ -1,8 +1,8 @@
 import qt
 import slicer
 
-from RVesselXUtils import WidgetUtils, GeometryExporter
-from VerticalLayoutWidget import VerticalLayoutWidget
+from .RVesselXUtils import WidgetUtils, GeometryExporter
+from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
 class SegmentWidget(VerticalLayoutWidget):

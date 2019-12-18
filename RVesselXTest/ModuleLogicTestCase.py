@@ -4,7 +4,7 @@ import unittest
 import slicer
 
 from RVesselXLib import RVesselXModuleLogic, GeometryExporter
-from TestUtils import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
+from .TestUtils import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
 
 
 class RVesselXModuleTestCase(unittest.TestCase):

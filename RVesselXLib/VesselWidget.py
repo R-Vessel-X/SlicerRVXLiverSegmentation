@@ -4,9 +4,11 @@ import ctk
 import qt
 import slicer
 
-from RVesselXLib import VesselnessFilterParameters, createSingleMarkupFiducial, GeometryExporter, removeFromMRMLScene, \
-  VesselBranchWidget
-from VerticalLayoutWidget import VerticalLayoutWidget
+from .RVesselXModuleLogic import VesselnessFilterParameters
+from .RVesselXUtils import GeometryExporter, removeFromMRMLScene
+from .VerticalLayoutWidget import VerticalLayoutWidget
+from .VesselBranchTree import VesselBranchWidget
+from .ExtractVesselStrategies import ExtractOneVesselPerBranch
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -105,8 +107,6 @@ class VesselWidget(VerticalLayoutWidget):
   def _extractVessel(self):
     """Extract vessels from vessel branch tree. Disable tree interaction and inform user of algorithm processing.
     """
-    from ExtractVesselStrategies import ExtractOneVesselPerBranch
-
     # Stop branch vessel widget interaction when extracting vessels
     self._vesselBranchWidget.stopInteraction()
 

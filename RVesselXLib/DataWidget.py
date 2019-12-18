@@ -1,8 +1,8 @@
 import qt
 import slicer
 
-from RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton
-from VerticalLayoutWidget import VerticalLayoutWidget
+from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton
+from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
 class DataWidget(VerticalLayoutWidget):

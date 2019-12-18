@@ -1,7 +1,7 @@
 import slicer
 
-from RVesselXModuleLogic import RVesselXModuleLogic
-from RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
+from .RVesselXModuleLogic import RVesselXModuleLogic
+from .RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
 
 
 class VesselSeedPoints(object):
