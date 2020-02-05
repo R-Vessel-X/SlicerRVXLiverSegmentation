@@ -557,8 +557,17 @@ class VesselBranchInteractor(object):
 
     # Connect tree and markup events to interactor
     self._markupNode = markupNode
-    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupAddedEvent, self._onVesselBranchAdded)
-    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointClickedEvent, self._onVesselBranchClicked)
+
+    # Handle API change between Slicer 4.10 and 4.11
+    if hasattr(slicer.vtkMRMLMarkupsNode, 'MarkupAddedEvent'):
+      pointAddedEvent = slicer.vtkMRMLMarkupsNode.MarkupAddedEvent
+      pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointClickedEvent
+    else:
+      pointAddedEvent = slicer.vtkMRMLMarkupsNode.PointAddedEvent
+      pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointStartInteractionEvent
+
+    self._markupNode.AddObserver(pointAddedEvent, self._onVesselBranchAdded)
+    self._markupNode.AddObserver(pointClickedEvent, self._onVesselBranchClicked)
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self._onVesselBranchClicked)
     self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent,
                                  lambda *args: self._treeLine.updateTreeLines())
