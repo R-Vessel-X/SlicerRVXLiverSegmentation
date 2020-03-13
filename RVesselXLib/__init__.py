@@ -2,7 +2,7 @@ from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, addInCollaps
   createSingleMarkupFiducial, createMultipleMarkupFiducial, jumpSlicesToLocation, jumpSlicesToNthMarkupPosition, \
   getMarkupIdPositionDictionary, hideFromUser, removeFromMRMLScene, createButton, getFiducialPositions, createModelNode, \
   createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, raiseValueErrorIfInvalidType, removeNoneList, \
-  Icons
+  Icons, Signal
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget
@@ -10,5 +10,6 @@ from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic, Vess
 from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerParentChildNode, \
   ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromVesselSeedPointsStrategy, ExtractOneVesselPerBranch, \
   VesselSeedPoints
+from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
 from .VesselWidget import VesselWidget

@@ -1,3 +1,5 @@
+from itertools import count
+
 import logging
 import os
 
@@ -493,3 +495,30 @@ def raiseValueErrorIfInvalidType(**kwargs):
     # Verify value is of correct instance
     if not isinstance(value, expType):
       raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
+
+
+class Signal(object):
+  """ Qt like signal slot connections. Enables using the same semantics with Slicer as qt.Signal lead to application
+  crash.
+  (see : https://discourse.slicer.org/t/custom-signal-slots-with-pythonqt/3278/5)
+  """
+
+  def __init__(self, typeInfo=""):
+    self._id = count(0, 1)
+    self._connectDict = {}
+    self._typeInfo = typeInfo
+
+  def emit(self, *args, **kwargs):
+    for slot in self._connectDict.values():
+      slot(*args, **kwargs)
+
+  def connect(self, slot):
+    nextId = next(self._id)
+    self._connectDict[nextId] = slot
+    return nextId
+
+  def disconnect(self, connectId):
+    if connectId in self._connectDict:
+      del self._connectDict[connectId]
+      return True
+    return False

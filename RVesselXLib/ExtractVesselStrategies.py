@@ -213,7 +213,7 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
     """
     # Extract all the node ids in the tree and group them by either seed or end id
     # End Ids regroup all the ids which are tree leaves
-    nodeList = vesselBranchTree.getNodeList()
+    nodeList = vesselBranchTree.getPlacedNodeList()
     seedIds = []
     endIds = []
     for node in nodeList:
@@ -331,7 +331,7 @@ class ExtractOneVesselPerParentChildNode(ExtractVesselFromVesselSeedPointsStrate
     """
 
     # Extract all the branches in the tree and return as branch list
-    nodeList = vesselBranchTree.getNodeList()
+    nodeList = vesselBranchTree.getPlacedNodeList()
     vesselSeedList = []
 
     for node in nodeList:

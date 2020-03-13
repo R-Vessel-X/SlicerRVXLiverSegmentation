@@ -4,8 +4,10 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
+import RVesselXLib, RVesselXTest
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
-from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase
+from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
+  VesselBranchWizardTestCase
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -297,7 +299,9 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     RVesselXModuleWidget.enableReloadOnSceneClear = False
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
+    # testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
+    #              ExtractVesselStrategyTestCase]
+    testCases = [VesselBranchWizardTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 
