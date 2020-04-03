@@ -100,8 +100,24 @@ class VesselBranchWizard(object):
   def getInteractionStatus(self):
     return self._interactionStatus
 
-  def onInsertBeforeNode(self):
-    raise NotImplementedError()
+  def onInsertBeforeNode(self, insertEnabled):
+    """
+    If current node and parent node are placed, enables node placing and set node as insert before
+    """
+    self.onStopInteraction()
+    if insertEnabled and self._isCurrentNodePlaced() and self._isParentNodePlaced():
+      self._placeWidget.setPlaceModeEnabled(True)
+      self._updateCurrentInteraction(InteractionStatus.INSERT_BEFORE)
+
+  def _isCurrentNodePlaced(self):
+    return self._currentTreeItem.status == PlaceStatus.PLACED
+
+  def _isNodeItemPlaced(self, nodeItem):
+    return nodeItem.status == PlaceStatus.PLACED
+
+  def _isParentNodePlaced(self):
+    parentId = self._tree.getParentNodeId(self._currentTreeItem.nodeId)
+    return self._isNodeItemPlaced(self._tree.getTreeWidgetItem(parentId)) if parentId is not None else False
 
   def onEditNode(self, editEnabled):
     self.onStopInteraction()
@@ -181,15 +197,40 @@ class VesselBranchWizard(object):
     """
     if self._currentTreeItem is not None:
       self._currentTreeItem.status = PlaceStatus.PLACED
-      self._node.SetNthFiducialLabel(self._node.GetLastFiducialId(), self._currentTreeItem.nodeId)
-      self._currentTreeItem = self._tree.getNextUnplacedItem(self._currentTreeItem.nodeId)
-      if self._currentTreeItem is not None:
-        self._tree.clickItem(self._currentTreeItem)
-      else:
-        self._placeWidget.setPlaceModeEnabled(False)
+
+      if self._interactionStatus == InteractionStatus.PLACING:
+        self._placeCurrentNodeAndActivateNext()
+      elif self._interactionStatus == InteractionStatus.INSERT_BEFORE:
+        self._insertPlacedNodeBeforeCurrent()
 
     self._treeDrawer.updateTreeLines()
     self._updatePlacingFinished()
+
+  def _placeCurrentNodeAndActivateNext(self):
+    self._renamePlacedNode(self._currentTreeItem.nodeId)
+    self._currentTreeItem = self._tree.getNextUnplacedItem(self._currentTreeItem.nodeId)
+    if self._currentTreeItem is not None:
+      self._tree.clickItem(self._currentTreeItem)
+    else:
+      self._placeWidget.setPlaceModeEnabled(False)
+
+  def _renamePlacedNode(self, name):
+    self._node.SetNthFiducialLabel(self._node.GetLastFiducialId(), name)
+
+  def _insertPlacedNodeBeforeCurrent(self):
+    insertedId = self._nextInsertedNodeId(self._currentTreeItem.nodeId)
+    self._renamePlacedNode(insertedId)
+    self._tree.insertBeforeNode(nodeId=insertedId, beforeNodeId=self._currentTreeItem.nodeId, status=PlaceStatus.PLACED)
+    self._currentTreeItem = self._tree.getTreeWidgetItem(insertedId)
+
+  def _nextInsertedNodeId(self, nodeId):
+    """
+    :type nodeId: str
+    :return: new node ID with base inputNodeId followed by _nodeIndex
+    """
+    nameParts = nodeId.split("_")
+    i_node = int(nameParts[1]) + 1 if len(nameParts) > 1 else 0
+    return "{}_{}".format(nameParts[0], i_node)
 
   def setVisibleInScene(self, isVisible):
     self._treeDrawer.setVisible(isVisible)

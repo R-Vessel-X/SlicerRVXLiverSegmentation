@@ -233,15 +233,15 @@ class VesselBranchTree(qt.QTreeWidget):
     self.expandAll()
     self._notifyModified()
 
-  def insertBeforeNode(self, nodeId, childNodeId, status=PlaceStatus.NOT_PLACED):
+  def insertBeforeNode(self, nodeId, beforeNodeId, status=PlaceStatus.NOT_PLACED):
     """Insert given node before the input parent Id. Inserts new node as root if childNodeId is None.
 
     Parameters
     ----------
     nodeId: str
       Unique ID of the node to insert in the tree
-    childNodeId: str or None
-      Unique ID of the child node before which the new node will be inserted. If None or "" will insert node at root.
+    beforeNodeId: str or None
+      Unique ID of the node before which the new node will be inserted. If None or "" will insert node at root.
     status: PlaceStatus
 
     Raises
@@ -249,11 +249,11 @@ class VesselBranchTree(qt.QTreeWidget):
       ValueError
         If childNodeId is not None and doesn't exist in the tree
     """
-    if not childNodeId:
+    if not beforeNodeId:
       self._insertNode(nodeId, None, status)
     else:
-      parentNodeId = self.getParentNodeId(childNodeId)
-      childItem = self._takeItem(childNodeId)
+      parentNodeId = self.getParentNodeId(beforeNodeId)
+      childItem = self._takeItem(beforeNodeId)
 
       self._insertNode(nodeId, parentNodeId, status)
       nodeItem = self._insertNode(nodeId, parentNodeId, status)

@@ -64,6 +64,9 @@ class VesselBranchWizardTestCase(unittest.TestCase):
   def click_first_element(self):
     self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.portalVein), 0)
 
+  def click_second_element(self):
+    self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.rightPortalVein), 0)
+
   def get_first_element_text(self):
     return self.tree.getText(VeinId.portalVein)
 
@@ -179,7 +182,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
 
   def test_editing_unlocks_markups(self):
     self.click_first_element()
-    self.wizard.onEditNode()
+    self.wizard.onEditNode(editEnabled=True)
     self.assertFalse(self.markupNode.GetLocked())
     self.assertEqual(InteractionStatus.EDIT, self.wizard.getInteractionStatus())
 
@@ -193,7 +196,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.click_first_element()
     self.nodePlace.placeNode()
     self.click_first_element()
-    self.wizard.onEditNode()
+    self.wizard.onEditNode(editEnabled=True)
     self.wizard.onStopInteraction()
     self.assertTrue(self.markupNode.GetLocked())
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
@@ -202,7 +205,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.click_first_element()
     self.nodePlace.placeNode()
     self.click_first_element()
-    self.wizard.onEditNode()
+    self.wizard.onEditNode(editEnabled=True)
     self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.segmentalBranch_6), 0)
 
     self.assertTrue(self.markupNode.GetLocked())
@@ -213,11 +216,40 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.nodePlace.placeNode()
     self.assertTrue(self.markupNode.GetLocked())
 
-  def test_placing_node_before_does_nothing_if_current_nodes_are_not_placed(self):
-    raise NotImplementedError()
+  def test_placing_node_before_does_nothing_if_current_node_is_not_placed(self):
+    self.click_first_element()
+    self.nodePlace.placeNode()
+    self.click_second_element()
+
+    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
+
+  def test_placing_node_before_does_nothing_if_parent_node_is_not_placed(self):
+    self.click_second_element()
+    self.nodePlace.placeNode()
+    self.click_second_element()
+
+    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
 
   def test_when_placing_node_inserts_node_name_of_next_node_when_placed(self):
-    raise NotImplementedError()
+    # Place first and second nodes
+    self.click_first_element()
+    self.nodePlace.placeNode()
+    self.nodePlace.placeNode()
 
-  def test_when_placing_node_before_renames_nodes(self):
-    raise NotImplementedError()
+    # Select second node and insert two nodes before
+    self.click_second_element()
+    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.assertEqual(InteractionStatus.INSERT_BEFORE, self.wizard.getInteractionStatus())
+    self.assertTrue(self.nodePlace.placeModeEnabled)
+
+    self.nodePlace.placeNode()
+    self.nodePlace.placeNode()
+
+    # Expect second node id to be present 3 times in tree
+    self.assertNTimesInTree(VeinId.rightPortalVein, 3)
+
+  def assertNTimesInTree(self, veinId, ntimes):
+    nodeIds = filter(lambda x: veinId in x, self.tree.getNodeList())
+    self.assertEqual(ntimes, len(nodeIds))
