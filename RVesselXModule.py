@@ -299,9 +299,8 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     RVesselXModuleWidget.enableReloadOnSceneClear = False
 
     # Gather tests for the plugin and run them in a test suite
-    # testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
-    #              ExtractVesselStrategyTestCase]
-    testCases = [VesselBranchWizardTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
+    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
+                 ExtractVesselStrategyTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 

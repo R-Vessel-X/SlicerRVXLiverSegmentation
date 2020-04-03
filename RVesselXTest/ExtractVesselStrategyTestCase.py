@@ -114,7 +114,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("n21", "n11")
     branchWidget.insertAfterNode("n31", "n21")
 
-    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getCompleteNodeList())
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 
     # Create strategy
     strategy = ExtractOneVesselPerParentAndSubChildNode()
@@ -155,7 +155,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("n40", "n31")
     branchWidget.insertAfterNode("n50", "n40")
 
-    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getCompleteNodeList())
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 
     # Create strategy
     strategy = ExtractOneVesselPerBranch()

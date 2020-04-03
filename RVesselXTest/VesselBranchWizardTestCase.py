@@ -177,27 +177,17 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.assertNotIn(self.placing_text, self.get_first_element_text())
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
 
-  def test_editing_not_not_placed_yet_does_nothing(self):
+  def test_editing_unlocks_markups(self):
     self.click_first_element()
     self.wizard.onEditNode()
-    self.assertEqual(0, self.status_update_listener.call_count)
-    self.assertEqual(InteractionStatus.PLACING, self.wizard.getInteractionStatus())
+    self.assertFalse(self.markupNode.GetLocked())
+    self.assertEqual(InteractionStatus.EDIT, self.wizard.getInteractionStatus())
 
   def test_clicking_on_node_which_is_already_placed_and_without_any_other_action_sets_status_to_stopped(self):
     self.click_first_element()
     self.nodePlace.placeNode()
     self.click_first_element()
-    self.assertEqual(1, self.status_update_listener.call_count)
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
-
-  def test_editing_when_node_is_placed_enables_changing_its_position_by_clicking(self):
-    self.click_first_element()
-    self.nodePlace.placeNode()
-    self.click_first_element()
-
-    self.wizard.onEditNode()
-    self.assertEqual(InteractionStatus.EDIT, self.wizard.getInteractionStatus())
-    self.assertFalse(self.markupNode.GetLocked())
 
   def test_stopping_interaction_after_edit_locks_markup(self):
     self.click_first_element()
@@ -218,10 +208,12 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.assertTrue(self.markupNode.GetLocked())
     self.assertEqual(InteractionStatus.PLACING, self.wizard.getInteractionStatus())
 
-  def test_placing_node_before_does_nothing_if_current_nodes_are_not_placed(self):
-    raise NotImplementedError()
+  def test_nodes_are_locked_by_default(self):
+    self.click_first_element()
+    self.nodePlace.placeNode()
+    self.assertTrue(self.markupNode.GetLocked())
 
-  def test_placing_node_after_does_nothing_if_current_nodes_are_not_placed(self):
+  def test_placing_node_before_does_nothing_if_current_nodes_are_not_placed(self):
     raise NotImplementedError()
 
   def test_when_placing_node_inserts_node_name_of_next_node_when_placed(self):

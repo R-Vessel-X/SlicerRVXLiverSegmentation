@@ -38,6 +38,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._logic = logic
     self._vesselBranchWidget = VesselBranchWidget()
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
+    self._vesselBranchWidget.treeValidityChanged.connect(self._updateButtonStatusAndFilterParameters)
 
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
@@ -180,7 +181,7 @@ class VesselWidget(VerticalLayoutWidget):
     """Enable buttons if input volume was selected by user and Tree is not in edit mode. When tree is done with editing
     and vessels populate the tree, vessels can be updated using new filter parameters.
     """
-    isEnabled = self._inputVolume is not None
+    isEnabled = self._inputVolume is not None and self._vesselBranchWidget.isVesselTreeValid()
     self._vesselBranchWidget.extractVesselsButton.setEnabled(isEnabled)
     self._updateVesselnessFilterParameters(self._logic.vesselnessFilterParameters)
 

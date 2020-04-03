@@ -91,7 +91,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     self.assertIn("ParentId", nodeList)
     self.assertIn("Child2Id", nodeList)
 
-  def testGetCompleteNodeListReturnsListOfEveryNodeInTree(self):
+  def testGetNodeListReturnsListOfEveryNodeInTree(self):
     # ParentId
     #     |_ Child1Id
     #     |_ Child2Id
@@ -107,7 +107,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     branchWidget.getTreeWidgetItem("Child2Id").status = PlaceStatus.PLACED
     branchWidget.getTreeWidgetItem("SubChild1Id").status = PlaceStatus.NOT_PLACED
 
-    nodeList = branchWidget.getCompleteNodeList()
+    nodeList = branchWidget.getNodeList()
     self.assertIn("Child1Id", nodeList)
     self.assertIn("SubChild1Id", nodeList)
     self.assertIn("ParentId", nodeList)

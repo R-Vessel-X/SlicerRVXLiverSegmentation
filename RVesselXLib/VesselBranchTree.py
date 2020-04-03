@@ -6,6 +6,7 @@ import vtk
 from collections import defaultdict
 
 from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard
+from RVesselXLib.VesselBranchWizard import InteractionStatus
 from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
 
@@ -430,10 +431,15 @@ class VesselBranchTree(qt.QTreeWidget):
     List[str]
       List of nodeIds which have been placed in the mrmlScene
     """
-    return [nodeId for nodeId in self.getCompleteNodeList() if
-            self.getTreeWidgetItem(nodeId).status == PlaceStatus.PLACED]
+    return [nodeId for nodeId in self.getNodeList() if self._isPlaced(nodeId)]
 
-  def getCompleteNodeList(self):
+  def areAllNodesPlaced(self):
+    return all([self._isPlaced(nodeId) for nodeId in self.getNodeList()])
+
+  def _isPlaced(self, nodeId):
+    return self.getTreeWidgetItem(nodeId).status == PlaceStatus.PLACED
+
+  def getNodeList(self):
     """
     Returns
     -------
@@ -677,13 +683,13 @@ class MarkupNode(object):
   def _emitPointAdded(self, *args):
     self.pointAdded.emit()
 
-  def _emitPointClicked(self, caller, eventId, callData):
+  def _emitPointClicked(self, caller, callData):
     self.pointClicked.emit(callData)
 
-  def _emitPointInteractionEnded(self, caller, eventId, callData):
+  def _emitPointInteractionEnded(self, caller, callData):
     self.pointInteractionEnded.emit(callData)
 
-  def _emitPointModified(self, caller, eventId, callData):
+  def _emitPointModified(self, caller, callData):
     self.pointModified.emit(callData)
 
 
@@ -756,6 +762,7 @@ class VesselBranchWidget(qt.QWidget):
 
     # Create interaction wizard
     self._wizard = VesselBranchWizard(self._branchTree, self._markupNode, self._markupPlaceWidget, self._treeDrawer)
+    self._wizard.interactionChanged.connect(self._updateButtonCheckedStatus)
 
     # Create layout for the widget
     widgetLayout = qt.QVBoxLayout()
@@ -765,6 +772,10 @@ class VesselBranchWidget(qt.QWidget):
 
     # Create interaction action
     self._stopInteractionAction = self._createStopInteractionAction()
+
+    # Emitted when validity changes
+    self.treeValidityChanged = Signal()
+    self._wizard.placingFinished.connect(self.treeValidityChanged.emit)
 
   def enableShortcuts(self, isEnabled):
     """Enables/Disables the shortcuts for the widget. If enabled, add node and edit node can be disabled by pressing
@@ -808,10 +819,8 @@ class VesselBranchWidget(qt.QWidget):
     # Create add and edit layout
     addEditButtonLayout = qt.QHBoxLayout()
     self._insertNodeBeforeButton = createButton("Insert node before", self._wizard.onInsertBeforeNode, isCheckable=True)
-    self._insertNodeAfterButton = createButton("Insert node after", self._wizard.onInsertAfterNode, isCheckable=True)
     self._editBranchNodeButton = createButton("Edit node", self._wizard.onEditNode, isCheckable=True)
     addEditButtonLayout.addWidget(self._insertNodeBeforeButton)
-    addEditButtonLayout.addWidget(self._insertNodeAfterButton)
     addEditButtonLayout.addWidget(self._editBranchNodeButton)
 
     # Create vertical layout and add Add and edit buttons on top of extract button
@@ -820,6 +829,11 @@ class VesselBranchWidget(qt.QWidget):
     self.extractVesselsButton = createButton("Extract Vessels from node tree")
     buttonLayout.addWidget(self.extractVesselsButton)
     return buttonLayout
+
+  def _updateButtonCheckedStatus(self):
+    interaction = self._wizard.getInteractionStatus()
+    self._editBranchNodeButton.setChecked(interaction == InteractionStatus.EDIT)
+    self._insertNodeBeforeButton.setChecked(interaction == InteractionStatus.INSERT_BEFORE)
 
   def getBranchTree(self):
     return self._branchTree
@@ -835,3 +849,9 @@ class VesselBranchWidget(qt.QWidget):
       self._markupNode.SetNthFiducialVisibility(i, isNodeVisible)
 
     self._wizard.setVisibleInScene(isVisible)
+
+  def stopInteraction(self):
+    self._wizard.onStopInteraction()
+
+  def isVesselTreeValid(self):
+    return self._wizard.isPlacingFinished()

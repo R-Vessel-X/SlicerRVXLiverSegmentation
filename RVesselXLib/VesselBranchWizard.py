@@ -44,6 +44,7 @@ class VesselBranchWizard(object):
     """
     self._tree = tree
     self._node = markupNode
+    self._node.SetLocked(True)
     self._setupDefaultBranchNodes()
     self._placeWidget = nodePlaceWidget
     self._currentTreeItem = None
@@ -54,17 +55,35 @@ class VesselBranchWizard(object):
                        lambda current, previous: self.onItemClicked(current, 0))
     self._tree.keyPressed.connect(self.onKeyPressed)
     self._node.pointAdded.connect(self.onMarkupPointAdded)
+    self._node.pointModified.connect(lambda *x: self._treeDrawer.updateTreeLines())
+    self._node.pointInteractionEnded.connect(lambda *x: self._treeDrawer.updateTreeLines())
     self._placeWidget.placeModeChanged.connect(self._onNodePlaceModeChanged)
 
     # Emitted when interaction mode changes
-    self.interactionChanged = Signal()
     self._interactionStatus = InteractionStatus.STOPPED
+    self.interactionChanged = Signal()
+
+    # Emitted when all nodes have been placed in the wizard
+    self._placingFinished = False
+    self.placingFinished = Signal()
+
+  def _currentItemPlaceStatus(self):
+    """
+    :return: Current item place status if it's valid, else PlaceStatus.NONE
+    """
+    return self._currentTreeItem.status if self._currentTreeItem is not None else PlaceStatus.NONE
 
   def _onNodePlaceModeChanged(self):
+    """
+    Disables current wizard placing when markup place widget is disabled from the UI
+    """
     if not self._placeWidget.placeModeEnabled:
       self.onStopInteraction()
 
   def _setupDefaultBranchNodes(self):
+    """
+    Prepares tree with the different hepatic vessel node names
+    """
     self._tree.insertAfterNode(VeinId.portalVein, None)
     self._tree.insertAfterNode(VeinId.rightPortalVein, VeinId.portalVein)
     self._tree.insertAfterNode(VeinId.leftPortalVein, VeinId.portalVein)
@@ -84,32 +103,44 @@ class VesselBranchWizard(object):
   def onInsertBeforeNode(self):
     raise NotImplementedError()
 
-  def onInsertAfterNode(self):
-    raise NotImplementedError()
+  def onEditNode(self, editEnabled):
+    self.onStopInteraction()
 
-  def onEditNode(self):
-    raise NotImplementedError()
+    if editEnabled:
+      self._node.SetLocked(False)
+      self._updateCurrentInteraction(InteractionStatus.EDIT)
+
+  def onStartPlacing(self):
+    if self._currentItemPlaceStatus() == PlaceStatus.NOT_PLACED:
+      self.onStopInteraction()
+      self._currentTreeItem.status = PlaceStatus.PLACING
+      self._placeWidget.setPlaceModeEnabled(True)
+      self._updateCurrentInteraction(InteractionStatus.PLACING)
 
   def onStopInteraction(self):
     self._deactivatePreviousItem()
     self._placeWidget.setPlaceModeEnabled(False)
+    self._node.SetLocked(True)
     self._updateCurrentInteraction(InteractionStatus.STOPPED)
 
   def _deactivatePreviousItem(self):
-    if self._currentTreeItem is not None and self._currentTreeItem.status == PlaceStatus.PLACING:
+    if self._currentItemPlaceStatus() == PlaceStatus.PLACING:
       self._currentTreeItem.status = PlaceStatus.NOT_PLACED
 
   def onItemClicked(self, treeItem, column):
+    """
+    On item clicked, start placing item if necessary.
+    Delete item if delete column was selected
+    """
     self._deactivatePreviousItem()
 
     self._currentTreeItem = treeItem
     if column == 1:
       self._onDeleteItem(treeItem)
-    else:
-      if treeItem.status == PlaceStatus.NOT_PLACED:
-        self._updateCurrentInteraction(InteractionStatus.PLACING)
-        treeItem.status = PlaceStatus.PLACING
-        self._placeWidget.setPlaceModeEnabled(True)
+    elif treeItem.status == PlaceStatus.NOT_PLACED:
+      self.onStartPlacing()
+    elif self._interactionStatus == InteractionStatus.PLACING and treeItem.status == PlaceStatus.PLACED:
+      self.onStopInteraction()
 
     self._treeDrawer.updateTreeLines()
 
@@ -119,22 +150,35 @@ class VesselBranchWizard(object):
       self.interactionChanged.emit()
 
   def onKeyPressed(self, treeItem, key):
+    """
+    On delete key pressed, delete the current item if any selected
+    """
     if key == qt.Qt.Key_Delete:
       self._onDeleteItem(treeItem)
 
   def _onDeleteItem(self, treeItem):
+    """
+    Remove the item from the tree and hide the associated markup
+    """
     self._tree.removeNode(treeItem.nodeId)
     self.updateNodeVisibility()
     if self._currentTreeItem == treeItem:
       self._currentTreeItem = None
+    self._updatePlacingFinished()
 
   def updateNodeVisibility(self):
+    """
+    Hides markup nodes which may have been deleted
+    """
     for i in range(self._node.GetNumberOfFiducials()):
       self._node.SetNthFiducialVisibility(i, self._tree.isInTree(self._node.GetNthFiducialLabel(i)))
 
     self._treeDrawer.updateTreeLines()
 
   def onMarkupPointAdded(self):
+    """
+    On markup added, modify its status to placed and select the next unplaced node in the tree
+    """
     if self._currentTreeItem is not None:
       self._currentTreeItem.status = PlaceStatus.PLACED
       self._node.SetNthFiducialLabel(self._node.GetLastFiducialId(), self._currentTreeItem.nodeId)
@@ -145,12 +189,26 @@ class VesselBranchWizard(object):
         self._placeWidget.setPlaceModeEnabled(False)
 
     self._treeDrawer.updateTreeLines()
+    self._updatePlacingFinished()
 
   def setVisibleInScene(self, isVisible):
     self._treeDrawer.setVisible(isVisible)
+
+  def _updatePlacingFinished(self):
+    """
+    Emit placing finished when placing is done the first time.
+    """
+    if not self._placingFinished:
+      self._placingFinished = self._tree.areAllNodesPlaced()
+      if self._placingFinished:
+        self.placingFinished.emit()
+
+  def isPlacingFinished(self):
+    return self._placingFinished
 
 
 class PlaceStatus(object):
   NOT_PLACED = 0
   PLACING = 1
   PLACED = 2
+  NONE = 3
