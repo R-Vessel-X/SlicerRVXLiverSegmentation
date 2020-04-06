@@ -333,7 +333,28 @@ def createLabelMapVolumeNodeBasedOnModel(modelVolume, volumeName):
   vtkMRMLLabelMapVolumeNode
     New Label map volume added to the scene
   """
-  newLabelMapNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
+  return createVolumeNodeBasedOnModel(modelVolume, volumeName, "vtkMRMLLabelMapVolumeNode")
+
+
+def createVolumeNodeBasedOnModel(modelVolume, volumeName, volumeClass):
+  """Creates new LabelMapVolume node which reproduces the input node orientation, spacing, and origins
+
+  Parameters
+  ----------
+  modelVolume : VolumeNode
+    Volume from which orientation, spacing and origin will be deduced
+  volumeName: str
+    base name for the volume when it will be added to slicer scene. A unique name will be derived
+    from this base name (ie : adding number indices in case the volume is already present in the scene)
+  volumeClass: str
+    class of the volume to create
+
+  Returns
+  -------
+  volumeClass
+    New volume added to the scene
+  """
+  newLabelMapNode = slicer.mrmlScene.CreateNodeByClass(volumeClass)
   newLabelMapNode.UnRegister(None)
   newLabelMapNode.CopyOrientation(modelVolume)
   newLabelMapNode.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
@@ -495,6 +516,27 @@ def raiseValueErrorIfInvalidType(**kwargs):
     # Verify value is of correct instance
     if not isinstance(value, expType):
       raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
+
+
+def createDisplayNode(volumeNode, presetName=None):
+  """
+  Create new rendering display node for input volume
+
+  :type volumeNode: vtkMRMLVolumeNode
+  :param presetName: Name of the preset to load for volume display node
+  :type presetName: str
+  """
+  volRenLogic = slicer.modules.volumerendering.logic()
+  volumeDisplayNode = volRenLogic.CreateVolumeRenderingDisplayNode()
+  slicer.mrmlScene.AddNode(volumeDisplayNode)
+  volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
+  volumeDisplayNode.SetVisibility(True)
+  volRenLogic.UpdateDisplayNodeFromVolumeNode(volumeDisplayNode, volumeNode)
+
+  # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+  if presetName is not None:
+    volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName(presetName))
+  return volumeDisplayNode
 
 
 class Signal(object):

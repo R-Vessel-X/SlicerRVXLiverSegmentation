@@ -5,7 +5,7 @@ import qt
 import slicer
 
 from .RVesselXModuleLogic import VesselnessFilterParameters
-from .RVesselXUtils import GeometryExporter, removeFromMRMLScene
+from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch
@@ -35,6 +35,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselVolumeNode = None
     self._vesselModelNode = None
     self._inputVolume = None
+    self._vesselnessDisplay = None
     self._logic = logic
     self._vesselBranchWidget = VesselBranchWidget()
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
@@ -103,7 +104,33 @@ class VesselWidget(VerticalLayoutWidget):
     advancedFormLayout.addRow("Restore default filter parameters :", restoreDefaultButton)
     self._restoreDefaultVesselnessFilterParameters()
 
+    # Show/hide vesselness volume
+    showVesselnessCheckbox = qt.QCheckBox()
+    showVesselnessCheckbox.connect("stateChanged(int)", self._showVesselnessVolumeChanged)
+    advancedFormLayout.addRow("Show vesselness volume :", showVesselnessCheckbox)
+    self._showVesselness = False
+
     return filterOptionCollapsibleButton
+
+  def _showVesselnessVolumeChanged(self, state):
+    self._showVesselness = state == qt.Qt.Checked
+    self._updateVesselnessVisibility()
+
+  def _updateVesselnessVisibility(self):
+    vesselness = self._logic.getCurrentVesselnessVolume()
+    if vesselness is None:
+      return
+
+    vesselnessDisplayNode = self._getVesselnessDisplayNode(vesselness)
+    vesselnessDisplayNode.SetVisibility(self._showVesselness)
+
+  def _getVesselnessDisplayNode(self, vesselness):
+    if self._vesselnessDisplay is not None:
+      self._vesselnessDisplay.SetVisibility(False)
+      slicer.mrmlScene.RemoveNode(self._vesselnessDisplay)
+
+    self._vesselnessDisplay = createDisplayNode(vesselness, "Vesselness")
+    return self._vesselnessDisplay
 
   def _extractVessel(self):
     """Extract vessels from vessel branch tree. Disable tree interaction and inform user of algorithm processing.
@@ -137,6 +164,7 @@ class VesselWidget(VerticalLayoutWidget):
                                                                 " in the branch tree")
 
     progressDialog.hide()
+    self._updateVesselnessVisibility()
 
   def _removePreviouslyExtractedVessels(self):
     """Remove previous nodes from mrmlScene if necessary.

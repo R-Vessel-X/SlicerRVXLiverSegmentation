@@ -5,7 +5,7 @@ import vtk
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
-  createModelNode, getFiducialPositions
+  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel
 
 
 class VMTKModule(object):
@@ -142,7 +142,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
 
     # Create output node
-    vesselnessFiltered = createLabelMapVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered")
+    vesselnessFiltered = createVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered", "vtkMRMLScalarVolumeNode")
 
     if isContrastCalculated:
       # Extract diameter size from start point position
@@ -183,7 +183,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     ----------
     sourceVolume : vtkMRMLScalarVolumeNode
       Original volume (before vesselness filter
-    vesselnessVolume : vtkMRMLLabelMapVolumeNode
+    vesselnessVolume : vtkMRMLScalarVolumeNode
       Volume after filtering by vesselness filter
     seedsPositions : List[List[float]]
       Seed positions for the vessel
@@ -203,7 +203,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
-                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"))
+                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLScalarVolumeNode"))
 
     # Get module logic from VMTK LevelSetSegmentation
     segmentationWidget = VMTKModule.getLevelSetSegmentationWidget()
@@ -308,7 +308,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     ----------
     sourceVolume : vtkMRMLScalarVolumeNode
       Original volume (before vesselness filter
-    vesselnessVolume : vtkMRMLLabelMapVolumeNode
+    vesselnessVolume : vtkMRMLScalarVolumeNode
       Volume after filtering by vesselness filter
     startPoint : vtkMRMLMarkupsFiducialNode
       Start point for the vessel
@@ -326,7 +326,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
-                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLLabelMapVolumeNode"),
+                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLScalarVolumeNode"),
                                  startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
                                  endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
 
@@ -421,15 +421,24 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       True if update was done, False otherwise.
     """
     # Early return in case the inputs is not properly defined or processing already done for input
-    isInvalidInput = self._inputVolume is None
-    isProcessingAlreadyDone = self._currentVesselnessKey() in self._vesselnessVolumes.keys()
-
-    if isInvalidInput or isProcessingAlreadyDone:
+    if self._isInvalidVolumeInput() or self._isVesselnessAlreadyProcessed():
       return False
 
     self._vesselnessVolumes[self._currentVesselnessKey()] = self._applyVesselnessFilter(self._inputVolume,
                                                                                         startPoint=None)
     return True
+
+  def _isInvalidVolumeInput(self):
+    return self._inputVolume is None
+
+  def _isVesselnessAlreadyProcessed(self):
+    return self._currentVesselnessKey() in self._vesselnessVolumes.keys()
+
+  def getCurrentVesselnessVolume(self):
+    if self._isVesselnessAlreadyProcessed():
+      return self._vesselnessVolumes[self._currentVesselnessKey()]
+    else:
+      return None
 
   def _hasVesselnessForInput(self):
     """
@@ -472,6 +481,5 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Model after marching cubes on the segmentation data
     """
     self._delayedUpdateVesselnessVolume()
-    return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume,
-                                                            self._vesselnessVolumes[self._currentVesselnessKey()],
+    return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume, self.getCurrentVesselnessVolume(),
                                                             seedsPositions, endPositions)

@@ -2,7 +2,7 @@ import ctk
 import qt
 import slicer
 
-from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton
+from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -46,7 +46,7 @@ class DataWidget(VerticalLayoutWidget):
     self.volumesModuleSelector = WidgetUtils.getFirstChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
 
     # Add Volume Rendering information
-    self.volumeRenderingWidget = slicer.modules.volumerendering.widgetRepresentation()
+    self.volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
     addInCollapsibleLayout(self.volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
 
     # Hide Volume Rendering Selector and its label
@@ -163,30 +163,18 @@ class DataWidget(VerticalLayoutWidget):
     if volumeNode is None:
       return
 
-    volRenLogic = slicer.modules.volumerendering.logic()
-
     # hide previous node if necessary
     if self._volumeDisplayNode:
       self._volumeDisplayNode.SetVisibility(False)
 
     # Create new display node for input volume
-    self._volumeDisplayNode = volRenLogic.CreateVolumeRenderingDisplayNode()
-    slicer.mrmlScene.AddNode(self._volumeDisplayNode)
-    volumeNode.AddAndObserveDisplayNodeID(self._volumeDisplayNode.GetID())
-    self._volumeDisplayNode.SetVisibility(True)
-    volRenLogic.UpdateDisplayNodeFromVolumeNode(self._volumeDisplayNode, volumeNode)
+    scalarRange = volumeNode.GetImageData().GetScalarRange()
+    isDynamicRangeSmall = (scalarRange[1] - scalarRange[0]) < 1500
+    preset = 'MR-Default' if isDynamicRangeSmall else 'CT-Chest-Contrast-Enhanced'
+
+    self._volumeDisplayNode = createDisplayNode(volumeNode, preset)
 
     slicer.util.resetThreeDViews()
-
-    # Load preset
-    # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
-    scalarRange = volumeNode.GetImageData().GetScalarRange()
-    if scalarRange[1] - scalarRange[0] < 1500:
-      # small dynamic range, probably MRI
-      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
-    else:
-      # larger dynamic range, probably CT
-      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
 
   def getInputNode(self):
     """
