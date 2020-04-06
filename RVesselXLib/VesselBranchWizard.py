@@ -1,6 +1,6 @@
 import qt
 
-from RVesselXLib import Signal
+from RVesselXLib import Signal, jumpSlicesToNthMarkupPosition
 
 
 class VeinId(object):
@@ -110,10 +110,10 @@ class VesselBranchWizard(object):
       self._updateCurrentInteraction(InteractionStatus.INSERT_BEFORE)
 
   def _isCurrentNodePlaced(self):
-    return self._currentTreeItem.status == PlaceStatus.PLACED
+    return self._currentItemPlaceStatus() == PlaceStatus.PLACED
 
   def _isNodeItemPlaced(self, nodeItem):
-    return nodeItem.status == PlaceStatus.PLACED
+    return nodeItem.status == PlaceStatus.PLACED if nodeItem is not None else False
 
   def _isParentNodePlaced(self):
     parentId = self._tree.getParentNodeId(self._currentTreeItem.nodeId)
@@ -158,7 +158,32 @@ class VesselBranchWizard(object):
     elif self._interactionStatus == InteractionStatus.PLACING and treeItem.status == PlaceStatus.PLACED:
       self.onStopInteraction()
 
+    self._jumpSlicesToCurrentNode()
     self._treeDrawer.updateTreeLines()
+
+  def _jumpSlicesToCurrentNode(self):
+    """
+    Center all slices to input node position
+    """
+    if self._isCurrentNodePlaced():
+      jumpSlicesToNthMarkupPosition(self._node, self._nodeIndex(self._currentTreeItem.nodeId))
+
+  def _nodeIndex(self, nodeId):
+    """
+    Parameters
+    ----------
+    nodeId: str
+      Id of the node for which we want the index in the vessel branch node
+
+    Returns
+    -------
+    int or None
+      Markup index associated with id if found else None
+    """
+    for i in range(self._node.GetNumberOfFiducials()):
+      if self._node.GetNthFiducialLabel(i) == nodeId:
+        return i
+    return None
 
   def _updateCurrentInteraction(self, interaction):
     if self._interactionStatus != interaction:

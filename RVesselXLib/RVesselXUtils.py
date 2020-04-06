@@ -174,18 +174,19 @@ def jumpSlicesToNthMarkupPosition(markupNode, i_nthMarkup):
   i_nthMarkup: int or None
     Index of the markup we want to center the slices on
   """
-  # Early return if incorrect markupNode or index
-  if not isinstance(markupNode, slicer.vtkMRMLMarkupsFiducialNode):
-    return
+  try:
+    # Early return if incorrect index
+    isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
+    if i_nthMarkup is None or not isMarkupIndexInRange:
+      return
 
-  isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
-  if i_nthMarkup is None or not isMarkupIndexInRange:
-    return
+    # Get fiducial position and center slices to it
+    pos = [0] * 3
+    markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
+    jumpSlicesToLocation(pos)
 
-  # Get fiducial position and center slices to it
-  pos = [0] * 3
-  markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
-  jumpSlicesToLocation(pos)
+  except AttributeError:
+    return
 
 
 def createInputNodeSelector(nodeType, toolTip, callBack=None):

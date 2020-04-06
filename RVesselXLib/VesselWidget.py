@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import logging
 
 import ctk
@@ -8,7 +9,8 @@ from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
 from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget
-from .ExtractVesselStrategies import ExtractOneVesselPerBranch
+from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
+  ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -40,6 +42,14 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselBranchWidget = VesselBranchWidget()
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
     self._vesselBranchWidget.treeValidityChanged.connect(self._updateButtonStatusAndFilterParameters)
+
+    # Extraction strategies
+    self._strategies = OrderedDict()
+    self._strategies["One vessel per branch"] = ExtractOneVesselPerBranch()
+    self._strategies["One vessel per parent child"] = ExtractOneVesselPerParentChildNode()
+    self._strategies["One vessel per parent and sub child"] = ExtractOneVesselPerParentAndSubChildNode()
+    self._strategies["One vessel for whole tree"] = ExtractAllVesselsInOneGoStrategy()
+    self._defaultStrategy = "One vessel per branch"
 
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
@@ -102,13 +112,13 @@ class VesselWidget(VerticalLayoutWidget):
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
     restoreDefaultButton.connect("clicked()", self._restoreDefaultVesselnessFilterParameters)
-    advancedFormLayout.addRow("Restore default filter parameters :", restoreDefaultButton)
+    advancedFormLayout.addRow("Restore default filter parameters:", restoreDefaultButton)
     self._restoreDefaultVesselnessFilterParameters()
 
     # Show/hide vesselness volume
     showVesselnessCheckbox = qt.QCheckBox()
     showVesselnessCheckbox.connect("stateChanged(int)", self._showVesselnessVolumeChanged)
-    advancedFormLayout.addRow("Show vesselness volume :", showVesselnessCheckbox)
+    advancedFormLayout.addRow("Show vesselness volume:", showVesselnessCheckbox)
     self._showVesselness = False
 
     return filterOptionCollapsibleButton
@@ -121,7 +131,7 @@ class VesselWidget(VerticalLayoutWidget):
 
     # inflation slider
     inflationLabel = qt.QLabel()
-    inflationLabel.text = "Inflation"
+    inflationLabel.text = "Inflation:"
     inflationLabel.toolTip = "Define how fast the segmentation expands."
 
     self._inflationSlider = ctk.ctkSliderWidget()
@@ -134,7 +144,7 @@ class VesselWidget(VerticalLayoutWidget):
 
     # curvature slider
     curvatureLabel = qt.QLabel()
-    curvatureLabel.text = "Curvature"
+    curvatureLabel.text = "Curvature:"
     curvatureLabel.toolTip = "Choose a high curvature to generate a smooth segmentation."
 
     self._curvatureSlider = ctk.ctkSliderWidget()
@@ -147,7 +157,7 @@ class VesselWidget(VerticalLayoutWidget):
 
     # attraction slider
     attractionLabel = qt.QLabel()
-    attractionLabel.text = "Attraction to gradient"
+    attractionLabel.text = "Attraction to gradient:"
     attractionLabel.toolTip = "Configure how the segmentation travels towards gradient ridges (vessel lumen wall)."
 
     self._attractionSlider = ctk.ctkSliderWidget()
@@ -166,11 +176,18 @@ class VesselWidget(VerticalLayoutWidget):
     self._iterationSpinBox.toolTip = "Choose the number of evolution iterations."
     segmentationAdvancedFormLayout.addRow("Iterations:", self._iterationSpinBox)
 
+    # Strategy combo box
+    self._strategyChoice = qt.QComboBox()
+    self._strategyChoice.addItems(self._strategies.keys())
+    self._strategyChoice.toolTip = "Choose the strategy for vessel tree segmentation"
+    segmentationAdvancedFormLayout.addRow("Segmentation strategy:", self._strategyChoice)
+
+
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
     restoreDefaultButton.connect("clicked()", self._restoreDefaultLevelSetParameters)
-    segmentationAdvancedFormLayout.addRow("Restore default parameters :", restoreDefaultButton)
+    segmentationAdvancedFormLayout.addRow("Restore default parameters:", restoreDefaultButton)
     self._restoreDefaultLevelSetParameters()
 
     return collapsibleButton
@@ -207,7 +224,6 @@ class VesselWidget(VerticalLayoutWidget):
     # Call vessel extraction strategy and inform user of vessel extraction
     branchTree = self._vesselBranchWidget.getBranchTree()
     branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
-    strategy = ExtractOneVesselPerBranch()
     progressDialog = slicer.util.createProgressDialog(parent=self, windowTitle="Extracting vessels",
                                                       labelText="Extracting vessels volume from branch nodes."
                                                                 "\nThis may take a minute...")
@@ -218,6 +234,7 @@ class VesselWidget(VerticalLayoutWidget):
     try:
       self._updateLevelSetParameters()
       self._updateVesselnessVolume()
+      strategy = self._strategies[self._strategyChoice.currentText]
       self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                        branchMarkupNode,
                                                                                                        self._logic)
@@ -272,6 +289,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._attractionSlider.value = p.attraction
     self._inflationSlider.value = p.inflation
     self._iterationSpinBox.value = p.iterationNumber
+    self._strategyChoice.setCurrentIndex(self._strategyChoice.findText(self._defaultStrategy))
 
   def _updateVesselnessFilterParameters(self, params):
     """Updates UI vessel filter parameters with the input VesselnessFilterParameters

@@ -216,6 +216,14 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.nodePlace.placeNode()
     self.assertTrue(self.markupNode.GetLocked())
 
+  def test_placing_node_before_does_nothing_if_current_node_is_root(self):
+    self.click_first_element()
+    self.nodePlace.placeNode()
+    self.click_first_element()
+
+    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
+
   def test_placing_node_before_does_nothing_if_current_node_is_not_placed(self):
     self.click_first_element()
     self.nodePlace.placeNode()
