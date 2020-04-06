@@ -182,7 +182,6 @@ class VesselWidget(VerticalLayoutWidget):
     self._strategyChoice.toolTip = "Choose the strategy for vessel tree segmentation"
     segmentationAdvancedFormLayout.addRow("Segmentation strategy:", self._strategyChoice)
 
-
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
@@ -327,7 +326,8 @@ class VesselWidget(VerticalLayoutWidget):
       self._updateButtonStatusAndFilterParameters()
 
   def getGeometryExporters(self):
-    return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode)]
+    return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode,
+                             vesselsNode=self._vesselBranchWidget.getBranchMarkupNode())]
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:

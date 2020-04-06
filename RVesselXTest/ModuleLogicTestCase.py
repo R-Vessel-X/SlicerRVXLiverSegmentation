@@ -58,11 +58,14 @@ class RVesselXModuleTestCase(unittest.TestCase):
     # Create non empty model and volume nodes (empty nodes are not exported)
     model = createNonEmptyModel()
     volume = createNonEmptyVolume()
+    markup = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+    markup.AddFiducial(0, 0, 0)
 
     # Create geometry exporter and add the two nodes to it
     exporter = GeometryExporter()
     exporter["ModelFileName"] = model
     exporter["VolumeFileName"] = volume
+    exporter["MarkupFileName"] = markup
 
     # Create temporary dir to export the data
     with TemporaryDir() as outputDir:
@@ -72,8 +75,10 @@ class RVesselXModuleTestCase(unittest.TestCase):
       # Expect the nodes have been correctly exported
       expModelPath = os.path.join(outputDir, "ModelFileName.vtk")
       expVolumePath = os.path.join(outputDir, "VolumeFileName.nii")
+      expMarkupPath = os.path.join(outputDir, "MarkupFileName.fcsv")
       self.assertTrue(os.path.isfile(expModelPath))
       self.assertTrue(os.path.isfile(expVolumePath))
+      self.assertTrue(os.path.isfile(expMarkupPath))
 
   def testVesselnessFilterIsUpdatedOncePerVolume(self):
     vol1 = createNonEmptyVolume("vol1")

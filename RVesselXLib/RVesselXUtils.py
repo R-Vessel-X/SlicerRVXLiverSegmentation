@@ -137,12 +137,14 @@ class GeometryExporter(object):
     -------
       str or None
     """
-    if isinstance(elementNode, slicer.vtkMRMLVolumeNode):  # Export volumes as NIFTI files
-      return ".nii"
-    elif isinstance(elementNode, slicer.vtkMRMLModelNode):  # Export meshes as vtk types
-      return ".vtk"
-    else:  # Other types are not supported for export
-      return None
+    typeExtensions = {slicer.vtkMRMLVolumeNode: ".nii", slicer.vtkMRMLModelNode: ".vtk",
+                      slicer.vtkMRMLMarkupsFiducialNode: ".fcsv"}
+
+    for fileType, fileExt in typeExtensions.items():
+      if isinstance(elementNode, fileType):
+        return fileExt
+
+    return None
 
   def __setitem__(self, key, value):
     self._elementsToExport[key] = value
