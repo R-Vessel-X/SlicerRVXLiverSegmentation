@@ -46,7 +46,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
     logic = RVesselXModuleLogic()
 
     with self.assertRaises(ValueError):
-      logic._applyLevelSetSegmentation(None, None, None, None)
+      logic._applyLevelSetSegmentation(None, None, None, None, None)
 
     with self.assertRaises(ValueError):
       logic._applyVesselnessFilter(None, None)

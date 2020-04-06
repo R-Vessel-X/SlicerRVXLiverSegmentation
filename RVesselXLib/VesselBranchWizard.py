@@ -176,6 +176,7 @@ class VesselBranchWizard(object):
     """
     Remove the item from the tree and hide the associated markup
     """
+    self.onStopInteraction()
     self._tree.removeNode(treeItem.nodeId)
     self.updateNodeVisibility()
     if self._currentTreeItem == treeItem:

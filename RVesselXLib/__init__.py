@@ -6,7 +6,8 @@ from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, addInCollaps
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget
-from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic, VesselnessFilterParameters
+from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic, VesselnessFilterParameters, \
+  LevelSetParameters
 from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerParentChildNode, \
   ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromVesselSeedPointsStrategy, ExtractOneVesselPerBranch, \
   VesselSeedPoints

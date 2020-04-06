@@ -63,6 +63,18 @@ class VesselnessFilterParameters(object):
             self.vesselContrast)
 
 
+class LevelSetParameters(object):
+  """
+  Object holding the parameters for level set segmentation algorithm. Init construct level set with default parameters
+  """
+
+  def __init__(self):
+    self.inflation = 0
+    self.curvature = 70
+    self.attraction = 50
+    self.iterationNumber = 10
+
+
 class IRVesselXModuleLogic(object):
   """Interface definition for Logic module.
   """
@@ -101,6 +113,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     self._inputVolume = None
     self._vesselnessVolumes = {}
+    self.levelSetParameters = LevelSetParameters()
 
   def setInputVolume(self, inputVolume):
     """
@@ -174,7 +187,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     return vesselnessFiltered
 
   @staticmethod
-  def _applyLevelSetSegmentationFromNodePositions(sourceVolume, vesselnessVolume, seedsPositions, endPositions):
+  def _applyLevelSetSegmentationFromNodePositions(sourceVolume, vesselnessVolume, seedsPositions, endPositions,
+                                                  levelSetParameters):
     """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input seed positions and end positions
 
     Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
@@ -189,6 +203,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Seed positions for the vessel
     endPositions : List[List[float]]
       End positions for the vessel
+    levelSetParameters : LevelSetParameters
 
     Returns
     -------
@@ -249,14 +264,10 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       raise ValueError("Segmentation failed - the output was empty...")
 
     # no preview, run the whole thing! we never use the vesselness node here, just the original one
-    inflationDefaultValue = 0
-    curvatureDefaultValue = 70
-    attractionDefaultValue = 50
-    iterationDefaultValue = 10
     evolImageData.DeepCopy(
-      segmentationLogic.performEvolution(sourceVolume.GetImageData(), initImageData, iterationDefaultValue,
-                                         inflationDefaultValue, curvatureDefaultValue, attractionDefaultValue,
-                                         'geodesic'))
+      segmentationLogic.performEvolution(sourceVolume.GetImageData(), initImageData, levelSetParameters.iterationNumber,
+                                         levelSetParameters.inflation, levelSetParameters.curvature,
+                                         levelSetParameters.attraction, 'geodesic'))
 
     # create segmentation labelMap
     labelMap = vtk.vtkImageData()
@@ -299,7 +310,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     return modelNode
 
   @staticmethod
-  def _applyLevelSetSegmentation(sourceVolume, vesselnessVolume, startPoint, endPoint):
+  def _applyLevelSetSegmentation(sourceVolume, vesselnessVolume, startPoint, endPoint, levelSetParameters):
     """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input startPoint and endPoint.
 
     Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
@@ -333,7 +344,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     startPos = getFiducialPositions(startPoint)
     endPos = getFiducialPositions(endPoint)
     seedsNodes, stoppersNodes, outVolume, outModel = RVesselXModuleLogic._applyLevelSetSegmentationFromNodePositions(
-      sourceVolume, vesselnessVolume, startPos, endPos)
+      sourceVolume, vesselnessVolume, startPos, endPos, levelSetParameters)
     return seedsNodes, outVolume, outModel
 
   @staticmethod
@@ -468,6 +479,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       List of points to use as seeds during VMTK level set segmentation algorithm
     endPositions: List[List[float]]
       List of points to use as stoppers during VMTK level set segmentation algorithm
+    levelSetParameters: LevelSetParameters
 
     Returns
     -------
@@ -482,4 +494,4 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     self._delayedUpdateVesselnessVolume()
     return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume, self.getCurrentVesselnessVolume(),
-                                                            seedsPositions, endPositions)
+                                                            seedsPositions, endPositions, self.levelSetParameters)

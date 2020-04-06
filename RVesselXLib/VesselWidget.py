@@ -4,7 +4,7 @@ import ctk
 import qt
 import slicer
 
-from .RVesselXModuleLogic import VesselnessFilterParameters
+from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
 from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget
@@ -44,6 +44,7 @@ class VesselWidget(VerticalLayoutWidget):
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
     self._verticalLayout.addWidget(self._createAdvancedVesselnessFilterOptionWidget())
+    self._verticalLayout.addWidget(self._createAdvancedLevelSetOptionWidget())
 
     # Connect vessel tree edit change to update add button status
     self._updateButtonStatusAndFilterParameters()
@@ -97,7 +98,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._suppressBlobsSlider.toolTip = "A higher value filters out more blob-like structures."
     advancedFormLayout.addRow("Suppress blobs:", self._suppressBlobsSlider)
 
-    # Reset, preview and apply buttons
+    # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
     restoreDefaultButton.connect("clicked()", self._restoreDefaultVesselnessFilterParameters)
@@ -111,6 +112,68 @@ class VesselWidget(VerticalLayoutWidget):
     self._showVesselness = False
 
     return filterOptionCollapsibleButton
+
+  def _createAdvancedLevelSetOptionWidget(self):
+    collapsibleButton = ctk.ctkCollapsibleButton()
+    collapsibleButton.text = "LevelSet Segmentation Options"
+    collapsibleButton.collapsed = True
+    segmentationAdvancedFormLayout = qt.QFormLayout(collapsibleButton)
+
+    # inflation slider
+    inflationLabel = qt.QLabel()
+    inflationLabel.text = "Inflation"
+    inflationLabel.toolTip = "Define how fast the segmentation expands."
+
+    self._inflationSlider = ctk.ctkSliderWidget()
+    self._inflationSlider.decimals = 0
+    self._inflationSlider.minimum = -100
+    self._inflationSlider.maximum = 100
+    self._inflationSlider.singleStep = 10
+    self._inflationSlider.toolTip = inflationLabel.toolTip
+    segmentationAdvancedFormLayout.addRow(inflationLabel, self._inflationSlider)
+
+    # curvature slider
+    curvatureLabel = qt.QLabel()
+    curvatureLabel.text = "Curvature"
+    curvatureLabel.toolTip = "Choose a high curvature to generate a smooth segmentation."
+
+    self._curvatureSlider = ctk.ctkSliderWidget()
+    self._curvatureSlider.decimals = 0
+    self._curvatureSlider.minimum = -100
+    self._curvatureSlider.maximum = 100
+    self._curvatureSlider.singleStep = 10
+    self._curvatureSlider.toolTip = curvatureLabel.toolTip
+    segmentationAdvancedFormLayout.addRow(curvatureLabel, self._curvatureSlider)
+
+    # attraction slider
+    attractionLabel = qt.QLabel()
+    attractionLabel.text = "Attraction to gradient"
+    attractionLabel.toolTip = "Configure how the segmentation travels towards gradient ridges (vessel lumen wall)."
+
+    self._attractionSlider = ctk.ctkSliderWidget()
+    self._attractionSlider.decimals = 0
+    self._attractionSlider.minimum = -100
+    self._attractionSlider.maximum = 100
+    self._attractionSlider.singleStep = 10
+    self._attractionSlider.toolTip = attractionLabel.toolTip
+    segmentationAdvancedFormLayout.addRow(attractionLabel, self._attractionSlider)
+
+    # iteration spinbox
+    self._iterationSpinBox = qt.QSpinBox()
+    self._iterationSpinBox.minimum = 0
+    self._iterationSpinBox.maximum = 5000
+    self._iterationSpinBox.singleStep = 10
+    self._iterationSpinBox.toolTip = "Choose the number of evolution iterations."
+    segmentationAdvancedFormLayout.addRow("Iterations:", self._iterationSpinBox)
+
+    # Reset default button
+    restoreDefaultButton = qt.QPushButton("Restore")
+    restoreDefaultButton.toolTip = "Click to reset all input elements to default."
+    restoreDefaultButton.connect("clicked()", self._restoreDefaultLevelSetParameters)
+    segmentationAdvancedFormLayout.addRow("Restore default parameters :", restoreDefaultButton)
+    self._restoreDefaultLevelSetParameters()
+
+    return collapsibleButton
 
   def _showVesselnessVolumeChanged(self, state):
     self._showVesselness = state == qt.Qt.Checked
@@ -153,6 +216,7 @@ class VesselWidget(VerticalLayoutWidget):
     # Trigger process events to properly show progress dialog
     slicer.app.processEvents()
     try:
+      self._updateLevelSetParameters()
       self._updateVesselnessVolume()
       self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                        branchMarkupNode,
@@ -170,6 +234,17 @@ class VesselWidget(VerticalLayoutWidget):
     """Remove previous nodes from mrmlScene if necessary.
     """
     removeFromMRMLScene([self._vesselVolumeNode, self._vesselModelNode])
+
+  def _updateLevelSetParameters(self):
+    """
+    Update logic levelset parameters with UI Values
+    """
+    parameters = LevelSetParameters()
+    parameters.iterationNumber = self._iterationSpinBox.value
+    parameters.inflation = self._inflationSlider.value
+    parameters.attraction = self._attractionSlider.value
+    parameters.curvature = self._curvatureSlider.value
+    self._logic.levelSetParameters = parameters
 
   def _updateVesselnessVolume(self):
     """Update vesselness volume with current vesselness filter parameters present in the UI
@@ -189,8 +264,14 @@ class VesselWidget(VerticalLayoutWidget):
   def _restoreDefaultVesselnessFilterParameters(self):
     """Apply default vesselness filter parameters to the UI
     """
-    defaultParams = VesselnessFilterParameters()
-    self._updateVesselnessFilterParameters(defaultParams)
+    self._updateVesselnessFilterParameters(VesselnessFilterParameters())
+
+  def _restoreDefaultLevelSetParameters(self):
+    p = LevelSetParameters()
+    self._curvatureSlider.value = p.curvature
+    self._attractionSlider.value = p.attraction
+    self._inflationSlider.value = p.inflation
+    self._iterationSpinBox.value = p.iterationNumber
 
   def _updateVesselnessFilterParameters(self, params):
     """Updates UI vessel filter parameters with the input VesselnessFilterParameters
