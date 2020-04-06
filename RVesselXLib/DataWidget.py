@@ -1,3 +1,4 @@
+import ctk
 import qt
 import slicer
 
@@ -45,13 +46,13 @@ class DataWidget(VerticalLayoutWidget):
     self.volumesModuleSelector = WidgetUtils.getFirstChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
 
     # Add Volume Rendering information
-    volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
-    addInCollapsibleLayout(volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
+    self.volumeRenderingWidget = slicer.modules.volumerendering.widgetRepresentation()
+    addInCollapsibleLayout(self.volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
 
     # Hide Volume Rendering Selector and its label
-    self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(self.volumeRenderingWidget,
                                                                                     "VisibilityCheckBox")
-    self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(self.volumeRenderingWidget,
                                                                                   "VolumeNodeComboBox")
 
     # Add stretch
@@ -59,6 +60,15 @@ class DataWidget(VerticalLayoutWidget):
 
     # Connect volume changed callback
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
+
+  def _synchronizeVolumeRendering(self):
+    synchronizeButton = [b for b in self.volumeRenderingWidget.findChildren(ctk.ctkCheckablePushButton) if
+                         b.name == "SynchronizeScalarDisplayNodeButton"]
+    synchronizeButton = synchronizeButton[0] if synchronizeButton else None
+    if synchronizeButton is not None:
+      synchronizeButton.clicked.emit(True)
+      synchronizeButton.checkBoxToggled.emit(True)
+      synchronizeButton.toggled.emit(True)
 
   def addInputNodeChangedCallback(self, callback):
     """Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to
@@ -89,6 +99,9 @@ class DataWidget(VerticalLayoutWidget):
       self._attachNodeAddedObserverToScene(node)
     else:
       self._notifyInputChanged(node)
+
+      # Volume rendering synchronisation needs to be called in QTimer for signals to be correctly processed by Slicer
+      qt.QTimer.singleShot(0, self._synchronizeVolumeRendering)
 
   def _removePreviousNodeAddedObserverFromScene(self):
     slicer.mrmlScene.RemoveObserver(self._sceneObserver)
@@ -157,8 +170,12 @@ class DataWidget(VerticalLayoutWidget):
       self._volumeDisplayNode.SetVisibility(False)
 
     # Create new display node for input volume
-    self._volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+    self._volumeDisplayNode = volRenLogic.CreateVolumeRenderingDisplayNode()
+    slicer.mrmlScene.AddNode(self._volumeDisplayNode)
+    volumeNode.AddAndObserveDisplayNodeID(self._volumeDisplayNode.GetID())
     self._volumeDisplayNode.SetVisibility(True)
+    volRenLogic.UpdateDisplayNodeFromVolumeNode(self._volumeDisplayNode, volumeNode)
+
     slicer.util.resetThreeDViews()
 
     # Load preset
