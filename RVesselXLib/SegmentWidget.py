@@ -41,11 +41,14 @@ class SegmentWidget(VerticalLayoutWidget):
     self._segmentNode.SetName(segmentNodeName)
 
     # Add as many segments as names in input segmentNames
-    for segmentName in segmentNames:
-      self._segmentNode.GetSegmentation().AddEmptySegment(segmentName)
+    self._addSegmentationNodes(segmentNames)
 
     self._verticalLayout.addWidget(self._segmentUi)
     self._layoutList = []
+
+  def _addSegmentationNodes(self, segmentNames):
+    for segmentName in segmentNames:
+      self._segmentNode.GetSegmentation().AddEmptySegment(segmentName)
 
   def _setNodeSelectorVisible(self, isVisible):
     """Changes visibility for master volume selector and segmentation node selector. Both selectors need to be hidden

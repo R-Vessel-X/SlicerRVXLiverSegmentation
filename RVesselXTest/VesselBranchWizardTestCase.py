@@ -88,7 +88,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     ]
     self.assertEqual(sorted(expTree), sorted(self.tree.getTreeParentList()))
     self.assertEqual(0, self.markupNode.GetNumberOfFiducials())
-    self.assertIn('click to start placing', self.get_first_element_text())
+    self.assertIn('start placing', self.get_first_element_text())
 
   def test_given_not_placed_element_clicked_triggers_markup_place_mode_and_tree_name_as_placing(self):
     # Press on portal vein

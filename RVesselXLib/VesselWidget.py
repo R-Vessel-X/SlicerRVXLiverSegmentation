@@ -6,7 +6,7 @@ import qt
 import slicer
 
 from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode
+from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode, Signal
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
@@ -30,6 +30,8 @@ class VesselWidget(VerticalLayoutWidget):
     logic: RVesselXModuleLogic
     """
     VerticalLayoutWidget.__init__(self, "Vessel Tab")
+
+    self.vesselSegmentationChanged = Signal("vtkMRMLLabelMapVolumeNode", "List[str]")
 
     self._vesselStartSelector = None
     self._vesselEndSelector = None
@@ -237,11 +239,12 @@ class VesselWidget(VerticalLayoutWidget):
       self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                        branchMarkupNode,
                                                                                                        self._logic)
+      self.vesselSegmentationChanged.emit(self._vesselVolumeNode, self._vesselBranchWidget.getBranchNames())
+
     except Exception as e:
       logging.warn(str(e))
-      qt.QMessageBox.warning(self, "Failed to extract vessels", "An error happened while extracting vessels."
-                                                                "\nMake sure there are at least two nodes"
-                                                                " in the branch tree")
+      qt.QMessageBox.warning(self, "Failed to extract vessels",
+                             "An error happened while extracting vessels.\n\n{}".format(e))
 
     progressDialog.hide()
     self._updateVesselnessVisibility()

@@ -273,6 +273,13 @@ class VesselBranchWizard(object):
   def isPlacingFinished(self):
     return self._placingFinished
 
+  def getBranchNames(self):
+    """
+    :return: List of all the default branches present in the tree
+    """
+    defaultNodes = [value for key, value in VeinId.__dict__.items() if not key.startswith("_")]
+    return [nodeId for nodeId in self._tree.getNodeList() if nodeId in defaultNodes]
+
 
 class PlaceStatus(object):
   NOT_PLACED = 0

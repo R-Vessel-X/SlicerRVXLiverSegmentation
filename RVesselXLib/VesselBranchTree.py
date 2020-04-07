@@ -31,7 +31,7 @@ class VesselBranchTreeItem(qt.QTreeWidgetItem):
     self.updateText()
 
   def updateText(self):
-    suffixMap = {PlaceStatus.NOT_PLACED: "<click to start placing>", PlaceStatus.PLACING: "*placing*"}
+    suffixMap = {PlaceStatus.NOT_PLACED: "<click here to start placing node>", PlaceStatus.PLACING: "*placing*"}
 
     suffix = suffixMap.get(self._status, None)
     self.setText(0, "{} {}".format(self.nodeId, suffix) if suffix is not None else self.nodeId)
@@ -837,6 +837,13 @@ class VesselBranchWidget(qt.QWidget):
 
   def getBranchTree(self):
     return self._branchTree
+
+  def getBranchNames(self):
+    """
+    :return: Standardized branch names present in the tree. If some branches have been removed from the tree, they are
+      not present in the returned list.
+    """
+    return self._wizard.getBranchNames()
 
   def getBranchMarkupNode(self):
     return self._markupNode.GetSlicerNode()

@@ -548,10 +548,10 @@ class Signal(object):
   (see : https://discourse.slicer.org/t/custom-signal-slots-with-pythonqt/3278/5)
   """
 
-  def __init__(self, typeInfo=""):
+  def __init__(self, *typeInfo):
     self._id = count(0, 1)
     self._connectDict = {}
-    self._typeInfo = typeInfo
+    self._typeInfo = str(typeInfo)
 
   def emit(self, *args, **kwargs):
     for slot in self._connectDict.values():

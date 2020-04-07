@@ -14,3 +14,4 @@ from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOn
 from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
 from .VesselWidget import VesselWidget
+from .VesselSegmentEditWidget import VesselSegmentEditWidget
