@@ -277,10 +277,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     # propagate the label map to the node
     outVolume.SetAndObserveImageData(labelMap)
 
-    # currentVesselnessNode
-    slicer.util.setSliceViewerLayers(background=sourceVolume, foreground=vesselnessVolume, label=outVolume,
-                                     foregroundOpacity=0.1)
-
     # Construct model boundary mesh
     outModel = RVesselXModuleLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
 

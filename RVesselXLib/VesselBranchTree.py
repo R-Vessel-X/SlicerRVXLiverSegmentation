@@ -612,7 +612,7 @@ class TreeDrawer(object):
     lineColor: qt.QColor
       New color for line. Call updateTreeLines to apply to tree.
     """
-    self._lineModel.GetDisplayNode().SetColor(lineColor.red(), lineColor.green(), lineColor.blue())
+    self._lineDisplayNode().SetColor(lineColor.red(), lineColor.green(), lineColor.blue())
 
   def setLineWidth(self, lineWidth):
     """
@@ -621,7 +621,25 @@ class TreeDrawer(object):
     lineWidth: float
       New line width for lines of the tree.  Call updateTreeLines to apply to tree.
     """
-    self._lineModel.GetDisplayNode().SetLineWidth(lineWidth)
+    self._lineDisplayNode().SetLineWidth(lineWidth)
+
+  def getLineWidth(self):
+    """
+    :return: Current line width
+    """
+    return self._lineDisplayNode().GetLineWidth()
+
+  def setOpacity(self, opacity):
+    """
+    :param opacity: float - Opacity of the lines
+    """
+    self._lineDisplayNode().SetOpacity(opacity)
+
+  def getOpacity(self):
+    """
+    :return: Current opacity of the lines
+    """
+    return self._lineDisplayNode().GetOpacity()
 
   def setVisible(self, isVisible):
     """
@@ -631,6 +649,9 @@ class TreeDrawer(object):
       If true, will show tree in mrmlScene. Else will hide tree model
     """
     self._lineModel.SetDisplayVisibility(isVisible)
+
+  def _lineDisplayNode(self):
+    return self._lineModel.GetDisplayNode()
 
 
 class MarkupNode(object):
@@ -678,6 +699,7 @@ class MarkupNode(object):
     self.SetName = self._node.SetName
     self.SetLocked = self._node.SetLocked
     self.GetLocked = self._node.GetLocked
+    self.GetDisplayNode = self._node.GetDisplayNode
 
   def GetSlicerNode(self):
     return self._node
@@ -874,3 +896,9 @@ class VesselBranchWidget(qt.QWidget):
 
   def getVesselWizard(self):
     return self._wizard
+
+  def getMarkupDisplayNode(self):
+    return self._markupNode.GetDisplayNode()
+
+  def getTreeDrawer(self):
+    return self._treeDrawer

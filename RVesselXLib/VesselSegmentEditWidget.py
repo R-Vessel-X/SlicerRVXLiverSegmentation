@@ -21,6 +21,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._segmentationLogic = slicer.modules.segmentations.logic()
     self._proceedButton.setEnabled(False)
     self._treeWizard = treeWizard
+    self._segmentOpacity = 0.5
 
   def getCenterLineVolume(self):
     return self._centerLineVolume
@@ -36,6 +37,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._extractCenterLine()
     self._addSegmentationNodes(self._vesselBranches.names())
     self._proceedButton.setEnabled(False)
+    self._segmentNode.GetDisplayNode().SetOpacity3D(self._segmentOpacity)
 
   def _extractCenterLine(self):
     branchVolume = self._getSegmentClosedModel(self._vesselSegmentName)
@@ -72,11 +74,17 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._proceedButton.setEnabled(True)
 
   def _removeAllSegmentationNodes(self):
+    segmentIds = []
     for i in range(self._segmentationObj.GetNumberOfSegments()):
-      self._segmentationObj.RemoveSegment(self._segmentationObj.GetNthSegment(i).GetName())
+      segmentIds.append(
+        self._segmentationObj.GetSegmentIdBySegmentName(self._segmentationObj.GetNthSegment(i).GetName()))
+
+    for segmentId in segmentIds:
+      self._segmentationObj.RemoveSegment(segmentId)
 
   def _importLabelMap(self, vesselLabelMap):
     self._segmentationLogic.ImportLabelmapToSegmentationNode(vesselLabelMap, self._segmentNode)
+    self._segmentNode.GetDisplayNode().SetOpacity3D(1)
 
     # Rename imported segment
     self._segmentationObj.GetNthSegment(0).SetName(self._vesselSegmentName)

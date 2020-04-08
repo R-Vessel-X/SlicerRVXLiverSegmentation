@@ -41,6 +41,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._inputVolume = None
     self._vesselnessDisplay = None
     self._logic = logic
+    self._segmentationOpacity = 0.7  # Initial segmentation opacity set to 70% to still view the vessel tree
     self._vesselBranchWidget = VesselBranchWidget()
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
     self._vesselBranchWidget.treeValidityChanged.connect(self._updateButtonStatusAndFilterParameters)
@@ -55,11 +56,87 @@ class VesselWidget(VerticalLayoutWidget):
 
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
+    self._verticalLayout.addWidget(self._createDisplayOptionWidget())
     self._verticalLayout.addWidget(self._createAdvancedVesselnessFilterOptionWidget())
     self._verticalLayout.addWidget(self._createAdvancedLevelSetOptionWidget())
 
     # Connect vessel tree edit change to update add button status
     self._updateButtonStatusAndFilterParameters()
+
+  def _createDisplayOptionWidget(self):
+    filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
+    filterOptionCollapsibleButton.text = "Display Options"
+    filterOptionCollapsibleButton.collapsed = True
+    advancedFormLayout = qt.QFormLayout(filterOptionCollapsibleButton)
+
+    markupDisplay = self._vesselBranchWidget.getMarkupDisplayNode()
+
+    # Node display
+    textScaleSlider = ctk.ctkSliderWidget()
+    textScaleSlider.decimals = 1
+    textScaleSlider.minimum = 0
+    textScaleSlider.maximum = 20
+    textScaleSlider.singleStep = 0.1
+    textScaleSlider.value = markupDisplay.GetTextScale()
+    textScaleSlider.connect("valueChanged(double)", markupDisplay.SetTextScale)
+    advancedFormLayout.addRow("Node text scale:", textScaleSlider)
+
+    glyphScale = ctk.ctkSliderWidget()
+    glyphScale.decimals = 1
+    glyphScale.minimum = 0
+    glyphScale.maximum = 20
+    glyphScale.singleStep = 0.1
+    glyphScale.value = markupDisplay.GetGlyphScale()
+    glyphScale.connect("valueChanged(double)", markupDisplay.SetGlyphScale)
+    advancedFormLayout.addRow("Node glyph scale:", glyphScale)
+
+    nodeOpacity = ctk.ctkSliderWidget()
+    nodeOpacity.decimals = 1
+    nodeOpacity.minimum = 0
+    nodeOpacity.maximum = 1
+    nodeOpacity.singleStep = 0.1
+    nodeOpacity.value = markupDisplay.GetOpacity()
+    nodeOpacity.connect("valueChanged(double)", markupDisplay.SetOpacity)
+    advancedFormLayout.addRow("Node opacity:", nodeOpacity)
+
+    # Tree display
+    tree = self._vesselBranchWidget.getTreeDrawer()
+    treeLineSizeSlider = ctk.ctkSliderWidget()
+    treeLineSizeSlider.decimals = 1
+    treeLineSizeSlider.minimum = 0
+    treeLineSizeSlider.maximum = 20
+    treeLineSizeSlider.singleStep = 0.1
+    treeLineSizeSlider.value = tree.getLineWidth()
+    treeLineSizeSlider.connect("valueChanged(double)", tree.setLineWidth)
+    advancedFormLayout.addRow("Line width:", treeLineSizeSlider)
+
+    treeLineOpacitySlider = ctk.ctkSliderWidget()
+    treeLineOpacitySlider.decimals = 1
+    treeLineOpacitySlider.minimum = 0
+    treeLineOpacitySlider.maximum = 1
+    treeLineOpacitySlider.singleStep = 0.1
+    treeLineOpacitySlider.value = tree.getOpacity()
+    treeLineOpacitySlider.connect("valueChanged(double)", tree.setOpacity)
+    advancedFormLayout.addRow("Line opacity:", treeLineOpacitySlider)
+
+    # Segmented volume display
+    segmentationOpacity = ctk.ctkSliderWidget()
+    segmentationOpacity.decimals = 1
+    segmentationOpacity.minimum = 0
+    segmentationOpacity.maximum = 1
+    segmentationOpacity.singleStep = 0.1
+    segmentationOpacity.value = self._segmentationOpacity
+    segmentationOpacity.connect("valueChanged(double)", self._setSegmentationOpacity)
+    advancedFormLayout.addRow("Segmentation opacity:", segmentationOpacity)
+
+    return filterOptionCollapsibleButton
+
+  def _setSegmentationOpacity(self, opacity):
+    self._segmentationOpacity = opacity
+    if self._vesselModelNode is not None:
+      displayNode = self._vesselModelNode.GetDisplayNode()
+      if displayNode is not None:
+        displayNode.SetOpacity(opacity)
 
   def _createAdvancedVesselnessFilterOptionWidget(self):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -198,12 +275,22 @@ class VesselWidget(VerticalLayoutWidget):
     self._updateVesselnessVisibility()
 
   def _updateVesselnessVisibility(self):
+    self._setVesselnessVisible(self._showVesselness)
+
+  def _setVesselnessVisible(self, isVisible):
     vesselness = self._logic.getCurrentVesselnessVolume()
     if vesselness is None:
       return
 
     vesselnessDisplayNode = self._getVesselnessDisplayNode(vesselness)
-    vesselnessDisplayNode.SetVisibility(self._showVesselness)
+    vesselnessDisplayNode.SetVisibility(isVisible)
+
+    if self._vesselVolumeNode:
+      foregroundOpacity = 0.1 if isVisible else 0
+      slicer.util.setSliceViewerLayers(background=self._inputVolume, foreground=vesselness,
+                                       label=self._vesselVolumeNode, foregroundOpacity=foregroundOpacity)
+    else:
+      slicer.util.setSliceViewerLayers(background=self._inputVolume)
 
   def _getVesselnessDisplayNode(self, vesselness):
     if self._vesselnessDisplay is not None:
@@ -240,6 +327,7 @@ class VesselWidget(VerticalLayoutWidget):
                                                                                                        branchMarkupNode,
                                                                                                        self._logic)
       self.vesselSegmentationChanged.emit(self._vesselVolumeNode, self._vesselBranchWidget.getBranchNames())
+      self._setSegmentationOpacity(self._segmentationOpacity)
 
     except Exception as e:
       logging.warn(str(e))
@@ -343,12 +431,14 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselBranchWidget.enableShortcuts(True)
     self._vesselBranchWidget.setVisibleInScene(True)
     self._setExtractedVolumeVisible(True)
+    self._updateVesselnessVisibility()
     super(VesselWidget, self).showEvent(event)
 
   def hideEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(False)
     self._vesselBranchWidget.setVisibleInScene(False)
     self._setExtractedVolumeVisible(False)
+    self._setVesselnessVisible(False)
     super(VesselWidget, self).hideEvent(event)
 
   def getVesselWizard(self):
