@@ -141,6 +141,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._addTab(self._vesselsTab, "Vessels")
     self._addTab(self._vesselsSegmentEditTab, "Vessels Segmentation Edit")
     self._addTab(self._tumorTab, "Tumors")
+    self._dataTab.addInputNodeChangedCallback(lambda *x: self._clearTabs())
     self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._vesselsSegmentEditTab.setInputNode)
@@ -148,6 +149,13 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     # Setup previous and next buttons for the different tabs
     self._configurePreviousNextTabButtons()
+
+  def _clearTabs(self):
+    """
+    Clears all tabs from previous computations
+    """
+    for tab in self._tabList:
+      tab.clear()
 
   def _configure3DViewWithMaximumIntensityProjection(self):
     """Configures 3D View to render volumes with ray casting maximum intensity projection configuration.

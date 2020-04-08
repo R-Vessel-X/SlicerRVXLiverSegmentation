@@ -33,3 +33,6 @@ class VerticalLayoutWidget(qt.QWidget):
     """Overridden for easier use in deriving classes.
     """
     qt.QWidget.hideEvent(self, event)
+
+  def clear(self):
+    pass

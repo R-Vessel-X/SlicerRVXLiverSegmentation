@@ -5,7 +5,7 @@ import slicer
 import vtk
 from collections import defaultdict
 
-from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard
+from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromScene
 from RVesselXLib.VesselBranchWizard import InteractionStatus
 from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
@@ -78,6 +78,11 @@ class VesselBranchTree(qt.QTreeWidget):
 
     # Connect click event to notify signal
     self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
+
+  def clear(self):
+    self._branchDict = {}
+    qt.QTreeWidget.clear(self)
+    self._notifyModified()
 
   def clickItem(self, item):
     item = self.getTreeWidgetItem(item) if isinstance(item, str) else item
@@ -529,7 +534,11 @@ class TreeDrawer(object):
     """
     self._tree = vesselTree
     self._markupFiducial = markupFiducial
+    self._lineWidth = 4
+    self._lineOpacity = 1
+    self._setupLineModel()
 
+  def _setupLineModel(self):
     self._polyLine = vtk.vtkPolyLineSource()
     self._polyLine.SetClosed(False)
     self._lineModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
@@ -537,6 +546,10 @@ class TreeDrawer(object):
     self._lineModel.CreateDefaultDisplayNodes()
     self._lineModel.SetName("VesselBranchNodeTree")
     self._updateNodeCoordDict()
+
+    self.setColor(qt.QColor("red"))
+    self.setLineWidth(self._lineWidth)
+    self.setOpacity(self._lineOpacity)
 
   def _updateNodeCoordDict(self):
     """Update node coordinates associated with node ID for the current tree
@@ -622,6 +635,7 @@ class TreeDrawer(object):
       New line width for lines of the tree.  Call updateTreeLines to apply to tree.
     """
     self._lineDisplayNode().SetLineWidth(lineWidth)
+    self._lineWidth = lineWidth
 
   def getLineWidth(self):
     """
@@ -634,6 +648,7 @@ class TreeDrawer(object):
     :param opacity: float - Opacity of the lines
     """
     self._lineDisplayNode().SetOpacity(opacity)
+    self._lineOpacity = opacity
 
   def getOpacity(self):
     """
@@ -652,6 +667,10 @@ class TreeDrawer(object):
 
   def _lineDisplayNode(self):
     return self._lineModel.GetDisplayNode()
+
+  def clear(self):
+    removeNodeFromScene(self._lineModel)
+    self._setupLineModel()
 
 
 class MarkupNode(object):
@@ -700,6 +719,7 @@ class MarkupNode(object):
     self.SetLocked = self._node.SetLocked
     self.GetLocked = self._node.GetLocked
     self.GetDisplayNode = self._node.GetDisplayNode
+    self.RemoveAllMarkups = self._node.RemoveAllMarkups
 
   def GetSlicerNode(self):
     return self._node
@@ -791,8 +811,6 @@ class VesselBranchWidget(qt.QWidget):
 
     # Create tree drawer
     self._treeDrawer = TreeDrawer(self._branchTree, self._markupNode)
-    self._treeDrawer.setColor(qt.QColor("red"))
-    self._treeDrawer.setLineWidth(4.0)
 
     # Create interaction wizard
     self._wizard = VesselBranchWizard(self._branchTree, self._markupNode, self._markupPlaceWidget, self._treeDrawer)
@@ -902,3 +920,6 @@ class VesselBranchWidget(qt.QWidget):
 
   def getTreeDrawer(self):
     return self._treeDrawer
+
+  def clear(self):
+    self._wizard.clear()

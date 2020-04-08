@@ -2,7 +2,7 @@ import slicer
 import qt
 import vtk
 
-from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches
+from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromScene
 
 
 class VesselSegmentEditWidget(SegmentWidget):
@@ -13,7 +13,6 @@ class VesselSegmentEditWidget(SegmentWidget):
   def __init__(self, logic, treeWizard):
     super(VesselSegmentEditWidget, self).__init__("Vessel Segmentation Edit Tab", "VesselTree")
     self._vesselSegmentName = "VesselTree"
-    self._segmentationObj = self._segmentNode.GetSegmentation()
     self._vesselBranches = NodeBranches()
     self._logic = logic
     self._centerLineVolume = None
@@ -50,10 +49,10 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _getSegmentClosedModel(self, segmentName):
     modelName = "{}Model".format(segmentName)
-    self._removeNode(modelName)
+    removeNodeFromScene(modelName)
 
     polyData = vtk.vtkPolyData()
-    segmentId = self._segmentationObj.GetNthSegmentID(0)
+    segmentId = self._segmentationObj().GetNthSegmentID(0)
     self._segmentationLogic.GetSegmentClosedSurfaceRepresentation(self._segmentNode, segmentId, polyData)
 
     model = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
@@ -65,7 +64,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     return volume.GetPolyData().GetNumberOfPolys() == 0
 
   def _removePreviousCenterLineVolume(self):
-    self._removeNode(self._centerLineVolume)
+    removeNodeFromScene(self._centerLineVolume)
 
   def onVesselSegmentationChanged(self, vesselLabelMap, vesselBranches):
     self._removeAllSegmentationNodes()
@@ -75,19 +74,19 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _removeAllSegmentationNodes(self):
     segmentIds = []
-    for i in range(self._segmentationObj.GetNumberOfSegments()):
+    for i in range(self._segmentationObj().GetNumberOfSegments()):
       segmentIds.append(
-        self._segmentationObj.GetSegmentIdBySegmentName(self._segmentationObj.GetNthSegment(i).GetName()))
+        self._segmentationObj().GetSegmentIdBySegmentName(self._segmentationObj().GetNthSegment(i).GetName()))
 
     for segmentId in segmentIds:
-      self._segmentationObj.RemoveSegment(segmentId)
+      self._segmentationObj().RemoveSegment(segmentId)
 
   def _importLabelMap(self, vesselLabelMap):
     self._segmentationLogic.ImportLabelmapToSegmentationNode(vesselLabelMap, self._segmentNode)
     self._segmentNode.GetDisplayNode().SetOpacity3D(1)
 
     # Rename imported segment
-    self._segmentationObj.GetNthSegment(0).SetName(self._vesselSegmentName)
+    self._segmentationObj().GetNthSegment(0).SetName(self._vesselSegmentName)
 
   def getGeometryExporters(self):
     exporters = super(VesselSegmentEditWidget, self).getGeometryExporters()
@@ -96,16 +95,21 @@ class VesselSegmentEditWidget(SegmentWidget):
       return exporters
 
   def setVisibleInScene(self, isVisible):
-    """If isVisible, markups and tree will be shown in scene, else they will be hidden
-    """
-    for i in range(self._treeNodes.GetNumberOfFiducials()):
-      isNodeVisible = isVisible and self._branchTree.isInTree(self._markupNode.GetNthFiducialLabel(i))
-      self._treeNodes.SetNthFiducialVisibility(i, isNodeVisible)
+    self._treeWizard.setVisibleInScene(isVisible)
+    if self._centerLineVolume is not None:
+      self._centerLineVolume.visible = isVisible
 
   def hideEvent(self, event):
-    self._treeWizard.setVisibleInScene(False)
+    self.setVisibleInScene(False)
     super(VesselSegmentEditWidget, self).hideEvent(event)
 
   def showEvent(self, event):
-    self._treeWizard.setVisibleInScene(True)
+    self.setVisibleInScene(True)
     super(VesselSegmentEditWidget, self).showEvent(event)
+
+  def clear(self):
+    super(VesselSegmentEditWidget, self).clear()
+    self._removePreviousCenterLineVolume()
+
+  def _segmentationObj(self):
+    return self._segmentNode.GetSegmentation()

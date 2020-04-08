@@ -63,6 +63,10 @@ class VesselWidget(VerticalLayoutWidget):
     # Connect vessel tree edit change to update add button status
     self._updateButtonStatusAndFilterParameters()
 
+  def clear(self):
+    self._removePreviouslyExtractedVessels()
+    self._vesselBranchWidget.clear()
+
   def _createDisplayOptionWidget(self):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
     filterOptionCollapsibleButton.text = "Display Options"
@@ -330,9 +334,11 @@ class VesselWidget(VerticalLayoutWidget):
       self._setSegmentationOpacity(self._segmentationOpacity)
 
     except Exception as e:
-      logging.warn(str(e))
+      import traceback
+      info = traceback.format_exc()
+      logging.warn(str(info))
       qt.QMessageBox.warning(self, "Failed to extract vessels",
-                             "An error happened while extracting vessels.\n\n{}".format(e))
+                             "An error happened while extracting vessels.\n\n{}".format(info))
 
     progressDialog.hide()
     self._updateVesselnessVisibility()

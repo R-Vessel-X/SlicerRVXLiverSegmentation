@@ -2,7 +2,7 @@ from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, addInCollaps
   createSingleMarkupFiducial, createMultipleMarkupFiducial, jumpSlicesToLocation, jumpSlicesToNthMarkupPosition, \
   getMarkupIdPositionDictionary, hideFromUser, removeFromMRMLScene, createButton, getFiducialPositions, createModelNode, \
   createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, raiseValueErrorIfInvalidType, removeNoneList, \
-  Icons, Signal, createDisplayNode, createVolumeNodeBasedOnModel
+  Icons, Signal, createDisplayNode, createVolumeNodeBasedOnModel, removeNodeFromScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget

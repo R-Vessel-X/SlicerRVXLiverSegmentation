@@ -289,9 +289,12 @@ class VesselBranchWizard(object):
     :type nodeId: str
     :return: new node ID with base inputNodeId followed by _nodeIndex
     """
+    if nodeId in VeinId().sortedIds():
+      return "{}_0".format(nodeId)
+
     nameParts = nodeId.split("_")
-    i_node = int(nameParts[1]) + 1 if len(nameParts) > 1 else 0
-    return "{}_{}".format(nameParts[0], i_node)
+    i_node = int(nameParts[-1]) + 1 if len(nameParts) > 1 else 0
+    return "{}_{}".format("_".join(nameParts[:-1]), i_node)
 
   def setVisibleInScene(self, isVisible):
     """
@@ -340,6 +343,12 @@ class VesselBranchWizard(object):
         return position
 
     return None
+
+  def clear(self):
+    self._tree.clear()
+    self._treeDrawer.clear()
+    self._node.RemoveAllMarkups()
+    self._setupDefaultBranchNodes()
 
 
 class PlaceStatus(object):

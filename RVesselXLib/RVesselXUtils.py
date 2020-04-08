@@ -567,3 +567,19 @@ class Signal(object):
       del self._connectDict[connectId]
       return True
     return False
+
+
+def removeNodeFromScene(node):
+  """
+  Remove node from slicer scene
+  :param node: str or vtkMRMLNode - node to remove from scene
+  """
+  if node is None:
+    return
+
+  if isinstance(node, str):
+    nodes = list(slicer.mrmlScene.GetNodesByName(node))
+    for node in nodes:
+      removeNodeFromScene(node)
+  else:
+    slicer.mrmlScene.RemoveNode(node)
