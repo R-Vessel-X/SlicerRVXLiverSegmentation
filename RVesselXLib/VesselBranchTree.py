@@ -863,9 +863,6 @@ class VesselBranchWidget(qt.QWidget):
   def setVisibleInScene(self, isVisible):
     """If isVisible, markups and tree will be shown in scene, else they will be hidden
     """
-    for i in range(self._markupNode.GetNumberOfFiducials()):
-      isNodeVisible = isVisible and self._branchTree.isInTree(self._markupNode.GetNthFiducialLabel(i))
-      self._markupNode.SetNthFiducialVisibility(i, isNodeVisible)
 
     self._wizard.setVisibleInScene(isVisible)
 
@@ -874,3 +871,6 @@ class VesselBranchWidget(qt.QWidget):
 
   def isVesselTreeValid(self):
     return self._wizard.isPlacingFinished()
+
+  def getVesselWizard(self):
+    return self._wizard

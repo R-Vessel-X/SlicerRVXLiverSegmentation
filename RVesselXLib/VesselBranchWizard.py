@@ -294,7 +294,14 @@ class VesselBranchWizard(object):
     return "{}_{}".format(nameParts[0], i_node)
 
   def setVisibleInScene(self, isVisible):
+    """
+    Show or hide the tree and the nodes in the scene
+    """
     self._treeDrawer.setVisible(isVisible)
+
+    for i in range(self._node.GetNumberOfFiducials()):
+      isNodeVisible = isVisible and self._tree.isInTree(self._node.GetNthFiducialLabel(i))
+      self._node.SetNthFiducialVisibility(i, isNodeVisible)
 
   def _updatePlacingFinished(self):
     """

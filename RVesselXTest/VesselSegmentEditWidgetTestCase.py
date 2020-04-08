@@ -12,7 +12,7 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
     """
     slicer.mrmlScene.Clear(0)
     self.logic = RVesselXModuleLogic()
-    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic)
+    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=None)
 
   def testVesselSegmentEditExtractsOneCenterlineFromInputBranch(self):
     # Prepare source volume, start position and end position

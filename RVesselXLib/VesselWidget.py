@@ -350,3 +350,6 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselBranchWidget.setVisibleInScene(False)
     self._setExtractedVolumeVisible(False)
     super(VesselWidget, self).hideEvent(event)
+
+  def getVesselWizard(self):
+    return self._vesselBranchWidget.getVesselWizard()

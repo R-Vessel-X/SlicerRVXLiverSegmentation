@@ -123,7 +123,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
     self._vesselsTab = VesselWidget(self.logic)
-    self._vesselsSegmentEditTab = VesselSegmentEditWidget(self.logic)
+    self._vesselsSegmentEditTab = VesselSegmentEditWidget(self.logic, self._vesselsTab.getVesselWizard())
     self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
                                    segmentNames=["Tumor", "Not Tumor"])
 

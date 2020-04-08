@@ -10,7 +10,7 @@ class VesselSegmentEditWidget(SegmentWidget):
   Class responsible for editing the vessel automatic segmentation
   """
 
-  def __init__(self, logic):
+  def __init__(self, logic, treeWizard):
     super(VesselSegmentEditWidget, self).__init__("Vessel Segmentation Edit Tab", "VesselTree")
     self._vesselSegmentName = "VesselTree"
     self._segmentationObj = self._segmentNode.GetSegmentation()
@@ -20,6 +20,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._setupProceedWithVesselSplittingLayout()
     self._segmentationLogic = slicer.modules.segmentations.logic()
     self._proceedButton.setEnabled(False)
+    self._treeWizard = treeWizard
 
   def getCenterLineVolume(self):
     return self._centerLineVolume
@@ -85,3 +86,18 @@ class VesselSegmentEditWidget(SegmentWidget):
     if self._centerLineVolume is not None:
       exporters.append(GeometryExporter(**{self._centerLineVolume.GetName(): self._centerLineVolume}))
       return exporters
+
+  def setVisibleInScene(self, isVisible):
+    """If isVisible, markups and tree will be shown in scene, else they will be hidden
+    """
+    for i in range(self._treeNodes.GetNumberOfFiducials()):
+      isNodeVisible = isVisible and self._branchTree.isInTree(self._markupNode.GetNthFiducialLabel(i))
+      self._treeNodes.SetNthFiducialVisibility(i, isNodeVisible)
+
+  def hideEvent(self, event):
+    self._treeWizard.setVisibleInScene(False)
+    super(VesselSegmentEditWidget, self).hideEvent(event)
+
+  def showEvent(self, event):
+    self._treeWizard.setVisibleInScene(True)
+    super(VesselSegmentEditWidget, self).showEvent(event)
