@@ -7,6 +7,27 @@ from RVesselXLib import RVesselXModuleLogic, GeometryExporter
 from .TestUtils import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
 
 
+def prepareEndToEndTest():
+  import SampleData
+  sampleDataLogic = SampleData.SampleDataLogic()
+  sourceVolume = sampleDataLogic.downloadCTACardio()
+
+  # Create start point and end point for the vessel extraction
+  startPosition = [176.9, -17.4, 52.7]
+  endPosition = [174.704, -23.046, 76.908]
+
+  # Crop volume
+  roi = slicer.vtkMRMLAnnotationROINode()
+  roi.Initialize(slicer.mrmlScene)
+  roi.SetName("VolumeCropROI")
+  roi.SetXYZ(startPosition[0], startPosition[1], startPosition[2])
+  radius = max(abs(a - b) for a, b in zip(startPosition, endPosition)) * 2
+  roi.SetRadiusXYZ(radius, radius, radius)
+
+  sourceVolume = cropSourceVolume(sourceVolume, roi)
+  return sourceVolume, startPosition, endPosition
+
+
 class RVesselXModuleTestCase(unittest.TestCase):
   def setUp(self):
     """ Clear scene before each tests
@@ -14,23 +35,8 @@ class RVesselXModuleTestCase(unittest.TestCase):
     slicer.mrmlScene.Clear(0)
 
   def testVesselSegmentationLogic(self):
-    import SampleData
-    sampleDataLogic = SampleData.SampleDataLogic()
-    sourceVolume = sampleDataLogic.downloadCTACardio()
-
-    # Create start point and end point for the vessel extraction
-    startPosition = [176.9, -17.4, 52.7]
-    endPosition = [174.704, -23.046, 76.908]
-
-    # Crop volume
-    roi = slicer.vtkMRMLAnnotationROINode()
-    roi.Initialize(slicer.mrmlScene)
-    roi.SetName("VolumeCropROI")
-    roi.SetXYZ(startPosition[0], startPosition[1], startPosition[2])
-    radius = max(abs(a - b) for a, b in zip(startPosition, endPosition)) * 2
-    roi.SetRadiusXYZ(radius, radius, radius)
-
-    sourceVolume = cropSourceVolume(sourceVolume, roi)
+    # Prepare source volume, start position and end position
+    sourceVolume, startPosition, endPosition = prepareEndToEndTest()
 
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
@@ -52,7 +58,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
       logic._applyVesselnessFilter(None, None)
 
     with self.assertRaises(ValueError):
-      logic._applyCenterlineFilter(None, None, None)
+      logic.centerLineFilter(None, None, None)
 
   def testGeometryExporterSavesVolumesAsNiftiAndModelsAsVtkFiles(self):
     # Create non empty model and volume nodes (empty nodes are not exported)

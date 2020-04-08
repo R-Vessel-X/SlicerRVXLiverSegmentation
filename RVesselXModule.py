@@ -4,11 +4,10 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-import RVesselXLib, RVesselXTest
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget, \
   VesselSegmentEditWidget
 from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
-  VesselBranchWizardTestCase
+  VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -124,7 +123,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
     self._vesselsTab = VesselWidget(self.logic)
-    self._vesselsSegmentEditTab = VesselSegmentEditWidget()
+    self._vesselsSegmentEditTab = VesselSegmentEditWidget(self.logic)
     self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
                                    segmentNames=["Tumor", "Not Tumor"])
 
@@ -308,7 +307,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     # Gather tests for the plugin and run them in a test suite
     testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
-                 ExtractVesselStrategyTestCase]
+                 ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 

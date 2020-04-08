@@ -168,11 +168,7 @@ class DataWidget(VerticalLayoutWidget):
       self._volumeDisplayNode.SetVisibility(False)
 
     # Create new display node for input volume
-    scalarRange = volumeNode.GetImageData().GetScalarRange()
-    isDynamicRangeSmall = (scalarRange[1] - scalarRange[0]) < 1500
-    preset = 'MR-Default' if isDynamicRangeSmall else 'CT-Chest-Contrast-Enhanced'
-
-    self._volumeDisplayNode = createDisplayNode(volumeNode, preset)
+    self._volumeDisplayNode = createDisplayNode(volumeNode, 'MR-Default')
 
     slicer.util.resetThreeDViews()
 

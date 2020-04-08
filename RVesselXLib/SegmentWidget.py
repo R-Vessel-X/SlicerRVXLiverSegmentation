@@ -18,6 +18,8 @@ class SegmentWidget(VerticalLayoutWidget):
       segmentNames = []
 
     self._inputNode = None
+    self._labelMap = None
+    self._scalarVolume = None
 
     # Get segmentation UI (segmentation UI contains singletons so only one instance can really exist in Slicer)
     self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
@@ -87,19 +89,48 @@ class SegmentWidget(VerticalLayoutWidget):
     segmentName = self._segmentNode.GetName()
 
     # Create Label map from visible segments
-    labelMapName = segmentName + "VolumeLabel"
-    labelMap = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", labelMapName)
-    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, labelMap)
+    labelMap = self._createLabelMapVolumeNode()
 
     # Create volume node from label map
-    volumeName = segmentName + "Volume"
-    volume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", volumeName)
-    slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, volume, labelMap)
+    volume = self._createScalarVolumeNode(labelMap)
 
     # Return geometry exporter with created volumes
     geometryExporter = GeometryExporter()
     geometryExporter[segmentName] = volume
     return [geometryExporter]
+
+  def _createScalarVolumeNode(self, labelMap):
+    self._removeNode(self._scalarVolume)
+    volumeName = self._segmentNode.GetName() + "Volume"
+    self._scalarVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", volumeName)
+    slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, self._scalarVolume, labelMap)
+
+    return self._scalarVolume
+
+  def _createLabelMapVolumeNode(self):
+    self._removeNode(self._labelMap)
+
+    segmentName = self._segmentNode.GetName()
+    labelMapName = segmentName + "VolumeLabel"
+
+    self._labelMap = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", labelMapName)
+    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, self._labelMap)
+    return self._labelMap
+
+  def _removeNode(self, node):
+    """
+    Remove node from slicer scene
+    :param node: str or vtkMRMLNode - node to remove from scene
+    """
+    if node is None:
+      return
+
+    if isinstance(node, str):
+      nodes = list(slicer.mrmlScene.GetNodesByName(node))
+      for node in nodes:
+        self._removeNode(node)
+    else:
+      slicer.mrmlScene.RemoveNode(node)
 
   def addLayout(self, layout):
     """Override of base addLayout to save all the different layouts added to the widget and their order.

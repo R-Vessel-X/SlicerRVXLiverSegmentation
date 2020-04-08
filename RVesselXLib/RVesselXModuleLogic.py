@@ -1,8 +1,9 @@
-import logging
+import math
+import math
 
 import slicer
-import vtk
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
+import vtk
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
   createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel
@@ -348,20 +349,13 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     return seedsNodes, outVolume, outModel
 
   @staticmethod
-  def _closestPointOnSurfaceAsIdList(surface, point):
-    pointList = vtk.vtkIdList()
+  def centerLineFilter(levelSetSegmentationModel, startPoint, endPoints):
+    """
+    Extracts center line from input level set segmentation model (ie : vessel polyData) and start and end points
+    Implementation copied from :
+    https://github.com/vmtk/SlicerExtension-VMTK/blob/master/CenterlineComputation/CenterlineComputation.py
 
-    pointLocator = vtk.vtkPointLocator()
-    pointLocator.SetDataSet(surface)
-    pointLocator.BuildLocator()
-
-    sourceId = pointLocator.FindClosestPoint(point)
-    pointList.InsertNextId(sourceId)
-    return pointList
-
-  @staticmethod
-  def _applyCenterlineFilter(levelSetSegmentationModel, startPoint, endPoint):
-    """ Extracts centerline from input level set segmentation model (ie : vessel polyData) and start and end points
+    Reimplemented to strip logic from input selection
 
     Parameters
     ----------
@@ -369,43 +363,151 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Result from LevelSetSegmentation representing outer vessel mesh
     startPoint : vtkMRMLMarkupsFiducialNode
       Start point for the vessel
-    endPoint : vtkMRMLMarkupsFiducialNode
-      End point for the vessel
+    endPoints : vtkMRMLMarkupsFiducialNode
+      End points for the vessel
 
     Returns
     -------
-    centerline : vtkMRMLModelNode
+    centerLineModel : vtkMRMLModelNode
       Contains center line vtkPolyData extracted from input vessel model
-    centerlineVoronoi : vtkMRMLModelNode
-      Contains voronoi model used when extracting center line
     """
     # Type checking
     raiseValueErrorIfInvalidType(levelSetSegmentationModel=(levelSetSegmentationModel, "vtkMRMLModelNode"),
                                  startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
-                                 endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
+                                 endPoint=(endPoints, "vtkMRMLMarkupsFiducialNode"))
 
-    # Get logic from VMTK center line computation module
-    centerLineLogic = VMTKModule.getCenterlineComputationLogic()
-
-    # Extract mesh and source and target point lists from input data
-    segmentationMesh = levelSetSegmentationModel.GetPolyData()
-    sourceIdList = RVesselXModuleLogic._closestPointOnSurfaceAsIdList(segmentationMesh,
-                                                                      getFiducialPositions(startPoint)[0])
-    targetIdList = RVesselXModuleLogic._closestPointOnSurfaceAsIdList(segmentationMesh,
-                                                                      getFiducialPositions(endPoint)[0])
-
-    # Calculate center line poly data
-    centerLinePolyData, voronoiPolyData = centerLineLogic.computeCenterlines(segmentationMesh, sourceIdList,
-                                                                             targetIdList)
-
-    # Create output voronoi model and centerline model
+    # Create output node
     centerLineModel = createModelNode("CenterLineModel")
-    voronoiModel = createModelNode("VoronoiModel")
 
-    centerLineModel.SetAndObservePolyData(centerLinePolyData)
-    voronoiModel.SetAndObservePolyData(voronoiPolyData)
+    # the output models
+    preparedModel = vtk.vtkPolyData()
+    model = vtk.vtkPolyData()
+    network = vtk.vtkPolyData()
 
-    return centerLineModel, voronoiModel
+    logic = VMTKModule.getCenterlineComputationLogic()
+
+    # grab the current coordinates
+    currentCoordinatesRAS = [0, 0, 0]
+    startPoint.GetNthFiducialPosition(0, currentCoordinatesRAS)
+
+    # prepare the model
+    preparedModel.DeepCopy(logic.prepareModel(levelSetSegmentationModel.GetPolyData()))
+
+    # decimate the model (only for network extraction)
+    model.DeepCopy(logic.decimateSurface(preparedModel))
+
+    # open the model at the seed (only for network extraction)
+    model.DeepCopy(logic.openSurfaceAtPoint(model, currentCoordinatesRAS))
+
+    # extract Network
+    network.DeepCopy(logic.extractNetwork(model))
+
+    # here we start the actual centerline computation which is mathematically more robust and accurate but takes longer
+    # than the network extraction
+    # clip surface at endpoints identified by the network extraction
+    tupel = logic.clipSurfaceAtEndPoints(network, levelSetSegmentationModel.GetPolyData())
+    endpoints = tupel[1]
+
+    # now find the one endpoint which is closest to the seed and use it as the source point for centerline computation
+    # all other endpoints are the target points
+    # the following arrays have the same indexes and are synchronized at all times
+    distancesToSeed = []
+    targetPoints = []
+
+    # we now need to loop through the endpoints two times
+
+    # first loop is to detect the endpoint resulting in the tiny hole we poked in the surface
+    # this is very close to our seed but not the correct sourcePoint
+    for i in range(endpoints.GetNumberOfPoints()):
+      currentPoint = endpoints.GetPoint(i)
+      # get the euclidean distance
+      currentDistanceToSeed = math.sqrt(math.pow((currentPoint[0] - currentCoordinatesRAS[0]), 2) + math.pow(
+        (currentPoint[1] - currentCoordinatesRAS[1]), 2) + math.pow((currentPoint[2] - currentCoordinatesRAS[2]), 2))
+
+      targetPoints.append(currentPoint)
+      distancesToSeed.append(currentDistanceToSeed)
+
+    # now we have a list of distances with the corresponding points
+    # the index with the most minimal distance is the holePoint, we want to ignore it
+    # the index with the second minimal distance is the point closest to the seed, we want to set it as sourcepoint
+    # all other points are the targetpoints
+
+    # get the index of the holePoint, which we want to remove from our endPoints
+    holePointIndex = distancesToSeed.index(min(distancesToSeed))
+    # .. and remove it
+    distancesToSeed.pop(holePointIndex)
+    targetPoints.pop(holePointIndex)
+
+    # now find the sourcepoint
+    sourcePointIndex = distancesToSeed.index(min(distancesToSeed))
+    # .. and remove it after saving it as the sourcePoint
+    sourcePoint = targetPoints[sourcePointIndex]
+    distancesToSeed.pop(sourcePointIndex)
+    targetPoints.pop(sourcePointIndex)
+
+    # again, at this point we have a) the sourcePoint and b) a list of real targetPoints
+
+    # now create the sourceIdList and targetIdList for the actual centerline computation
+    sourceIdList = vtk.vtkIdList()
+    targetIdList = vtk.vtkIdList()
+
+    pointLocator = vtk.vtkPointLocator()
+    pointLocator.SetDataSet(preparedModel)
+    pointLocator.BuildLocator()
+
+    # locate the source on the surface
+    sourceId = pointLocator.FindClosestPoint(sourcePoint)
+    sourceIdList.InsertNextId(sourceId)
+
+    endPoints.GetDisplayNode().SetTextScale(0)
+    endPoints.RemoveAllMarkups()
+
+    endPoints.AddFiducialFromArray(sourcePoint)
+
+    # locate the endpoints on the surface
+    for p in targetPoints:
+      fid = endPoints.AddFiducialFromArray(p)
+      endPoints.SetNthFiducialSelected(fid, False)
+      id = pointLocator.FindClosestPoint(p)
+      targetIdList.InsertNextId(id)
+
+    tupel = logic.computeCenterlines(preparedModel, sourceIdList, targetIdList)
+    network.DeepCopy(tupel[0])
+
+    centerLineModel.SetAndObservePolyData(network)
+    return centerLineModel
+
+  @staticmethod
+  def centerLineFilterFromNodePositions(levelSetSegmentationModel, startPoints, endPoints):
+    """ Extracts centerline from input level set segmentation model (ie : vessel polyData) and start and end points
+
+    Parameters
+    ----------
+    levelSetSegmentationModel : vtkMRMLModelNode
+      Result from LevelSetSegmentation representing outer vessel mesh
+    startPoints : List[list[float]]
+      Start position for the vessel
+    endPoints : List[list[float]]
+      End position for the vessel
+
+    Returns
+    -------
+    centerLine : vtkMRMLModelNode
+      Contains center line vtkPolyData extracted from input vessel model
+    """
+    # Create temporary fiducials for input nodes
+    startPoints = createFiducialNode("startPoint", *startPoints)
+    endPoints = createFiducialNode("endPoint", *endPoints)
+
+    # Call centerline extraction
+    centerLineModel = RVesselXModuleLogic.centerLineFilter(levelSetSegmentationModel, startPoints, endPoints)
+
+    # remove start point and end point from slicer
+    slicer.mrmlScene.RemoveNode(startPoints)
+    slicer.mrmlScene.RemoveNode(endPoints)
+
+    # Return centerLineModel
+    return centerLineModel
 
   @staticmethod
   def _isPointValid(point):

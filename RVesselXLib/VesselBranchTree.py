@@ -115,6 +115,18 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     return nodeId in self._branchDict.keys()
 
+  def isRoot(self, nodeId):
+    """
+    :return: True if node doesn't have any parents
+    """
+    return self.getParentNodeId(nodeId) is None
+
+  def isLeaf(self, nodeId):
+    """
+    :return: True if node has no children
+    """
+    return len(self.getChildrenNodeId(nodeId)) == 0
+
   def dropEvent(self, event):
     """On drop event, enforce structure of the tree is not broken.
     """
@@ -843,7 +855,7 @@ class VesselBranchWidget(qt.QWidget):
     :return: Standardized branch names present in the tree. If some branches have been removed from the tree, they are
       not present in the returned list.
     """
-    return self._wizard.getBranchNames()
+    return self._wizard.getVesselBranches()
 
   def getBranchMarkupNode(self):
     return self._markupNode.GetSlicerNode()

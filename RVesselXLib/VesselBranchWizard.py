@@ -17,6 +17,41 @@ class VeinId(object):
   segmentalBranch_7 = "SegmentalBranch_7"
   segmentalBranch_8 = "SegmentalBranch_8"
 
+  def sortedIds(self):
+    return [self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch, self.posteriorBranch,
+            self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4, self.segmentalBranch_5,
+            self.segmentalBranch_6, self.segmentalBranch_7, self.segmentalBranch_8]
+
+
+class NodeBranches(object):
+  """
+  Container class for branch names and start and end point coordinates.
+  Used for extraction
+  """
+
+  def __init__(self):
+    self._branchNames = []
+    self._startPoints = []
+    self._endPoints = []
+
+  def addBranch(self, branchName):
+    self._branchNames.append(branchName)
+
+  def addEndPoint(self, endPoint):
+    self._endPoints.append(endPoint)
+
+  def addStartPoint(self, startPoint):
+    self._startPoints.append(startPoint)
+
+  def names(self):
+    return self._branchNames
+
+  def startPoints(self):
+    return self._startPoints
+
+  def endPoints(self):
+    return self._endPoints
+
 
 class InteractionStatus(object):
   STOPPED = "Stopped"
@@ -273,12 +308,31 @@ class VesselBranchWizard(object):
   def isPlacingFinished(self):
     return self._placingFinished
 
-  def getBranchNames(self):
+  def getVesselBranches(self):
     """
-    :return: List of all the default branches present in the tree
+    :return: List of all the default branches present in the tree as well as their start and end positions
     """
-    defaultNodes = [value for key, value in VeinId.__dict__.items() if not key.startswith("_")]
-    return [nodeId for nodeId in self._tree.getNodeList() if nodeId in defaultNodes]
+    treeBranches = NodeBranches()
+
+    for nodeId in VeinId().sortedIds():
+      if nodeId in self._tree.getNodeList():
+        nodePosition = self._getNodePosition(nodeId)
+        treeBranches.addBranch(nodeId)
+        if self._tree.isRoot(nodeId):
+          treeBranches.addStartPoint(nodePosition)
+        elif self._tree.isLeaf(nodeId):
+          treeBranches.addEndPoint(nodePosition)
+
+    return treeBranches
+
+  def _getNodePosition(self, nodeId):
+    for i in range(self._node.GetNumberOfFiducials()):
+      if self._node.GetNthFiducialLabel(i) == nodeId:
+        position = [0] * 3
+        self._node.GetNthFiducialPosition(i, position)
+        return position
+
+    return None
 
 
 class PlaceStatus(object):
