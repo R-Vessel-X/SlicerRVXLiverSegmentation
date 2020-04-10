@@ -530,11 +530,8 @@ def createDisplayNode(volumeNode, presetName=None):
   :type presetName: str
   """
   volRenLogic = slicer.modules.volumerendering.logic()
-  volumeDisplayNode = volRenLogic.CreateVolumeRenderingDisplayNode()
-  slicer.mrmlScene.AddNode(volumeDisplayNode)
-  volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
+  volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
   volumeDisplayNode.SetVisibility(True)
-  volRenLogic.UpdateDisplayNodeFromVolumeNode(volumeDisplayNode, volumeNode)
 
   # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
   if presetName is not None:

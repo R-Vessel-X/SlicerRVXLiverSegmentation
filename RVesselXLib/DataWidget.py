@@ -6,6 +6,13 @@ from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, Widg
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
+def wrapInQTimer(func):
+  def inner(*args, **kwargs):
+    qt.QTimer.singleShot(0, lambda *x: func(*args, **kwargs))
+
+  return inner
+
+
 class DataWidget(VerticalLayoutWidget):
   """
   Object responsible for loading and showing the input volume to the user.
@@ -33,8 +40,8 @@ class DataWidget(VerticalLayoutWidget):
 
     # Add load DICOM and load DATA button to the layout
     inputLayout.addWidget(self.inputSelector)
-    inputLayout.addWidget(createButton("Load DICOM", self.onLoadDICOMClicked))
-    inputLayout.addWidget(createButton("Load Data", self.onLoadDataClicked))
+    inputLayout.addWidget(createButton("Load DICOM", lambda *x: self.onLoadDICOMClicked()))
+    inputLayout.addWidget(createButton("Load Data", lambda *x: self.onLoadDataClicked()))
     self._verticalLayout.addLayout(inputLayout)
 
     # Add Volume information
@@ -61,6 +68,10 @@ class DataWidget(VerticalLayoutWidget):
     # Connect volume changed callback
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
 
+  def _ensureNodeSynchronisation(self, newNode):
+    self.inputSelector.setCurrentNode(newNode)
+
+  @wrapInQTimer
   def _synchronizeVolumeRendering(self):
     synchronizeButton = [b for b in self.volumeRenderingWidget.findChildren(ctk.ctkCheckablePushButton) if
                          b.name == "SynchronizeScalarDisplayNodeButton"]
@@ -80,6 +91,7 @@ class DataWidget(VerticalLayoutWidget):
     """
     self._inputNodeChangedCallbacks.append(callback)
 
+  @wrapInQTimer
   def onInputSelectorNodeChanged(self, node):
     """On input changed and with a valid input node, notifies all callbacks of new node value
 
@@ -101,7 +113,7 @@ class DataWidget(VerticalLayoutWidget):
       self._notifyInputChanged(node)
 
       # Volume rendering synchronisation needs to be called in QTimer for signals to be correctly processed by Slicer
-      qt.QTimer.singleShot(0, self._synchronizeVolumeRendering)
+      self._synchronizeVolumeRendering()
 
   def _removePreviousNodeAddedObserverFromScene(self):
     slicer.mrmlScene.RemoveObserver(self._sceneObserver)
@@ -110,10 +122,12 @@ class DataWidget(VerticalLayoutWidget):
     self._sceneObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
                                                        lambda *x: self.onInputSelectorNodeChanged(node))
 
+  @wrapInQTimer
   def _notifyInputChanged(self, node):
     for callback in self._inputNodeChangedCallbacks:
       callback(node)
 
+  @wrapInQTimer
   def onLoadDICOMClicked(self):
     """Show DICOM Widget as popup
     """
@@ -128,6 +142,7 @@ class DataWidget(VerticalLayoutWidget):
   def onLoadDataClicked(self):
     slicer.app.ioManager().openAddDataDialog()
 
+  @wrapInQTimer
   def setVolumeNode(self, node):
     """
     Set input selector and volume rendering nodes as input node.
@@ -152,6 +167,7 @@ class DataWidget(VerticalLayoutWidget):
     # Show node in 3D view
     self.showVolumeRendering(node)
 
+  @wrapInQTimer
   def showVolumeRendering(self, volumeNode):
     """Show input volumeNode in 3D View
 
@@ -169,8 +185,10 @@ class DataWidget(VerticalLayoutWidget):
 
     # Create new display node for input volume
     self._volumeDisplayNode = createDisplayNode(volumeNode, 'MR-Default')
+    self._volumeDisplayNode.SetFollowVolumeDisplayNode(True)
 
     slicer.util.resetThreeDViews()
+    slicer.util.resetSliceViews()
 
   def getInputNode(self):
     """
