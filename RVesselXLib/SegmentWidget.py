@@ -1,7 +1,7 @@
 import qt
 import slicer
 
-from .RVesselXUtils import WidgetUtils, GeometryExporter, removeNodeFromScene
+from .RVesselXUtils import WidgetUtils, GeometryExporter, removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -20,6 +20,7 @@ class SegmentWidget(VerticalLayoutWidget):
     self._inputNode = None
     self._labelMap = None
     self._scalarVolume = None
+    self._segmentNode = None
 
     # Get segmentation UI (segmentation UI contains singletons so only one instance can really exist in Slicer)
     self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
@@ -47,9 +48,12 @@ class SegmentWidget(VerticalLayoutWidget):
     self._setupSegmentNode()
 
   def clear(self):
-    removeNodeFromScene(self._segmentNode)
-    removeNodeFromScene(self._labelMap)
-    removeNodeFromScene(self._scalarVolume)
+    removeNodeFromMRMLScene(self._segmentNode)
+    removeNodeFromMRMLScene(self._labelMap)
+    removeNodeFromMRMLScene(self._scalarVolume)
+    self._segmentNode = None
+    self._labelMap = None
+    self._scalarVolume = None
     self._setupSegmentNode()
 
   def _setupSegmentNode(self):
@@ -112,7 +116,7 @@ class SegmentWidget(VerticalLayoutWidget):
     return [geometryExporter]
 
   def _createScalarVolumeNode(self, labelMap):
-    removeNodeFromScene(self._scalarVolume)
+    removeNodeFromMRMLScene(self._scalarVolume)
     volumeName = self._segmentNode.GetName() + "Volume"
     self._scalarVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", volumeName)
     slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, self._scalarVolume, labelMap)
@@ -120,7 +124,7 @@ class SegmentWidget(VerticalLayoutWidget):
     return self._scalarVolume
 
   def _createLabelMapVolumeNode(self):
-    removeNodeFromScene(self._labelMap)
+    removeNodeFromMRMLScene(self._labelMap)
 
     segmentName = self._segmentNode.GetName()
     labelMapName = segmentName + "VolumeLabel"

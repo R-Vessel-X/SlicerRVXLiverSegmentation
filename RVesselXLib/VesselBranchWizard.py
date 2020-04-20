@@ -131,6 +131,7 @@ class VesselBranchWizard(object):
     self._tree.insertAfterNode(VeinId.segmentalBranch_5, VeinId.anteriorBranch)
     self._tree.insertAfterNode(VeinId.segmentalBranch_7, VeinId.posteriorBranch)
     self._tree.insertAfterNode(VeinId.segmentalBranch_6, VeinId.posteriorBranch)
+    self._placingFinished = False
 
   def getInteractionStatus(self):
     return self._interactionStatus

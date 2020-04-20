@@ -413,19 +413,6 @@ def removeNoneList(elements):
   return [elt for elt in elements if elt is not None]
 
 
-def removeFromMRMLScene(nodesToRemove):
-  """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
-
-  Parameters
-  ----------
-  nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
-    Objects to remove from the scene
-  """
-  nodesInScene = [node for node in removeNoneList(nodesToRemove) if slicer.mrmlScene.IsNodePresent(node)]
-  for node in nodesInScene:
-    slicer.mrmlScene.RemoveNode(node)
-
-
 def getMarkupIdPositionDictionary(markup):
   """
   Parameters
@@ -532,6 +519,8 @@ def createDisplayNode(volumeNode, presetName=None):
   volRenLogic = slicer.modules.volumerendering.logic()
   volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
   volumeDisplayNode.SetVisibility(True)
+  volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
+  volRenLogic.UpdateDisplayNodeFromVolumeNode(volumeDisplayNode, volumeNode)
 
   # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
   if presetName is not None:
@@ -566,7 +555,7 @@ class Signal(object):
     return False
 
 
-def removeNodeFromScene(node):
+def removeNodeFromMRMLScene(node):
   """
   Remove node from slicer scene
   :param node: str or vtkMRMLNode - node to remove from scene
@@ -577,6 +566,18 @@ def removeNodeFromScene(node):
   if isinstance(node, str):
     nodes = list(slicer.mrmlScene.GetNodesByName(node))
     for node in nodes:
-      removeNodeFromScene(node)
-  else:
+      removeNodeFromMRMLScene(node)
+  elif slicer.mrmlScene.IsNodePresent(node):
     slicer.mrmlScene.RemoveNode(node)
+
+
+def removeNodesFromMRMLScene(nodesToRemove):
+  """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
+
+  Parameters
+  ----------
+  nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
+    Objects to remove from the scene
+  """
+  for node in nodesToRemove:
+    removeNodeFromMRMLScene(node)

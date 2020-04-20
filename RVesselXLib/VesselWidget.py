@@ -6,7 +6,8 @@ import qt
 import slicer
 
 from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeFromMRMLScene, createDisplayNode, Signal
+from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
+  removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
@@ -299,7 +300,6 @@ class VesselWidget(VerticalLayoutWidget):
   def _getVesselnessDisplayNode(self, vesselness):
     if self._vesselnessDisplay is not None:
       self._vesselnessDisplay.SetVisibility(False)
-      slicer.mrmlScene.RemoveNode(self._vesselnessDisplay)
 
     self._vesselnessDisplay = createDisplayNode(vesselness, "Vesselness")
     return self._vesselnessDisplay
@@ -346,7 +346,7 @@ class VesselWidget(VerticalLayoutWidget):
   def _removePreviouslyExtractedVessels(self):
     """Remove previous nodes from mrmlScene if necessary.
     """
-    removeFromMRMLScene([self._vesselVolumeNode, self._vesselModelNode])
+    removeNodesFromMRMLScene([self._vesselVolumeNode, self._vesselModelNode])
 
   def _updateLevelSetParameters(self):
     """

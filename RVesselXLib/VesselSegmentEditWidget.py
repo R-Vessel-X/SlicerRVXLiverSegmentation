@@ -2,7 +2,7 @@ import slicer
 import qt
 import vtk
 
-from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromScene
+from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromMRMLScene
 
 
 class VesselSegmentEditWidget(SegmentWidget):
@@ -49,7 +49,7 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _getSegmentClosedModel(self, segmentName):
     modelName = "{}Model".format(segmentName)
-    removeNodeFromScene(modelName)
+    removeNodeFromMRMLScene(modelName)
 
     polyData = vtk.vtkPolyData()
     segmentId = self._segmentationObj().GetNthSegmentID(0)
@@ -64,7 +64,8 @@ class VesselSegmentEditWidget(SegmentWidget):
     return volume.GetPolyData().GetNumberOfPolys() == 0
 
   def _removePreviousCenterLineVolume(self):
-    removeNodeFromScene(self._centerLineVolume)
+    removeNodeFromMRMLScene(self._centerLineVolume)
+    self._centerLineVolume = None
 
   def onVesselSegmentationChanged(self, vesselLabelMap, vesselBranches):
     self._removeAllSegmentationNodes()

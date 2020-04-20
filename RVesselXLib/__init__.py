@@ -1,8 +1,8 @@
 from .RVesselXUtils import GeometryExporter, Settings, WidgetUtils, addInCollapsibleLayout, createInputNodeSelector, \
   createSingleMarkupFiducial, createMultipleMarkupFiducial, jumpSlicesToLocation, jumpSlicesToNthMarkupPosition, \
-  getMarkupIdPositionDictionary, hideFromUser, removeFromMRMLScene, createButton, getFiducialPositions, createModelNode, \
-  createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, raiseValueErrorIfInvalidType, removeNoneList, \
-  Icons, Signal, createDisplayNode, createVolumeNodeBasedOnModel, removeNodeFromScene
+  getMarkupIdPositionDictionary, hideFromUser, removeNodesFromMRMLScene, createButton, getFiducialPositions, \
+  createModelNode, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, raiseValueErrorIfInvalidType, \
+  removeNoneList, Icons, Signal, createDisplayNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget

@@ -5,7 +5,7 @@ import slicer
 import vtk
 from collections import defaultdict
 
-from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromScene
+from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene
 from RVesselXLib.VesselBranchWizard import InteractionStatus
 from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
@@ -669,7 +669,7 @@ class TreeDrawer(object):
     return self._lineModel.GetDisplayNode()
 
   def clear(self):
-    removeNodeFromScene(self._lineModel)
+    removeNodeFromMRMLScene(self._lineModel)
     self._setupLineModel()
 
 

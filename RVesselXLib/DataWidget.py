@@ -1,6 +1,7 @@
 import ctk
 import qt
 import slicer
+import vtk
 
 from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
@@ -67,6 +68,15 @@ class DataWidget(VerticalLayoutWidget):
 
     # Connect volume changed callback
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
+
+    # Connect node added to node selection when widget is Visible
+    # Enables switching to new loaded node automatically
+    slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent, self._selectNewNodeAsInputNode)
+
+  @vtk.calldata_type(vtk.VTK_OBJECT)
+  def _selectNewNodeAsInputNode(self, caller, event, newNode):
+    if isinstance(newNode, slicer.vtkMRMLVolumeNode) and self.visible:
+      self.inputSelector.setCurrentNode(newNode)
 
   def _ensureNodeSynchronisation(self, newNode):
     self.inputSelector.setCurrentNode(newNode)

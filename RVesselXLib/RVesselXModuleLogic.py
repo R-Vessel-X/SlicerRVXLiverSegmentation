@@ -1,12 +1,11 @@
 import math
-import math
 
 import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import vtk
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
-  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel
+  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene
 
 
 class VMTKModule(object):
@@ -499,8 +498,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     centerLineModel = RVesselXModuleLogic.centerLineFilter(levelSetSegmentationModel, startPoints, endPoints)
 
     # remove start point and end point from slicer
-    slicer.mrmlScene.RemoveNode(startPoints)
-    slicer.mrmlScene.RemoveNode(endPoints)
+    removeNodeFromMRMLScene(startPoints)
+    removeNodeFromMRMLScene(endPoints)
 
     # Return centerLineModel
     return centerLineModel
