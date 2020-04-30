@@ -1,11 +1,13 @@
 import math
 
+import numpy as np
 import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import vtk
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
-  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene
+  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, \
+  cloneSourceVolume
 
 
 class VMTKModule(object):
@@ -57,10 +59,13 @@ class VesselnessFilterParameters(object):
     self.suppressPlatesPercent = 50
     self.suppressBlobsPercent = 50
     self.vesselContrast = 5
+    self.roiGrowthFactor = 1.2
+    self.useROI = True
+    self.minROIExtent = 20
 
   def asTuple(self):
     return (self.minimumDiameter, self.maximumDiameter, self.suppressPlatesPercent, self.suppressBlobsPercent,
-            self.vesselContrast)
+            self.vesselContrast, self.roiGrowthFactor, self.useROI)
 
 
 class LevelSetParameters(object):
@@ -85,7 +90,7 @@ class IRVesselXModuleLogic(object):
   def setInputVolume(self, inputVolume):
     pass
 
-  def updateVesselnessVolume(self):
+  def updateVesselnessVolume(self, nodePositions):
     pass
 
   @property
@@ -112,7 +117,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       slicer.util.errorDisplay(errorMsg)
 
     self._inputVolume = None
-    self._vesselnessVolumes = {}
+    self._croppedInputVolume = None
+    self._vesselnessVolume = None
+    self._inputRoi = None
     self.levelSetParameters = LevelSetParameters()
 
   def setInputVolume(self, inputVolume):
@@ -516,7 +523,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
   def _currentVesselnessKey(self):
     return self._inputVolume, self.vesselnessFilterParameters.asTuple()
 
-  def updateVesselnessVolume(self):
+  def updateVesselnessVolume(self, nodePositions):
     """Update vesselness volume node for current input volume and current filter parameters.
 
     If input node is not defined, no processing will be done. The method will return whether update was processed or
@@ -528,43 +535,62 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     bool
       True if update was done, False otherwise.
     """
+    import time
+
     # Early return in case the inputs is not properly defined or processing already done for input
-    if self._isInvalidVolumeInput() or self._isVesselnessAlreadyProcessed():
+    if self._isInvalidVolumeInput():
       return False
 
-    self._vesselnessVolumes[self._currentVesselnessKey()] = self._applyVesselnessFilter(self._inputVolume,
-                                                                                        startPoint=None)
+    removeNodeFromMRMLScene(self._vesselnessVolume)
+    removeNodeFromMRMLScene(self._croppedInputVolume)
+    removeNodeFromMRMLScene(self._inputRoi)
+    if self._vesselnessFilterParam.useROI:
+      self._inputRoi = self._createROIFromNodePositions(nodePositions)
+      self._croppedInputVolume = cropSourceVolume(self._inputVolume, self._inputRoi)
+    else:
+      self._croppedInputVolume = cloneSourceVolume(self._inputVolume)
+
+    self._croppedInputVolume.GetDisplayNode().SetVisibility(False)
+    self._vesselnessVolume = self._applyVesselnessFilter(self._croppedInputVolume, startPoint=None)
+
+    time.sleep(1)  # Short sleep for this thread to enable volume to be updated
     return True
+
+  @staticmethod
+  def calculateRoiExtent(nodePositions, minExtent, growthFactor):
+    minPosition = np.array(nodePositions[0])
+    maxPosition = np.array(nodePositions[0])
+    for pos in nodePositions:
+      for i in range(3):
+        minPosition[i] = min(minPosition[i], pos[i])
+        maxPosition[i] = max(maxPosition[i], pos[i])
+
+    center = (maxPosition + minPosition) / 2.
+    radius = np.abs(maxPosition - minPosition) / 2.
+    for i, r in enumerate(radius):
+      radius[i] = max(minExtent / 2., r * growthFactor)
+
+    return center, radius
+
+  def _createROIFromNodePositions(self, nodePositions):
+    roi = slicer.vtkMRMLAnnotationROINode()
+    roi.Initialize(slicer.mrmlScene)
+    roi.SetName(slicer.mrmlScene.GetUniqueNameByString("VolumeCropROI"))
+
+    center, radius = self.calculateRoiExtent(nodePositions, self._vesselnessFilterParam.minROIExtent,
+                                             self._vesselnessFilterParam.roiGrowthFactor)
+
+    roi.SetXYZ(center)
+    roi.SetRadiusXYZ(radius)
+    roi.RemoveAllDisplayNodeIDs()
+
+    return roi
 
   def _isInvalidVolumeInput(self):
     return self._inputVolume is None
 
-  def _isVesselnessAlreadyProcessed(self):
-    return self._currentVesselnessKey() in self._vesselnessVolumes.keys()
-
   def getCurrentVesselnessVolume(self):
-    if self._isVesselnessAlreadyProcessed():
-      return self._vesselnessVolumes[self._currentVesselnessKey()]
-    else:
-      return None
-
-  def _hasVesselnessForInput(self):
-    """
-    Returns
-    -------
-    bool
-      True if vesselness calculation has already been done for the current input volume. False otherwise
-    """
-    return self._currentVesselnessKey() in self._vesselnessVolumes.keys()
-
-  def _delayedUpdateVesselnessVolume(self):
-    """Updates vesselness volume if current input has not been updated yet and pauses the thread for the vesselness
-    volume to be properly loaded.
-    """
-    import time
-    if not self._hasVesselnessForInput():
-      self.updateVesselnessVolume()
-      time.sleep(1)  # Short sleep for this thread to enable volume to be updated
+    return self._vesselnessVolume
 
   def extractVesselVolumeFromPosition(self, seedsPositions, endPositions):
     """Extract vessels volume and model given two input lists of markups positions and current loaded input volume.
@@ -589,6 +615,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     LevelSetModel : vtkMRMLModelNode
       Model after marching cubes on the segmentation data
     """
-    self._delayedUpdateVesselnessVolume()
-    return self._applyLevelSetSegmentationFromNodePositions(self._inputVolume, self.getCurrentVesselnessVolume(),
+    if self._vesselnessVolume is None:
+      raise ValueError("Please extract vesselness volume before extracting vessels")
+    return self._applyLevelSetSegmentationFromNodePositions(self._croppedInputVolume, self.getCurrentVesselnessVolume(),
                                                             seedsPositions, endPositions, self.levelSetParameters)

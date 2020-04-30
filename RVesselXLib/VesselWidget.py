@@ -5,13 +5,13 @@ import ctk
 import qt
 import slicer
 
-from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
-  removeNodeFromMRMLScene
-from .VerticalLayoutWidget import VerticalLayoutWidget
-from .VesselBranchTree import VesselBranchWidget
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
+from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
+from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
+  getMarkupIdPositionDictionary
+from .VerticalLayoutWidget import VerticalLayoutWidget
+from .VesselBranchTree import VesselBranchWidget
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -192,6 +192,26 @@ class VesselWidget(VerticalLayoutWidget):
     self._suppressBlobsSlider.toolTip = "A higher value filters out more blob-like structures."
     advancedFormLayout.addRow("Suppress blobs:", self._suppressBlobsSlider)
 
+    self._useROI = qt.QCheckBox()
+    self._useROI.toolTip = "If true will limit vesselness filter and vessel extraction to placed nodes extent."
+    advancedFormLayout.addRow("Use bounding box:", self._useROI)
+
+    self._roiSlider = ctk.ctkSliderWidget()
+    self._roiSlider.decimals = 1
+    self._roiSlider.minimum = 1
+    self._roiSlider.maximum = 5
+    self._roiSlider.singleStep = 0.1
+    self._roiSlider.toolTip = "Growth factor of the bounding box around defined nodes."
+    advancedFormLayout.addRow("Bounding box growth factor:", self._roiSlider)
+
+    self._minRoiSlider = ctk.ctkSliderWidget()
+    self._minRoiSlider.decimals = 0
+    self._minRoiSlider.minimum = 0
+    self._minRoiSlider.maximum = 100
+    self._minRoiSlider.singleStep = 1
+    self._minRoiSlider.toolTip = "Minimum thickness of the bounding box in pixels."
+    advancedFormLayout.addRow("Min Bounding Box extent:", self._minRoiSlider)
+
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
@@ -369,10 +389,13 @@ class VesselWidget(VerticalLayoutWidget):
     parameters.suppressPlatesPercent = self._suppressPlatesSlider.value
     parameters.suppressBlobsPercent = self._suppressBlobsSlider.value
     parameters.vesselContrast = self._contrastSlider.value
+    parameters.roiGrowthFactor = self._roiSlider.value
+    parameters.minROIExtent = self._minRoiSlider.value
+    parameters.useROI = self._useROI.checked
     self._logic.vesselnessFilterParameters = parameters
 
-    # Explicitly call vesselness filter update
-    self._logic.updateVesselnessVolume()
+    idPositionDict = getMarkupIdPositionDictionary(self._vesselBranchWidget.getBranchMarkupNode())
+    self._logic.updateVesselnessVolume(idPositionDict.values())
 
   def _restoreDefaultVesselnessFilterParameters(self):
     """Apply default vesselness filter parameters to the UI
@@ -399,6 +422,9 @@ class VesselWidget(VerticalLayoutWidget):
     self._suppressPlatesSlider.value = params.suppressPlatesPercent
     self._suppressBlobsSlider.value = params.suppressBlobsPercent
     self._contrastSlider.value = params.vesselContrast
+    self._roiSlider.value = params.roiGrowthFactor
+    self._minRoiSlider.value = params.minROIExtent
+    self._useROI.setChecked(params.useROI)
 
   def _updateButtonStatusAndFilterParameters(self):
     """Enable buttons if input volume was selected by user and Tree is not in edit mode. When tree is done with editing

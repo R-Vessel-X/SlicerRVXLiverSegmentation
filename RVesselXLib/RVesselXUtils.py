@@ -581,3 +581,25 @@ def removeNodesFromMRMLScene(nodesToRemove):
   """
   for node in nodesToRemove:
     removeNodeFromMRMLScene(node)
+
+
+def cropSourceVolume(sourceVolume, roi):
+  cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()
+  cropVolumeNode.SetScene(slicer.mrmlScene)
+  cropVolumeNode.SetName(slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cropped"))
+  cropVolumeNode.SetIsotropicResampling(True)
+  cropVolumeNode.SetSpacingScalingConst(0.5)
+  slicer.mrmlScene.AddNode(cropVolumeNode)
+
+  cropVolumeNode.SetInputVolumeNodeID(sourceVolume.GetID())
+  cropVolumeNode.SetROINodeID(roi.GetID())
+
+  cropVolumeLogic = slicer.modules.cropvolume.logic()
+  cropVolumeLogic.Apply(cropVolumeNode)
+
+  return cropVolumeNode.GetOutputVolumeNode()
+
+
+def cloneSourceVolume(sourceVolume):
+  cloneName = slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cloned")
+  return slicer.vtkSlicerVolumesLogic().CloneVolume(slicer.mrmlScene, sourceVolume, cloneName, True)

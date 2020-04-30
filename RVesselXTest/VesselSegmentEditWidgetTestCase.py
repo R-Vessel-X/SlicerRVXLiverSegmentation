@@ -20,6 +20,7 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
 
     # Run vessel extraction
     self.logic.setInputVolume(sourceVolume)
+    self.logic.updateVesselnessVolume([startPosition, endPosition])
     seedsNodes, stoppersNodes, outVolume, outModel = self.logic.extractVesselVolumeFromPosition([startPosition],
                                                                                                 [endPosition])
 

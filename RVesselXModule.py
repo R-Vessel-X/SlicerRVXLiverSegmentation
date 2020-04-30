@@ -50,6 +50,10 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabList = []
     self._obs = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, lambda *x: self.reloadModule())
 
+  def setTestingMode(self, isTesting):
+    for tab in self._tabList:
+      tab.setTestingMode(isTesting)
+
   def cleanup(self):
     """Cleanup called before reloading module. Removes mrmlScene observer to avoid multiple setup of the module
     """
@@ -312,6 +316,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def runTest(self):
     # Disable module reloading between tests
     RVesselXModuleWidget.enableReloadOnSceneClear = False
+    slicer.modules.RVesselXModuleWidget.setTestingMode(True)
 
     # Gather tests for the plugin and run them in a test suite
     testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
@@ -321,4 +326,5 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
 
     # Reactivate module reloading and cleanup slicer scene
     RVesselXModuleWidget.enableReloadOnSceneClear = True
+    slicer.modules.RVesselXModuleWidget.setTestingMode(False)
     slicer.mrmlScene.Clear()

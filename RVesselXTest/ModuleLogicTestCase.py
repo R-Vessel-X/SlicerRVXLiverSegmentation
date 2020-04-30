@@ -3,8 +3,9 @@ import unittest
 
 import slicer
 
-from RVesselXLib import RVesselXModuleLogic, GeometryExporter
-from .TestUtils import TemporaryDir, cropSourceVolume, createNonEmptyVolume, createNonEmptyModel
+from RVesselXLib import RVesselXModuleLogic, GeometryExporter, cropSourceVolume
+from .TestUtils import TemporaryDir, createNonEmptyVolume, createNonEmptyModel
+import numpy as np
 
 
 def prepareEndToEndTest():
@@ -16,15 +17,6 @@ def prepareEndToEndTest():
   startPosition = [176.9, -17.4, 52.7]
   endPosition = [174.704, -23.046, 76.908]
 
-  # Crop volume
-  roi = slicer.vtkMRMLAnnotationROINode()
-  roi.Initialize(slicer.mrmlScene)
-  roi.SetName("VolumeCropROI")
-  roi.SetXYZ(startPosition[0], startPosition[1], startPosition[2])
-  radius = max(abs(a - b) for a, b in zip(startPosition, endPosition)) * 2
-  roi.SetRadiusXYZ(radius, radius, radius)
-
-  sourceVolume = cropSourceVolume(sourceVolume, roi)
   return sourceVolume, startPosition, endPosition
 
 
@@ -41,6 +33,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
     logic.setInputVolume(sourceVolume)
+    logic.updateVesselnessVolume([startPosition, endPosition])
     seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition],
                                                                                            [endPosition])
 
@@ -86,28 +79,36 @@ class RVesselXModuleTestCase(unittest.TestCase):
       self.assertTrue(os.path.isfile(expVolumePath))
       self.assertTrue(os.path.isfile(expMarkupPath))
 
-  def testVesselnessFilterIsUpdatedOncePerVolume(self):
-    vol1 = createNonEmptyVolume("vol1")
-    vol2 = createNonEmptyVolume("vol2")
-    logic = RVesselXModuleLogic()
-    logic.setInputVolume(vol1)
-    self.assertTrue(logic.updateVesselnessVolume())
-    self.assertFalse(logic.updateVesselnessVolume())
+  def testGivenNoMinExtentRoiExtentReachesExtremeNodePositions(self):
+    node_positions = [[1, 0, 0], [1, 0, 0], [1, 0, 0], [40, 0, 0], [-1, 0, 0]]
 
-    logic.setInputVolume(vol2)
-    self.assertTrue(logic.updateVesselnessVolume())
-    self.assertFalse(logic.updateVesselnessVolume())
+    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    np.testing.assert_array_almost_equal([19.5, 0, 0], roi_center)
+    np.testing.assert_array_almost_equal([20.5, 0, 0], roi_radius)
 
-  def testVesselnessFilterIsUpdatedOncePerParameter(self):
-    vol = createNonEmptyVolume("vol")
-    logic = RVesselXModuleLogic()
-    logic.setInputVolume(vol)
+  def testGivenNoMinExtentAndGrowthFactorRadiusIsMultipliedByGrowthFactor(self):
+    node_positions = [[1, 0, 0], [1, 0, 0], [1, 0, 0], [40, 0, 0], [-1, 0, 0]]
 
-    self.assertTrue(logic.updateVesselnessVolume())
-    self.assertFalse(logic.updateVesselnessVolume())
+    _, roi_radius_x1 = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    _, roi_radius_x2 = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=2)
 
-    p = logic.vesselnessFilterParameters
-    p.vesselContrast += 100
-    logic.vesselnessFilterParameters = p
-    self.assertTrue(logic.updateVesselnessVolume())
-    self.assertFalse(logic.updateVesselnessVolume())
+    np.testing.assert_array_almost_equal(roi_radius_x1 * 2, roi_radius_x2)
+
+  def testGivenMinExtentROIRadiusIsAdjusted(self):
+    node_positions = [[0, 1, 0], [40, 0, 0], [-1, 0, 0]]
+    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=1)
+    np.testing.assert_array_almost_equal([19.5, 0.5, 0], roi_center)
+    np.testing.assert_array_almost_equal([20.5, 5, 5], roi_radius)
+
+  def testGivenMinExtentWithGrowthFactorROIRadiusIsAdjustedForMinSizeOnly(self):
+    node_positions = [[0, 1, 0], [40, 0, 0], [-1, 0, 0]]
+    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=2)
+    np.testing.assert_array_almost_equal([19.5, 0.5, 0], roi_center)
+    np.testing.assert_array_almost_equal([41., 5, 5], roi_radius)
+
+  def testGivenNegativeNodePositionsROICenterIsCorrect(self):
+    node_positions = [[-46, -24, -28], [-45, -22, -54]]
+
+    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    np.testing.assert_array_almost_equal([-45.5, -23, -41], roi_center)
+    np.testing.assert_array_almost_equal([0.5, 1., 13.], roi_radius)

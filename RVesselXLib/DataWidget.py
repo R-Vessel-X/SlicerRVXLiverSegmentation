@@ -71,7 +71,11 @@ class DataWidget(VerticalLayoutWidget):
 
     # Connect node added to node selection when widget is Visible
     # Enables switching to new loaded node automatically
-    slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent, self._selectNewNodeAsInputNode)
+    self._addNewNodeObserver()
+
+  def _addNewNodeObserver(self):
+    self._newNodeObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
+                                                         self._selectNewNodeAsInputNode)
 
   @vtk.calldata_type(vtk.VTK_OBJECT)
   def _selectNewNodeAsInputNode(self, caller, event, newNode):
@@ -127,6 +131,9 @@ class DataWidget(VerticalLayoutWidget):
 
   def _removePreviousNodeAddedObserverFromScene(self):
     slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+
+  def _removeNewNodeObserver(self):
+    slicer.mrmlScene.RemoveObserver(self._newNodeObserver)
 
   def _attachNodeAddedObserverToScene(self, node):
     self._sceneObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
@@ -208,3 +215,9 @@ class DataWidget(VerticalLayoutWidget):
       Current vtkMRMLVolumeNode selected by user in the DataWidget
     """
     return self.inputSelector.currentNode()
+
+  def setTestingMode(self, isTesting):
+    self._removeNewNodeObserver()
+    self._removePreviousNodeAddedObserverFromScene()
+    if not isTesting:
+      self._addNewNodeObserver()

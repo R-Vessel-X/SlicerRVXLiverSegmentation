@@ -36,3 +36,10 @@ class VerticalLayoutWidget(qt.QWidget):
 
   def clear(self):
     pass
+
+  def setTestingMode(self, isTesting):
+    """
+    Triggered when module is set to test.
+    Enables avoiding unexpected behavior during test due to testing inside Slicer
+    """
+    pass
