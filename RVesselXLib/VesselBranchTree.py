@@ -1,12 +1,9 @@
-from itertools import count
-
 import qt
 import slicer
 import vtk
-from collections import defaultdict
 
-from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene
-from RVesselXLib.VesselBranchWizard import InteractionStatus
+from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene, InteractionStatus, \
+  VesselTreeColumnRole
 from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
 
@@ -17,7 +14,7 @@ class VesselBranchTreeItem(qt.QTreeWidgetItem):
   def __init__(self, nodeId, status=PlaceStatus.NOT_PLACED):
     qt.QTreeWidgetItem.__init__(self)
     self.nodeId = nodeId
-    self.setIcon(1, Icons.delete)
+    self.setIcon(VesselTreeColumnRole.DELETE, Icons.delete)
     self._status = status
     self.updateText()
 
@@ -31,10 +28,12 @@ class VesselBranchTreeItem(qt.QTreeWidgetItem):
     self.updateText()
 
   def updateText(self):
-    suffixMap = {PlaceStatus.NOT_PLACED: "<click here to start placing node>", PlaceStatus.PLACING: "*placing*"}
+    suffixMap = {PlaceStatus.NOT_PLACED: "<click here to start placing node>", PlaceStatus.PLACING: "*placing*",
+                 PlaceStatus.INSERT_BEFORE: "*inserting before*"}
 
     suffix = suffixMap.get(self._status, None)
     self.setText(0, "{} {}".format(self.nodeId, suffix) if suffix is not None else self.nodeId)
+    self.setText(VesselTreeColumnRole.INSERT_BEFORE, "Insert Before")
 
 
 class VesselBranchTree(qt.QTreeWidget):
@@ -44,50 +43,45 @@ class VesselBranchTree(qt.QTreeWidget):
   Class signals when modified or user interacts with the UI.
   """
 
-  class Signal(object):
-    """List of signals handled by VesselBranchTree. To add observer, see VesselBranchTree.addObserver method
-    """
-    _iSig = count(0, 1)
-    clicked = next(_iSig)  # callback(nodeId, qt.QKeyModifiers)
-    keyEvent = next(_iSig)  # callback(nodeId, qt.QKey)
-    modified = next(_iSig)  # callback()
-
   def __init__(self, parent=None):
     qt.QTreeWidget.__init__(self, parent)
 
     self.keyPressed = Signal("VesselBranchTreeItem, qt.Qt.Key")
+    self.insertBeforeClicked = Signal("VesselBranchTreeItem")
 
     self._branchDict = {}
-    self._callbackDict = defaultdict(list)
 
     # Configure tree widget
-    self.setColumnCount(2)
-    self.setHeaderLabels(["Branch Node Name", ""])
+    self.setColumnCount(3)
+    self.setHeaderLabels(["Branch Node Name", "", ""])
 
     # Configure tree to have first section stretched and last sections to be at right of the layout
     # other columns will always be at minimum size fitting the icons
     self.header().setSectionResizeMode(0, qt.QHeaderView.Stretch)
     self.header().setStretchLastSection(False)
     self.header().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-    self.headerItem().setIcon(1, Icons.delete)
+    self.header().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+    self.headerItem().setIcon(VesselTreeColumnRole.DELETE, Icons.delete)
 
     # Enable reordering by drag and drop
     self.setDragEnabled(True)
     self.setDropIndicatorShown(True)
     self.setDragDropMode(qt.QAbstractItemView.InternalMove)
 
-    # Connect click event to notify signal
-    self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
-
   def clear(self):
     self._branchDict = {}
     qt.QTreeWidget.clear(self)
-    self._notifyModified()
 
   def clickItem(self, item):
     item = self.getTreeWidgetItem(item) if isinstance(item, str) else item
+    self.setItemSelected(item)
     if item is not None:
       self.itemClicked.emit(item, 0)
+
+  def setItemSelected(self, item):
+    if item is not None:
+      self.selectionModel().clearSelection()
+      item.setSelected(True)
 
   def getNextUnplacedItem(self, nodeId):
     """
@@ -126,18 +120,11 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     return self.getParentNodeId(nodeId) is None
 
-  def isLeaf(self, nodeId):
-    """
-    :return: True if node has no children
-    """
-    return len(self.getChildrenNodeId(nodeId)) == 0
-
   def dropEvent(self, event):
     """On drop event, enforce structure of the tree is not broken.
     """
     qt.QTreeWidget.dropEvent(self, event)
     self.enforceOneRoot()
-    self._notifyModified()
 
   def keyPressEvent(self, event):
     """Overridden from qt.QTreeWidget to notify listeners of key event
@@ -148,39 +135,8 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     if self.currentItem():
       self.keyPressed.emit(self.currentItem(), event.key())
-      currentNodeId = self.currentItem().nodeId
-      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-        callback(currentNodeId, event.key())
 
     qt.QTreeWidget.keyPressEvent(self, event)
-
-  def _notifyItemClicked(self, item, column):
-    """Notify each VesselBranchTree.Signal.clicked observers of click event associated with nodeId which was clicked on
-    and the keyboard modifiers at the time of the click
-    """
-    if column == 1:
-      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-        callback(item.nodeId, qt.Qt.Key_Delete)
-    else:
-      item.setExpanded(True)
-      for callback in self._callbackDict[VesselBranchTree.Signal.clicked]:
-        callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
-
-  def _notifyModified(self):
-    """Notify each VesselBranchTree.Signal.modified observers of modification event
-    """
-    for callback in self._callbackDict[VesselBranchTree.Signal.modified]:
-      callback()
-
-  def addObserver(self, signal, callback):
-    """
-    Parameters
-    ----------
-    signal: int
-      Signal contained in VesselBranchTree.Signal
-    callback: Callable
-    """
-    self._callbackDict[signal].append(callback)
 
   def _takeItem(self, nodeId):
     """Remove item with given item id from the tree. Removes it from its parent if necessary
@@ -248,7 +204,6 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     self._insertNode(nodeId, parentNodeId, status)
     self.expandAll()
-    self._notifyModified()
 
   def insertBeforeNode(self, nodeId, beforeNodeId, status=PlaceStatus.NOT_PLACED):
     """Insert given node before the input parent Id. Inserts new node as root if childNodeId is None.
@@ -277,7 +232,6 @@ class VesselBranchTree(qt.QTreeWidget):
       nodeItem.addChild(childItem)
 
     self.expandAll()
-    self._notifyModified()
 
   def removeNode(self, nodeId):
     """Remove given node from tree.
@@ -516,8 +470,6 @@ class VesselBranchTree(qt.QTreeWidget):
 
     # Call recursively until the whole tree has only one root
     self.enforceOneRoot()
-
-    self._notifyModified()
 
 
 class TreeDrawer(object):
@@ -870,10 +822,8 @@ class VesselBranchWidget(qt.QWidget):
 
     # Create add and edit layout
     addEditButtonLayout = qt.QHBoxLayout()
-    self._insertNodeBeforeButton = createButton("Insert node before", self._wizard.onInsertBeforeNode, isCheckable=True)
-    self._editBranchNodeButton = createButton("Edit node", self._wizard.onEditNode, isCheckable=True)
-    addEditButtonLayout.addWidget(self._insertNodeBeforeButton)
-    addEditButtonLayout.addWidget(self._editBranchNodeButton)
+    self._unlockNodePositionsButton = createButton("Unlock Node Positions", self._wizard.onEditNode, isCheckable=True)
+    addEditButtonLayout.addWidget(self._unlockNodePositionsButton)
 
     # Create vertical layout and add Add and edit buttons on top of extract button
     buttonLayout = qt.QVBoxLayout()
@@ -884,8 +834,7 @@ class VesselBranchWidget(qt.QWidget):
 
   def _updateButtonCheckedStatus(self):
     interaction = self._wizard.getInteractionStatus()
-    self._editBranchNodeButton.setChecked(interaction == InteractionStatus.EDIT)
-    self._insertNodeBeforeButton.setChecked(interaction == InteractionStatus.INSERT_BEFORE)
+    self._unlockNodePositionsButton.setChecked(interaction == InteractionStatus.EDIT)
 
   def getBranchTree(self):
     return self._branchTree

@@ -36,6 +36,7 @@ class DataWidget(VerticalLayoutWidget):
     # Create input volume selector and connect callback to selection changed signal
     self._volumeDisplayNode = None
     self._sceneObserver = None
+    self._newNodeObserver = None
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
                                                  callBack=self.onInputSelectorNodeChanged)
 
@@ -68,12 +69,16 @@ class DataWidget(VerticalLayoutWidget):
 
     # Connect volume changed callback
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
+    self._previousNode = None
 
     # Connect node added to node selection when widget is Visible
     # Enables switching to new loaded node automatically
     self._addNewNodeObserver()
 
   def _addNewNodeObserver(self):
+    if self._newNodeObserver is not None:
+      self._removeNewNodeObserver()
+
     self._newNodeObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
                                                          self._selectNewNodeAsInputNode)
 
@@ -81,9 +86,6 @@ class DataWidget(VerticalLayoutWidget):
   def _selectNewNodeAsInputNode(self, caller, event, newNode):
     if isinstance(newNode, slicer.vtkMRMLVolumeNode) and self.visible:
       self.inputSelector.setCurrentNode(newNode)
-
-  def _ensureNodeSynchronisation(self, newNode):
-    self.inputSelector.setCurrentNode(newNode)
 
   @wrapInQTimer
   def _synchronizeVolumeRendering(self):
@@ -114,9 +116,10 @@ class DataWidget(VerticalLayoutWidget):
     node: vtkMRMLNode
     """
     # Early return if invalid node
-    if not node:
+    if not node or node == self._previousNode:
       return
 
+    self._previousNode = node
     self._removePreviousNodeAddedObserverFromScene()
 
     # If node not yet properly initialized, attach observer to image change.
@@ -130,10 +133,14 @@ class DataWidget(VerticalLayoutWidget):
       self._synchronizeVolumeRendering()
 
   def _removePreviousNodeAddedObserverFromScene(self):
-    slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+    if self._sceneObserver is not None:
+      slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+      self._sceneObserver = None
 
   def _removeNewNodeObserver(self):
-    slicer.mrmlScene.RemoveObserver(self._newNodeObserver)
+    if self._newNodeObserver is not None:
+      slicer.mrmlScene.RemoveObserver(self._newNodeObserver)
+      self._newNodeObserver = None
 
   def _attachNodeAddedObserverToScene(self, node):
     self._sceneObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,

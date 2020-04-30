@@ -2,7 +2,7 @@ import qt
 import slicer
 import unittest
 
-from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId
+from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole
 from RVesselXLib.VesselBranchTree import MarkupNode, TreeDrawer, INodePlaceWidget
 from RVesselXLib.VesselBranchWizard import InteractionStatus
 
@@ -137,7 +137,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.click_first_element()
     self.nodePlace.placeNode()
     self.nodePlace.placeNode()
-    self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.rightPortalVein), 1)
+    self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.rightPortalVein), VesselTreeColumnRole.DELETE)
     self.assertFalse(self.tree.isInTree(VeinId.rightPortalVein))
     self.assertFalse(self.markupNode.GetNthFiducialVisibility(1))
 
@@ -221,7 +221,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.nodePlace.placeNode()
     self.click_first_element()
 
-    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.wizard.onInsertBeforeNode()
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
 
   def test_placing_node_before_does_nothing_if_current_node_is_not_placed(self):
@@ -229,7 +229,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.nodePlace.placeNode()
     self.click_second_element()
 
-    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.wizard.onInsertBeforeNode()
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
 
   def test_placing_node_before_does_nothing_if_parent_node_is_not_placed(self):
@@ -237,7 +237,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.nodePlace.placeNode()
     self.click_second_element()
 
-    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.wizard.onInsertBeforeNode()
     self.assertEqual(InteractionStatus.STOPPED, self.wizard.getInteractionStatus())
 
   def test_when_placing_node_inserts_node_name_of_next_node_when_placed(self):
@@ -248,7 +248,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
 
     # Select second node and insert two nodes before
     self.click_second_element()
-    self.wizard.onInsertBeforeNode(insertEnabled=True)
+    self.wizard.onInsertBeforeNode()
     self.assertEqual(InteractionStatus.INSERT_BEFORE, self.wizard.getInteractionStatus())
     self.assertTrue(self.nodePlace.placeModeEnabled)
 

@@ -56,7 +56,6 @@ class NodeBranches(object):
 class InteractionStatus(object):
   STOPPED = "Stopped"
   INSERT_BEFORE = "Insert Before Node"
-  INSERT_AFTER = "Insert After Node"
   EDIT = "Edit"
   PLACING = "Placing"
 
@@ -136,14 +135,17 @@ class VesselBranchWizard(object):
   def getInteractionStatus(self):
     return self._interactionStatus
 
-  def onInsertBeforeNode(self, insertEnabled):
+  def onInsertBeforeNode(self):
     """
     If current node and parent node are placed, enables node placing and set node as insert before
     """
     self.onStopInteraction()
+    insertEnabled = self._isCurrentNodePlaced() and self._isParentNodePlaced()
     if insertEnabled and self._isCurrentNodePlaced() and self._isParentNodePlaced():
       self._placeWidget.setPlaceModeEnabled(True)
+      self._currentTreeItem.status = PlaceStatus.INSERT_BEFORE
       self._updateCurrentInteraction(InteractionStatus.INSERT_BEFORE)
+      self._tree.setItemSelected(self._currentTreeItem)
 
   def _isCurrentNodePlaced(self):
     return self._currentItemPlaceStatus() == PlaceStatus.PLACED
@@ -178,6 +180,8 @@ class VesselBranchWizard(object):
   def _deactivatePreviousItem(self):
     if self._currentItemPlaceStatus() == PlaceStatus.PLACING:
       self._currentTreeItem.status = PlaceStatus.NOT_PLACED
+    elif self._currentItemPlaceStatus() == PlaceStatus.INSERT_BEFORE:
+      self._currentTreeItem.status = PlaceStatus.PLACED
 
   def onItemClicked(self, treeItem, column):
     """
@@ -187,8 +191,10 @@ class VesselBranchWizard(object):
     self._deactivatePreviousItem()
 
     self._currentTreeItem = treeItem
-    if column == 1:
+    if column == VesselTreeColumnRole.DELETE:
       self._onDeleteItem(treeItem)
+    elif column == VesselTreeColumnRole.INSERT_BEFORE:
+      self.onInsertBeforeNode()
     elif treeItem.status == PlaceStatus.NOT_PLACED:
       self.onStartPlacing()
     elif self._interactionStatus == InteractionStatus.PLACING and treeItem.status == PlaceStatus.PLACED:
@@ -284,6 +290,7 @@ class VesselBranchWizard(object):
     self._renamePlacedNode(insertedId)
     self._tree.insertBeforeNode(nodeId=insertedId, beforeNodeId=self._currentTreeItem.nodeId, status=PlaceStatus.PLACED)
     self._currentTreeItem = self._tree.getTreeWidgetItem(insertedId)
+    self.onInsertBeforeNode()
 
   def _nextInsertedNodeId(self, nodeId):
     """
@@ -356,4 +363,11 @@ class PlaceStatus(object):
   NOT_PLACED = 0
   PLACING = 1
   PLACED = 2
-  NONE = 3
+  INSERT_BEFORE = 3
+  NONE = 4
+
+
+class VesselTreeColumnRole(object):
+  NODE_ID = 0
+  INSERT_BEFORE = 1
+  DELETE = 2

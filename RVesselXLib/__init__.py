@@ -12,7 +12,8 @@ from .RVesselXModuleLogic import RVesselXModuleLogic, IRVesselXModuleLogic, Vess
 from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOneVesselPerParentChildNode, \
   ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromVesselSeedPointsStrategy, ExtractOneVesselPerBranch, \
   VesselSeedPoints
-from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId, NodeBranches
+from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId, NodeBranches, InteractionStatus, \
+  VesselTreeColumnRole
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
 from .VesselWidget import VesselWidget
 from .VesselSegmentEditWidget import VesselSegmentEditWidget
