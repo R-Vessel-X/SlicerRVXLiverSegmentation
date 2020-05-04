@@ -336,17 +336,24 @@ class VesselWidget(VerticalLayoutWidget):
     # Call vessel extraction strategy and inform user of vessel extraction
     branchTree = self._vesselBranchWidget.getBranchTree()
     branchMarkupNode = self._vesselBranchWidget.getBranchMarkupNode()
+
+    progressText = "Extracting vessels volume from branch nodes.\nThis may take a minute..."
     progressDialog = slicer.util.createProgressDialog(parent=self, windowTitle="Extracting vessels",
-                                                      labelText="Extracting vessels volume from branch nodes."
-                                                                "\nThis may take a minute...")
+                                                      labelText=progressText)
+    progressDialog.setRange(0, 0)
+    progressDialog.setModal(True)
     progressDialog.show()
 
     # Trigger process events to properly show progress dialog
     slicer.app.processEvents()
     try:
       self._updateLevelSetParameters()
+      progressDialog.setLabelText(progressText + "\n\nExtracting Vesselness Volume...")
+      progressDialog.repaint()
       self._updateVesselnessVolume()
       strategy = self._strategies[self._strategyChoice.currentText]
+      progressDialog.setLabelText(progressText + "\n\nSegmenting Vessels...")
+      progressDialog.repaint()
       self._vesselVolumeNode, self._vesselModelNode = strategy.extractVesselVolumeFromVesselBranchTree(branchTree,
                                                                                                        branchMarkupNode,
                                                                                                        self._logic)
@@ -356,9 +363,9 @@ class VesselWidget(VerticalLayoutWidget):
     except Exception as e:
       import traceback
       info = traceback.format_exc()
-      logging.warn(str(info))
-      qt.QMessageBox.warning(self, "Failed to extract vessels",
-                             "An error happened while extracting vessels.\n\n{}".format(info))
+      warning_message = "An error happened while extracting vessels."
+      warning_message += "Please try to adjust vesselness or levelset parameters.\n{}\n\n{}".format(str(e), info)
+      qt.QMessageBox.warning(self, "Failed to extract vessels", warning_message)
 
     progressDialog.hide()
     self._updateVesselnessVisibility()

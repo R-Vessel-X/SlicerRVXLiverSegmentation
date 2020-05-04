@@ -1,5 +1,5 @@
-import slicer
 import qt
+import slicer
 import vtk
 
 from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromMRMLScene
@@ -37,6 +37,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._addSegmentationNodes(self._vesselBranches.names())
     self._proceedButton.setEnabled(False)
     self._segmentNode.GetDisplayNode().SetOpacity3D(self._segmentOpacity)
+    self._prepareSplittingTools()
 
   def _extractCenterLine(self):
     branchVolume = self._getSegmentClosedModel(self._vesselSegmentName)
@@ -46,6 +47,36 @@ class VesselSegmentEditWidget(SegmentWidget):
     startPoints, endPoints = self._vesselBranches.startPoints(), self._vesselBranches.endPoints()
     self._centerLineVolume = self._logic.centerLineFilterFromNodePositions(branchVolume, startPoints, endPoints)
     self._centerLineVolume.SetName(self._vesselSegmentName + "CenterLine")
+
+  def _prepareSplittingTools(self):
+    # Get segmentation editor widget
+    segmentEditorNode = self._segmentationWidget.mrmlSegmentEditorNode()
+
+    # Prepare scissors with fill inside button
+    self._selectScissorsWithFillInsideOption(segmentEditorNode)
+
+    # Set filtered segment as vessel tree
+    treeId = self._segmentNode.GetSegmentation().GetSegmentIdBySegmentName(self._vesselSegmentName)
+    segmentEditorNode.SetMaskSegmentID(treeId)
+
+    # Allow editing inside a segment only
+    maskId = slicer.vtkMRMLSegmentEditorNode.ConvertMaskModeFromString('PaintAllowedInsideSingleSegment')
+    segmentEditorNode.SetMaskMode(maskId)
+
+  def _selectScissorsWithFillInsideOption(self, segmentEditorNode):
+    segmentEditorNode.SetActiveEffectName("Scissors")
+    activeEffectOptionFrame = self._segmentationWidget.activeEffect().optionsFrame()
+    fillInsideButton = None
+    for child in activeEffectOptionFrame.children():
+      if not hasattr(child, "text"):
+        continue
+
+      if "fill inside" in child.text.lower():
+        fillInsideButton = child
+        break
+
+    if fillInsideButton is not None:
+      fillInsideButton.click()
 
   def _getSegmentClosedModel(self, segmentName):
     modelName = "{}Model".format(segmentName)
@@ -86,6 +117,10 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._segmentationLogic.ImportLabelmapToSegmentationNode(vesselLabelMap, self._segmentNode)
     self._segmentNode.GetDisplayNode().SetOpacity3D(1)
 
+    # Raise if segmentation is empty
+    if self._segmentationObj().GetNumberOfSegments() < 1:
+      raise ValueError("Failed to extract vessel tree from vesselness volume.")
+
     # Rename imported segment
     self._segmentationObj().GetNthSegment(0).SetName(self._vesselSegmentName)
 
@@ -98,7 +133,7 @@ class VesselSegmentEditWidget(SegmentWidget):
   def setVisibleInScene(self, isVisible):
     self._treeWizard.setVisibleInScene(isVisible)
     if self._centerLineVolume is not None:
-      self._centerLineVolume.visible = isVisible
+      self._centerLineVolume.SetDisplayVisibility(isVisible)
 
   def hideEvent(self, event):
     self.setVisibleInScene(False)
