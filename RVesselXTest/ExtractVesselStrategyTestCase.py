@@ -3,6 +3,7 @@ import unittest
 
 from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, VesselBranchTree, \
   VesselSeedPoints, ExtractOneVesselPerBranch
+from RVesselXLib.VesselBranchWizard import PlaceStatus
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):
@@ -37,13 +38,13 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     #             |_ n21
     #     |_ n11
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("n0", "n0", None)
-    branchWidget.insertAfterNode("n10", "n10", "n0")
-    branchWidget.insertAfterNode("n11", "n11", "n0")
-    branchWidget.insertAfterNode("n20", "n20", "n10")
-    branchWidget.insertAfterNode("n21", "n21", "n10")
+    branchWidget.insertAfterNode("n0", None, PlaceStatus.PLACED)
+    branchWidget.insertAfterNode("n10", "n0", PlaceStatus.PLACED)
+    branchWidget.insertAfterNode("n11", "n0", PlaceStatus.PLACED)
+    branchWidget.insertAfterNode("n20", "n10", PlaceStatus.PLACED)
+    branchWidget.insertAfterNode("n21", "n10", PlaceStatus.PLACED)
 
-    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
+    posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getPlacedNodeList())
 
     # Create strategy
     strategy = ExtractOneVesselPerParentChildNode()
@@ -63,9 +64,9 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     #     |_ n10
     #     |_ n11
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("n0", "n0", None)
-    branchWidget.insertAfterNode("n10", "n10", "n0")
-    branchWidget.insertAfterNode("n11", "n11", "n0")
+    branchWidget.insertAfterNode("n0", None)
+    branchWidget.insertAfterNode("n10", "n0")
+    branchWidget.insertAfterNode("n11", "n0")
 
     posDict = self.fakePosDictWithIdAsPosition("n0", "n10", "n11")
 
@@ -84,8 +85,8 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     # n0
     #     |_ n10
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("n0", "n0", None)
-    branchWidget.insertAfterNode("n10", "n10", "n0")
+    branchWidget.insertAfterNode("n0", None)
+    branchWidget.insertAfterNode("n10", "n0")
 
     posDict = {"n0": [1, 1, 1], "n10": [2, 2, 2]}
 
@@ -106,12 +107,12 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     #       |_n21
     #           |_n31
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("n0", "n0", None)
-    branchWidget.insertAfterNode("n10", "n10", "n0")
-    branchWidget.insertAfterNode("n11", "n11", "n0")
-    branchWidget.insertAfterNode("n20", "n20", "n11")
-    branchWidget.insertAfterNode("n21", "n21", "n11")
-    branchWidget.insertAfterNode("n31", "n31", "n21")
+    branchWidget.insertAfterNode("n0", None)
+    branchWidget.insertAfterNode("n10", "n0")
+    branchWidget.insertAfterNode("n11", "n0")
+    branchWidget.insertAfterNode("n20", "n11")
+    branchWidget.insertAfterNode("n21", "n11")
+    branchWidget.insertAfterNode("n31", "n21")
 
     posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 
@@ -145,14 +146,14 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     # [n20, n32]
 
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("n0", "n0", None)
-    branchWidget.insertAfterNode("n10", "n10", "n0")
-    branchWidget.insertAfterNode("n20", "n20", "n10")
-    branchWidget.insertAfterNode("n30", "n30", "n20")
-    branchWidget.insertAfterNode("n31", "n31", "n20")
-    branchWidget.insertAfterNode("n32", "n32", "n20")
-    branchWidget.insertAfterNode("n40", "n40", "n31")
-    branchWidget.insertAfterNode("n50", "n50", "n40")
+    branchWidget.insertAfterNode("n0", None)
+    branchWidget.insertAfterNode("n10", "n0")
+    branchWidget.insertAfterNode("n20", "n10")
+    branchWidget.insertAfterNode("n30", "n20")
+    branchWidget.insertAfterNode("n31", "n20")
+    branchWidget.insertAfterNode("n32", "n20")
+    branchWidget.insertAfterNode("n40", "n31")
+    branchWidget.insertAfterNode("n50", "n40")
 
     posDict = self.fakePosDictWithIdAsPosition(*branchWidget.getNodeList())
 

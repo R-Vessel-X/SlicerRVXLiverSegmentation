@@ -1,8 +1,17 @@
+import ctk
 import qt
 import slicer
+import vtk
 
-from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton
+from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNode
 from .VerticalLayoutWidget import VerticalLayoutWidget
+
+
+def wrapInQTimer(func):
+  def inner(*args, **kwargs):
+    qt.QTimer.singleShot(0, lambda *x: func(*args, **kwargs))
+
+  return inner
 
 
 class DataWidget(VerticalLayoutWidget):
@@ -27,13 +36,14 @@ class DataWidget(VerticalLayoutWidget):
     # Create input volume selector and connect callback to selection changed signal
     self._volumeDisplayNode = None
     self._sceneObserver = None
+    self._newNodeObserver = None
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
                                                  callBack=self.onInputSelectorNodeChanged)
 
     # Add load DICOM and load DATA button to the layout
     inputLayout.addWidget(self.inputSelector)
-    inputLayout.addWidget(createButton("Load DICOM", self.onLoadDICOMClicked))
-    inputLayout.addWidget(createButton("Load Data", self.onLoadDataClicked))
+    inputLayout.addWidget(createButton("Load DICOM", lambda *x: self.onLoadDICOMClicked()))
+    inputLayout.addWidget(createButton("Load Data", lambda *x: self.onLoadDataClicked()))
     self._verticalLayout.addLayout(inputLayout)
 
     # Add Volume information
@@ -45,13 +55,13 @@ class DataWidget(VerticalLayoutWidget):
     self.volumesModuleSelector = WidgetUtils.getFirstChildContainingName(volumesWidget, "ActiveVolumeNodeSelector")
 
     # Add Volume Rendering information
-    volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
-    addInCollapsibleLayout(volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
+    self.volumeRenderingWidget = slicer.util.getNewModuleGui(slicer.modules.volumerendering)
+    addInCollapsibleLayout(self.volumeRenderingWidget, self._verticalLayout, "Volume Rendering")
 
     # Hide Volume Rendering Selector and its label
-    self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleVisibility = WidgetUtils.hideFirstChildContainingName(self.volumeRenderingWidget,
                                                                                     "VisibilityCheckBox")
-    self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(volumeRenderingWidget,
+    self.volumeRenderingModuleSelector = WidgetUtils.hideFirstChildContainingName(self.volumeRenderingWidget,
                                                                                   "VolumeNodeComboBox")
 
     # Add stretch
@@ -59,6 +69,33 @@ class DataWidget(VerticalLayoutWidget):
 
     # Connect volume changed callback
     self._inputNodeChangedCallbacks = [self.setVolumeNode]
+    self._previousNode = None
+
+    # Connect node added to node selection when widget is Visible
+    # Enables switching to new loaded node automatically
+    self._addNewNodeObserver()
+
+  def _addNewNodeObserver(self):
+    if self._newNodeObserver is not None:
+      self._removeNewNodeObserver()
+
+    self._newNodeObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
+                                                         self._selectNewNodeAsInputNode)
+
+  @vtk.calldata_type(vtk.VTK_OBJECT)
+  def _selectNewNodeAsInputNode(self, caller, event, newNode):
+    if isinstance(newNode, slicer.vtkMRMLVolumeNode) and self.visible:
+      self.inputSelector.setCurrentNode(newNode)
+
+  @wrapInQTimer
+  def _synchronizeVolumeRendering(self):
+    synchronizeButton = [b for b in self.volumeRenderingWidget.findChildren(ctk.ctkCheckablePushButton) if
+                         b.name == "SynchronizeScalarDisplayNodeButton"]
+    synchronizeButton = synchronizeButton[0] if synchronizeButton else None
+    if synchronizeButton is not None:
+      synchronizeButton.clicked.emit(True)
+      synchronizeButton.checkBoxToggled.emit(True)
+      synchronizeButton.toggled.emit(True)
 
   def addInputNodeChangedCallback(self, callback):
     """Adds new callback to list of callbacks triggered when data tab input node is changed. When the node is changed to
@@ -70,6 +107,7 @@ class DataWidget(VerticalLayoutWidget):
     """
     self._inputNodeChangedCallbacks.append(callback)
 
+  @wrapInQTimer
   def onInputSelectorNodeChanged(self, node):
     """On input changed and with a valid input node, notifies all callbacks of new node value
 
@@ -78,9 +116,10 @@ class DataWidget(VerticalLayoutWidget):
     node: vtkMRMLNode
     """
     # Early return if invalid node
-    if not node:
+    if not node or node == self._previousNode:
       return
 
+    self._previousNode = node
     self._removePreviousNodeAddedObserverFromScene()
 
     # If node not yet properly initialized, attach observer to image change.
@@ -90,17 +129,29 @@ class DataWidget(VerticalLayoutWidget):
     else:
       self._notifyInputChanged(node)
 
+      # Volume rendering synchronisation needs to be called in QTimer for signals to be correctly processed by Slicer
+      self._synchronizeVolumeRendering()
+
   def _removePreviousNodeAddedObserverFromScene(self):
-    slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+    if self._sceneObserver is not None:
+      slicer.mrmlScene.RemoveObserver(self._sceneObserver)
+      self._sceneObserver = None
+
+  def _removeNewNodeObserver(self):
+    if self._newNodeObserver is not None:
+      slicer.mrmlScene.RemoveObserver(self._newNodeObserver)
+      self._newNodeObserver = None
 
   def _attachNodeAddedObserverToScene(self, node):
     self._sceneObserver = slicer.mrmlScene.AddObserver(slicer.vtkMRMLScene.NodeAddedEvent,
                                                        lambda *x: self.onInputSelectorNodeChanged(node))
 
+  @wrapInQTimer
   def _notifyInputChanged(self, node):
     for callback in self._inputNodeChangedCallbacks:
       callback(node)
 
+  @wrapInQTimer
   def onLoadDICOMClicked(self):
     """Show DICOM Widget as popup
     """
@@ -115,6 +166,7 @@ class DataWidget(VerticalLayoutWidget):
   def onLoadDataClicked(self):
     slicer.app.ioManager().openAddDataDialog()
 
+  @wrapInQTimer
   def setVolumeNode(self, node):
     """
     Set input selector and volume rendering nodes as input node.
@@ -139,6 +191,7 @@ class DataWidget(VerticalLayoutWidget):
     # Show node in 3D view
     self.showVolumeRendering(node)
 
+  @wrapInQTimer
   def showVolumeRendering(self, volumeNode):
     """Show input volumeNode in 3D View
 
@@ -150,26 +203,16 @@ class DataWidget(VerticalLayoutWidget):
     if volumeNode is None:
       return
 
-    volRenLogic = slicer.modules.volumerendering.logic()
-
     # hide previous node if necessary
     if self._volumeDisplayNode:
       self._volumeDisplayNode.SetVisibility(False)
 
     # Create new display node for input volume
-    self._volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
-    self._volumeDisplayNode.SetVisibility(True)
-    slicer.util.resetThreeDViews()
+    self._volumeDisplayNode = createDisplayNode(volumeNode, 'MR-Default')
+    self._volumeDisplayNode.SetFollowVolumeDisplayNode(True)
 
-    # Load preset
-    # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
-    scalarRange = volumeNode.GetImageData().GetScalarRange()
-    if scalarRange[1] - scalarRange[0] < 1500:
-      # small dynamic range, probably MRI
-      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('MR-Default'))
-    else:
-      # larger dynamic range, probably CT
-      self._volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-Chest-Contrast-Enhanced'))
+    slicer.util.resetThreeDViews()
+    slicer.util.resetSliceViews()
 
   def getInputNode(self):
     """
@@ -179,3 +222,9 @@ class DataWidget(VerticalLayoutWidget):
       Current vtkMRMLVolumeNode selected by user in the DataWidget
     """
     return self.inputSelector.currentNode()
+
+  def setTestingMode(self, isTesting):
+    self._removeNewNodeObserver()
+    self._removePreviousNodeAddedObserverFromScene()
+    if not isTesting:
+      self._addNewNodeObserver()

@@ -1,24 +1,39 @@
-from collections import defaultdict
-from itertools import count
-
 import qt
 import slicer
 import vtk
 
-from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, jumpSlicesToNthMarkupPosition, \
-  createMultipleMarkupFiducial, createButton
+from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene, InteractionStatus, \
+  VesselTreeColumnRole
+from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
 
 class VesselBranchTreeItem(qt.QTreeWidgetItem):
   """Helper class holding nodeId and nodeName in the VesselBranchTree
   """
 
-  def __init__(self, nodeId, nodeName):
+  def __init__(self, nodeId, status=PlaceStatus.NOT_PLACED):
     qt.QTreeWidgetItem.__init__(self)
-    self.setText(0, nodeName)
     self.nodeId = nodeId
-    self.nodeName = nodeName
-    self.setIcon(1, Icons.delete)
+    self.setIcon(VesselTreeColumnRole.DELETE, Icons.delete)
+    self._status = status
+    self.updateText()
+
+  @property
+  def status(self):
+    return self._status
+
+  @status.setter
+  def status(self, status):
+    self._status = status
+    self.updateText()
+
+  def updateText(self):
+    suffixMap = {PlaceStatus.NOT_PLACED: "<click here to start placing node>", PlaceStatus.PLACING: "*placing*",
+                 PlaceStatus.INSERT_BEFORE: "*inserting before*"}
+
+    suffix = suffixMap.get(self._status, None)
+    self.setText(0, "{} {}".format(self.nodeId, suffix) if suffix is not None else self.nodeId)
+    self.setText(VesselTreeColumnRole.INSERT_BEFORE, "Insert Before")
 
 
 class VesselBranchTree(qt.QTreeWidget):
@@ -28,38 +43,62 @@ class VesselBranchTree(qt.QTreeWidget):
   Class signals when modified or user interacts with the UI.
   """
 
-  class Signal(object):
-    """List of signals handled by VesselBranchTree. To add observer, see VesselBranchTree.addObserver method
-    """
-    _iSig = count(0, 1)
-    clicked = next(_iSig)  # callback(nodeId, qt.QKeyModifiers)
-    keyEvent = next(_iSig)  # callback(nodeId, qt.QKey)
-    modified = next(_iSig)  # callback()
-
   def __init__(self, parent=None):
     qt.QTreeWidget.__init__(self, parent)
 
+    self.keyPressed = Signal("VesselBranchTreeItem, qt.Qt.Key")
+    self.insertBeforeClicked = Signal("VesselBranchTreeItem")
+
     self._branchDict = {}
-    self._callbackDict = defaultdict(list)
 
     # Configure tree widget
-    self.setColumnCount(2)
-    self.setHeaderLabels(["Branch Node Name", ""])
+    self.setColumnCount(3)
+    self.setHeaderLabels(["Branch Node Name", "", ""])
 
     # Configure tree to have first section stretched and last sections to be at right of the layout
     # other columns will always be at minimum size fitting the icons
     self.header().setSectionResizeMode(0, qt.QHeaderView.Stretch)
     self.header().setStretchLastSection(False)
     self.header().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-    self.headerItem().setIcon(1, Icons.delete)
+    self.header().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+    self.headerItem().setIcon(VesselTreeColumnRole.DELETE, Icons.delete)
 
     # Enable reordering by drag and drop
     self.setDragEnabled(True)
     self.setDropIndicatorShown(True)
     self.setDragDropMode(qt.QAbstractItemView.InternalMove)
 
-    # Connect click event to notify signal
-    self.connect("itemClicked(QTreeWidgetItem*, int)", self._notifyItemClicked)
+  def clear(self):
+    self._branchDict = {}
+    qt.QTreeWidget.clear(self)
+
+  def clickItem(self, item):
+    item = self.getTreeWidgetItem(item) if isinstance(item, str) else item
+    self.setItemSelected(item)
+    if item is not None:
+      self.itemClicked.emit(item, 0)
+
+  def setItemSelected(self, item):
+    if item is not None:
+      self.selectionModel().clearSelection()
+      item.setSelected(True)
+
+  def getNextUnplacedItem(self, nodeId):
+    """
+    Returns
+    -------
+    VesselBranchTreeItem or None
+      Next vessel branch tree which has not been placed yet in the scene
+    """
+    item = self.getTreeWidgetItem(nodeId)
+    if item is None:
+      return None
+
+    if item.status == PlaceStatus.NOT_PLACED:
+      return item
+
+    nextItem = self._getNextItem(nodeId)
+    return self.getNextUnplacedItem(nextItem.nodeId) if nextItem is not None else None
 
   def isInTree(self, nodeId):
     """
@@ -75,12 +114,17 @@ class VesselBranchTree(qt.QTreeWidget):
     """
     return nodeId in self._branchDict.keys()
 
+  def isRoot(self, nodeId):
+    """
+    :return: True if node doesn't have any parents
+    """
+    return self.getParentNodeId(nodeId) is None
+
   def dropEvent(self, event):
     """On drop event, enforce structure of the tree is not broken.
     """
     qt.QTreeWidget.dropEvent(self, event)
     self.enforceOneRoot()
-    self._notifyModified()
 
   def keyPressEvent(self, event):
     """Overridden from qt.QTreeWidget to notify listeners of key event
@@ -90,41 +134,11 @@ class VesselBranchTree(qt.QTreeWidget):
     event: qt.QKeyEvent
     """
     if self.currentItem():
-      currentNodeId = self.currentItem().nodeId
-      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-        callback(currentNodeId, event.key())
+      self.keyPressed.emit(self.currentItem(), event.key())
 
     qt.QTreeWidget.keyPressEvent(self, event)
 
-  def _notifyItemClicked(self, item, column):
-    """Notify each VesselBranchTree.Signal.clicked observers of click event associated with nodeId which was clicked on
-    and the keyboard modifiers at the time of the click
-    """
-    if column == 1:
-      for callback in self._callbackDict[VesselBranchTree.Signal.keyEvent]:
-        callback(item.nodeId, qt.Qt.Key_Delete)
-    else:
-      item.setExpanded(True)
-      for callback in self._callbackDict[VesselBranchTree.Signal.clicked]:
-        callback(item.nodeId, qt.QGuiApplication.keyboardModifiers())
-
-  def _notifyModified(self):
-    """Notify each VesselBranchTree.Signal.modified observers of modification event
-    """
-    for callback in self._callbackDict[VesselBranchTree.Signal.modified]:
-      callback()
-
-  def addObserver(self, signal, callback):
-    """
-    Parameters
-    ----------
-    signal: int
-      Signal contained in VesselBranchTree.Signal
-    callback: Callable
-    """
-    self._callbackDict[signal].append(callback)
-
-  def _takeItem(self, nodeId, nodeName=None):
+  def _takeItem(self, nodeId):
     """Remove item with given item id from the tree. Removes it from its parent if necessary
     """
     if nodeId is None:
@@ -134,7 +148,7 @@ class VesselBranchTree(qt.QTreeWidget):
       self._removeFromParent(nodeItem)
       return nodeItem
     else:
-      return VesselBranchTreeItem(nodeId, nodeName)
+      return VesselBranchTreeItem(nodeId)
 
   def _removeFromParent(self, nodeItem):
     """Remove input node item from its parent if it is attached to an item or from the TreeWidget if at the root
@@ -145,7 +159,7 @@ class VesselBranchTree(qt.QTreeWidget):
     else:
       self.takeTopLevelItem(self.indexOfTopLevelItem(nodeItem))
 
-  def _insertNode(self, nodeId, nodeName, parentId):
+  def _insertNode(self, nodeId, parentId, status):
     """Insert the nodeId with input node name as child of the item whose name is parentId. If parentId is None, the item
     will be added as a root of the tree
 
@@ -153,12 +167,11 @@ class VesselBranchTree(qt.QTreeWidget):
     ----------
     nodeId: str
       Unique id of the node to add to the tree
-    nodeName: str
-      Name which will be shown in the tree widget of the new node
     parentId: str or None
       Unique id of the parent node. If None or "" will add node as root
     """
-    nodeItem = self._takeItem(nodeId, nodeName)
+    nodeItem = self._takeItem(nodeId)
+    nodeItem.status = status
     if not parentId:
       hasRoot = self.topLevelItemCount > 0
       self.addTopLevelItem(nodeItem)
@@ -171,7 +184,7 @@ class VesselBranchTree(qt.QTreeWidget):
     self._branchDict[nodeId] = nodeItem
     return nodeItem
 
-  def insertAfterNode(self, nodeId, nodeName, parentNodeId):
+  def insertAfterNode(self, nodeId, parentNodeId, status=PlaceStatus.NOT_PLACED):
     """Insert given node after the input parent Id. Inserts new node as root if parentNodeId is None.
     If root is already present in the tree and insert after None is used, new node will become the parent of existing
     root node.
@@ -180,47 +193,45 @@ class VesselBranchTree(qt.QTreeWidget):
     ----------
     nodeId: str
       Unique ID of the node to insert in the tree
-    nodeName: str
-      Representation label of the node
     parentNodeId: str or None
       Unique ID of the parent node. If None, new node will be inserted as root.
+    status: PlaceStatus
 
     Raises
     ------
       ValueError
         If parentNodeId is not None and doesn't exist in the tree
     """
-    self._insertNode(nodeId, nodeName, parentNodeId)
+    self._insertNode(nodeId, parentNodeId, status)
     self.expandAll()
-    self._notifyModified()
 
-  def insertBeforeNode(self, nodeId, nodeName, childNodeId):
+  def insertBeforeNode(self, nodeId, beforeNodeId, status=PlaceStatus.NOT_PLACED):
     """Insert given node before the input parent Id. Inserts new node as root if childNodeId is None.
 
     Parameters
     ----------
     nodeId: str
       Unique ID of the node to insert in the tree
-    nodeName: str
-      Representation label of the node
-    childNodeId: str or None
-      Unique ID of the child node before which the new node will be inserted. If None or "" will insert node at root.
+    beforeNodeId: str or None
+      Unique ID of the node before which the new node will be inserted. If None or "" will insert node at root.
+    status: PlaceStatus
 
     Raises
     ------
       ValueError
         If childNodeId is not None and doesn't exist in the tree
     """
-    if not childNodeId:
-      self._insertNode(nodeId, nodeName, None)
+    if not beforeNodeId:
+      self._insertNode(nodeId, None, status)
     else:
-      parentNodeId = self.getParentNodeId(childNodeId)
-      childItem = self._takeItem(childNodeId)
-      nodeItem = self._insertNode(nodeId, nodeName, parentNodeId)
+      parentNodeId = self.getParentNodeId(beforeNodeId)
+      childItem = self._takeItem(beforeNodeId)
+
+      self._insertNode(nodeId, parentNodeId, status)
+      nodeItem = self._insertNode(nodeId, parentNodeId, status)
       nodeItem.addChild(childItem)
 
     self.expandAll()
-    self._notifyModified()
 
   def removeNode(self, nodeId):
     """Remove given node from tree.
@@ -300,7 +311,7 @@ class VesselBranchTree(qt.QTreeWidget):
     parent = self._branchDict[parentNodeId]
     return [parent.child(i).nodeId for i in range(parent.childCount())]
 
-  def _getSibling(self, nodeId, nextIncrement):
+  def _getSiblingId(self, nodeId, nextIncrement):
     """
     Returns
     -------
@@ -315,6 +326,33 @@ class VesselBranchTree(qt.QTreeWidget):
       iSibling = parent.indexOfChild(nodeItem) + nextIncrement
       return parent.child(iSibling).nodeId if (0 <= iSibling < parent.childCount()) else None
 
+  def _getNextItem(self, nodeId, lookInChildren=True):
+    """
+    Parameters
+    ----------
+      nodeId: str
+        Id of start element
+      lookInChildren: bool
+        if True, will look for next in the node's children if any, else will look for next in siblings or parents
+
+    Returns
+    -------
+    Optional[VesselBranchTreeItem] next node item
+    """
+    nodeItem = self.getTreeWidgetItem(nodeId)
+    if nodeItem is None:
+      return None
+
+    if lookInChildren and nodeItem.childCount() > 0:
+      return nodeItem.child(0)
+
+    nextSiblingId = self._getSiblingId(nodeId, 1)
+    if nextSiblingId is not None:
+      return self.getTreeWidgetItem(nextSiblingId)
+
+    parent = nodeItem.parent()
+    return self._getNextItem(parent.nodeId, lookInChildren=False) if parent is not None else None
+
   def getNextSiblingNodeId(self, nodeId):
     """
     Returns
@@ -322,7 +360,7 @@ class VesselBranchTree(qt.QTreeWidget):
     str or None
       nodeId sibling at iNode + 1 index. None if new index is out of bounds
     """
-    return self._getSibling(nodeId, nextIncrement=1)
+    return self._getSiblingId(nodeId, nextIncrement=1)
 
   def getPreviousSiblingNodeId(self, nodeId):
     """
@@ -331,7 +369,7 @@ class VesselBranchTree(qt.QTreeWidget):
     str or None
       nodeId sibling at iNode - 1 index. None if new index is out of bounds
     """
-    return self._getSibling(nodeId, nextIncrement=-1)
+    return self._getSiblingId(nodeId, nextIncrement=-1)
 
   def getRootNodeId(self):
     """
@@ -357,6 +395,21 @@ class VesselBranchTree(qt.QTreeWidget):
 
     return treeParentList
 
+  def getPlacedNodeList(self):
+    """
+    Returns
+    -------
+    List[str]
+      List of nodeIds which have been placed in the mrmlScene
+    """
+    return [nodeId for nodeId in self.getNodeList() if self._isPlaced(nodeId)]
+
+  def areAllNodesPlaced(self):
+    return all([self._isPlaced(nodeId) for nodeId in self.getNodeList()])
+
+  def _isPlaced(self, nodeId):
+    return self.getTreeWidgetItem(nodeId).status == PlaceStatus.PLACED
+
   def getNodeList(self):
     """
     Returns
@@ -365,6 +418,13 @@ class VesselBranchTree(qt.QTreeWidget):
       List of every nodeIds referenced in the tree
     """
     return self._branchDict.keys()
+
+  def getTreeWidgetItem(self, nodeId):
+    return self._branchDict[nodeId] if nodeId in self._branchDict else None
+
+  def getText(self, nodeId):
+    item = self.getTreeWidgetItem(nodeId)
+    return item.text(0) if item is not None else ""
 
   def isLeaf(self, nodeId):
     """
@@ -411,8 +471,6 @@ class VesselBranchTree(qt.QTreeWidget):
     # Call recursively until the whole tree has only one root
     self.enforceOneRoot()
 
-    self._notifyModified()
-
 
 class TreeDrawer(object):
   """
@@ -428,7 +486,11 @@ class TreeDrawer(object):
     """
     self._tree = vesselTree
     self._markupFiducial = markupFiducial
+    self._lineWidth = 4
+    self._lineOpacity = 1
+    self._setupLineModel()
 
+  def _setupLineModel(self):
     self._polyLine = vtk.vtkPolyLineSource()
     self._polyLine.SetClosed(False)
     self._lineModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
@@ -436,6 +498,10 @@ class TreeDrawer(object):
     self._lineModel.CreateDefaultDisplayNodes()
     self._lineModel.SetName("VesselBranchNodeTree")
     self._updateNodeCoordDict()
+
+    self.setColor(qt.QColor("red"))
+    self.setLineWidth(self._lineWidth)
+    self.setOpacity(self._lineOpacity)
 
   def _updateNodeCoordDict(self):
     """Update node coordinates associated with node ID for the current tree
@@ -499,10 +565,10 @@ class TreeDrawer(object):
     for childId in self._tree.getChildrenNodeId(parentId):
       pointSeq += self._extractTreeLinePointSequence(childId)
       pointSeq.append(parentCoord)
-    return pointSeq
+    return [point for point in pointSeq if point is not None]
 
   def _nodeCoordinate(self, nodeId):
-    return self._nodeCoordDict[nodeId]
+    return self._nodeCoordDict[nodeId] if nodeId in self._nodeCoordDict else None
 
   def setColor(self, lineColor):
     """
@@ -511,7 +577,7 @@ class TreeDrawer(object):
     lineColor: qt.QColor
       New color for line. Call updateTreeLines to apply to tree.
     """
-    self._lineModel.GetDisplayNode().SetColor(lineColor.red(), lineColor.green(), lineColor.blue())
+    self._lineDisplayNode().SetColor(lineColor.red(), lineColor.green(), lineColor.blue())
 
   def setLineWidth(self, lineWidth):
     """
@@ -520,7 +586,27 @@ class TreeDrawer(object):
     lineWidth: float
       New line width for lines of the tree.  Call updateTreeLines to apply to tree.
     """
-    self._lineModel.GetDisplayNode().SetLineWidth(lineWidth)
+    self._lineDisplayNode().SetLineWidth(lineWidth)
+    self._lineWidth = lineWidth
+
+  def getLineWidth(self):
+    """
+    :return: Current line width
+    """
+    return self._lineDisplayNode().GetLineWidth()
+
+  def setOpacity(self, opacity):
+    """
+    :param opacity: float - Opacity of the lines
+    """
+    self._lineDisplayNode().SetOpacity(opacity)
+    self._lineOpacity = opacity
+
+  def getOpacity(self):
+    """
+    :return: Current opacity of the lines
+    """
+    return self._lineDisplayNode().GetOpacity()
 
   def setVisible(self, isVisible):
     """
@@ -531,32 +617,32 @@ class TreeDrawer(object):
     """
     self._lineModel.SetDisplayVisibility(isVisible)
 
+  def _lineDisplayNode(self):
+    return self._lineModel.GetDisplayNode()
 
-class VesselBranchInteractor(object):
+  def clear(self):
+    removeNodeFromMRMLScene(self._lineModel)
+    self._setupLineModel()
+
+
+class MarkupNode(object):
   """
-  Object responsible for handling interaction with the branch tree and the markup in the 3D and 2D views.
-  Triggers slicer move to markup and selects the current parent node when markups are clicked with or without key
-  modifiers
+  Wrapper around slicer markup Node to define a single interface for signals slots and access to the fiducial points.
   """
 
-  class SelectionMode(object):
-    insertAfter = 1
-    insertBefore = 2
-
-  def __init__(self, tree, markupNode):
+  def __init__(self, slicerNode):
     """
     Parameters
     ----------
-    tree: VesselBranchTree
-    markupNode: slicer.vtkMRMLMarkupsFiducialNode
+    slicerNode: slicer.vtkMRMLMarkupsFiducialNode
     """
-    # Representation of the tree
-    self._treeLine = TreeDrawer(vesselTree=tree, markupFiducial=markupNode)
-    self._treeLine.setColor(qt.QColor("red"))
-    self._treeLine.setLineWidth(4.0)
+    # Instance signals
+    self.pointAdded = Signal()
+    self.pointClicked = Signal("int pointId")
+    self.pointInteractionEnded = Signal("int pointId")
+    self.pointModified = Signal("int pointId")
 
-    # Connect tree and markup events to interactor
-    self._markupNode = markupNode
+    self._node = slicerNode
 
     # Handle API change between Slicer 4.10 and 4.11
     if hasattr(slicer.vtkMRMLMarkupsNode, 'MarkupAddedEvent'):
@@ -566,133 +652,98 @@ class VesselBranchInteractor(object):
       pointAddedEvent = slicer.vtkMRMLMarkupsNode.PointAddedEvent
       pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointStartInteractionEvent
 
-    self._markupNode.AddObserver(pointAddedEvent, self._onVesselBranchAdded)
-    self._markupNode.AddObserver(pointClickedEvent, self._onVesselBranchClicked)
-    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self._onVesselBranchClicked)
-    self._markupNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent,
-                                 lambda *args: self._treeLine.updateTreeLines())
+    # Connect markup events as signals
+    self._nodeObsId = []
+    self._connectNodeSignal(pointAddedEvent, self._emitPointAdded)
+    self._connectNodeSignal(pointClickedEvent, self._emitPointClicked)
+    self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self._emitPointInteractionEnded)
+    self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self._emitPointModified)
 
-    self._tree = tree
-    self._tree.addObserver(VesselBranchTree.Signal.clicked, self._onTreeClickEvent)
-    self._tree.addObserver(VesselBranchTree.Signal.keyEvent, self._onKeyEvent)
-    self._tree.addObserver(VesselBranchTree.Signal.modified, self._treeLine.updateTreeLines)
-    self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
-    self._lastNode = None
+    # Forward slicer markup functions
+    self.GetNumberOfFiducials = self._node.GetNumberOfFiducials
+    self.AddFiducial = self._node.AddFiducial
+    self.GetNthFiducialLabel = self._node.GetNthFiducialLabel
+    self.GetNthFiducialPosition = self._node.GetNthFiducialPosition
+    self.GetNthFiducialVisibility = self._node.GetNthFiducialVisibility
+    self.SetNthFiducialVisibility = self._node.SetNthFiducialVisibility
+    self.SetNthFiducialLabel = self._node.SetNthFiducialLabel
+    self.SetName = self._node.SetName
+    self.SetLocked = self._node.SetLocked
+    self.GetLocked = self._node.GetLocked
+    self.GetDisplayNode = self._node.GetDisplayNode
+    self.RemoveAllMarkups = self._node.RemoveAllMarkups
 
-  def getSelectedNode(self):
-    """
-    Returns
-    -------
-    str or None - Currently selected node Id
-    """
-    return self._lastNode
+  def GetSlicerNode(self):
+    return self._node
 
-  def getInsertionMode(self):
-    """
-    Returns
-    -------
-    VesselBranchInteractor.SelectionMode - Node insertion mode (insert after selected node or before)
-    """
-    return self._insertMode
+  def GetLastFiducialId(self):
+    return max(0, self.GetNumberOfFiducials() - 1)
 
-  def _onTreeClickEvent(self, nodeId, keyboardModifier):
-    self._selectCurrentNode(nodeId, keyboardModifier)
+  def __del__(self):
+    for obsId in self._nodeObsId:
+      self._node.RemoveObserver(obsId)
 
-  def _onKeyEvent(self, nodeId, key):
-    if key == qt.Qt.Key_Delete:
-      # Remove node from tree
-      wasRemoved = self._tree.removeNode(nodeId)
+  def _connectNodeSignal(self, signal, slot):
+    self._nodeObsId.append(self._node.AddObserver(signal, slot))
 
-      # If node was successfully removed, update markup and treeLine
-      if wasRemoved:
-        # Update last node if it was removed
-        if self._lastNode == nodeId:
-          self._lastNode = self._tree.getRootNodeId()
+  def _emitPointAdded(self, *args):
+    self.pointAdded.emit()
 
-        # Remove node from markup
-        self._removeFromMarkup(nodeId)
+  def _emitPointClicked(self, caller, callData):
+    self.pointClicked.emit(callData)
 
-        # Update showed lines
-        self._treeLine.updateTreeLines()
+  def _emitPointInteractionEnded(self, caller, callData):
+    self.pointInteractionEnded.emit(callData)
 
-  def _removeFromMarkup(self, nodeId):
-    for i in range(self._markupNode.GetNumberOfFiducials()):
-      if self._markupNode.GetNthFiducialLabel(i) == nodeId:
-        self._markupNode.SetNthFiducialVisibility(i, False)
+  def _emitPointModified(self, caller, callData):
+    self.pointModified.emit(callData)
 
-  @vtk.calldata_type(vtk.VTK_INT)
-  def _onVesselBranchClicked(self, caller, eventId, callData):
-    nodeId = self._markupNode.GetNthFiducialLabel(callData)
-    self._selectCurrentNode(nodeId, qt.QGuiApplication.keyboardModifiers())
 
-  def _selectCurrentNode(self, nodeId, keyboardModifier):
-    """Select node for insertion after or before of next branch. Click will insert after node, shift + click will insert
-    before node
+class INodePlaceWidget(object):
+  """
+  Interface class for used place widget functionality. Defines a signal enabling notifying when the place mode is
+  changed and simplifies the interface for the place widget
+  """
 
-    Parameters
-    ----------
-    nodeId: str
-      Id of the node on which the user has clicked
-    keyboardModifier: qt.Qt.KeyboardModifiers
-      Keys held by user when clicking on the node
-    """
-    self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter if not keyboardModifier & qt.Qt.ShiftModifier else VesselBranchInteractor.SelectionMode.insertBefore
-    self._lastNode = nodeId
-    self._jumpSlicesToNode(nodeId)
-    self._treeLine.updateTreeLines()
-    self._updateActiveNode()
+  def __init__(self):
+    self.placeModeChanged = Signal()
 
-  def _jumpSlicesToNode(self, nodeId):
-    """Center all slices to input node position
+  def setPlaceModeEnabled(self, isEnabled):
+    pass
 
-    Parameters
-    ----------
-    nodeId: str
-      Id of the node we want to center on
-    """
-    jumpSlicesToNthMarkupPosition(self._markupNode, self._nodeIndex(nodeId))
+  @property
+  def placeModeEnabled(self):
+    return False
 
-  def _nodeIndex(self, nodeId):
-    """
-    Parameters
-    ----------
-    nodeId: str
-      Id of the node for which we want the index in the vessel branch node
 
-    Returns
-    -------
-    int or None
-      Markup index associated with id if found else None
-    """
-    for i in range(self._markupNode.GetNumberOfFiducials()):
-      if self._markupNode.GetNthFiducialLabel(i) == nodeId:
-        return i
-    return None
+class SlicerNodePlaceWidget(INodePlaceWidget):
+  """
+  Node place widget wrapping place mode widget of a markup node selector.
+  Adds observer on interaction modifications to notify when place mode is cancelled.
+  Notifies when place mode is changed through this interface
+  """
 
-  def _onVesselBranchAdded(self, *args):
-    """Adds a new node in the markupNode and insert this node in the tree depending on the previous node id.
-    Newly added node becomes new root for later node added to the tree.
+  def __init__(self, placeWidget):
+    super(SlicerNodePlaceWidget, self).__init__()
+    self._placeWidget = placeWidget
+    self._previousPlaceMode = self.placeModeEnabled
 
-    If previous insertion mode was insert before, it is changed back to insert after current node to ease adding
-    missed intersection and iterating from it to new vessel branch.
-    """
-    iNode = self._markupNode.GetNumberOfFiducials() - 1
-    nodeName = self._markupNode.GetNthFiducialLabel(iNode)
-    if self._insertMode == VesselBranchInteractor.SelectionMode.insertAfter:
-      self._tree.insertAfterNode(nodeName, nodeName, self._lastNode)
-    else:
-      self._tree.insertBeforeNode(nodeName, nodeName, self._lastNode)
-      self._insertMode = VesselBranchInteractor.SelectionMode.insertAfter
-    self._lastNode = nodeName
-    self._updateActiveNode()
-    self._treeLine.updateTreeLines()
+    interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+    if interactionNode is not None:
+      interactionNode.AddObserver(vtk.vtkCommand.ModifiedEvent, lambda *x: self._notifyIfPlaceModeChanged())
 
-  def _updateActiveNode(self):
-    for i in range(self._markupNode.GetNumberOfFiducials()):
-      self._markupNode.SetNthFiducialSelected(i, self._markupNode.GetNthFiducialLabel(i) == self._lastNode)
+  def _notifyIfPlaceModeChanged(self):
+    if self.placeModeEnabled != self._previousPlaceMode:
+      self._previousPlaceMode = self.placeModeEnabled
+      self.placeModeChanged.emit()
 
-  def setVisibleInScene(self, isVisible):
-    self._treeLine.setVisible(isVisible)
+  def setPlaceModeEnabled(self, isEnabled):
+    self._placeWidget.setPlaceModeEnabled(isEnabled)
+    self._notifyIfPlaceModeChanged()
+
+  @property
+  def placeModeEnabled(self):
+    return self._placeWidget.placeModeEnabled
 
 
 class VesselBranchWidget(qt.QWidget):
@@ -707,14 +758,28 @@ class VesselBranchWidget(qt.QWidget):
     # Create Markups node
     self._createVesselsBranchMarkupNode()
 
+    # Create branch tree
+    self._branchTree = VesselBranchTree()
+
+    # Create tree drawer
+    self._treeDrawer = TreeDrawer(self._branchTree, self._markupNode)
+
+    # Create interaction wizard
+    self._wizard = VesselBranchWizard(self._branchTree, self._markupNode, self._markupPlaceWidget, self._treeDrawer)
+    self._wizard.interactionChanged.connect(self._updateButtonCheckedStatus)
+
     # Create layout for the widget
     widgetLayout = qt.QVBoxLayout()
-    self._branchTree = VesselBranchTree()
     widgetLayout.addLayout(self._createButtonLayout())
     widgetLayout.addWidget(self._branchTree)
     self.setLayout(widgetLayout)
-    self._interactor = VesselBranchInteractor(self._branchTree, self._markupNode)
+
+    # Create interaction action
     self._stopInteractionAction = self._createStopInteractionAction()
+
+    # Emitted when validity changes
+    self.treeValidityChanged = Signal()
+    self._wizard.placingFinished.connect(self.treeValidityChanged.emit)
 
   def enableShortcuts(self, isEnabled):
     """Enables/Disables the shortcuts for the widget. If enabled, add node and edit node can be disabled by pressing
@@ -733,32 +798,19 @@ class VesselBranchWidget(qt.QWidget):
       When triggered, action will stop add node and edit node interactions
     """
     action = qt.QAction("Stop branch interaction", self)
-    action.connect("triggered()", self.stopInteraction)
+    action.connect("triggered()", self._wizard.onStopInteraction)
     action.setShortcut(qt.QKeySequence("esc"))
     return action
-
-  def stopInteraction(self):
-    """Stops add node and edit node interactions
-    """
-    if self._addBranchNodeButton.isChecked():
-      self._stopAddBranchNode()
-
-    if self._editBranchNodeButton.isChecked():
-      self._stopEditBranchNode()
 
   def _createVesselsBranchMarkupNode(self):
     """Creates markup node and node selector and connect the interaction node modified event to node status update.
     """
-    self._markupNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
+    self._markupNode = MarkupNode(slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode"))
     self._markupNode.SetName("node")
 
     # Markup node selector will not be shown sor tooltip and markup names are unnecessary
     self._markupNodeSelector = createMultipleMarkupFiducial(toolTip="", markupName="")
-
-    # Connect scene interaction node to add node update
-    interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-    if interactionNode is not None:
-      interactionNode.AddObserver(vtk.vtkCommand.ModifiedEvent, lambda *x: self._updateAddNodeStatus())
+    self._markupPlaceWidget = SlicerNodePlaceWidget(self._markupNodeSelector.markupsPlaceWidget())
 
   def _createButtonLayout(self):
     """Create layout with Extract vessels, Add Node button and an Edit Node button
@@ -770,10 +822,8 @@ class VesselBranchWidget(qt.QWidget):
 
     # Create add and edit layout
     addEditButtonLayout = qt.QHBoxLayout()
-    self._addBranchNodeButton = createButton("Add branching node", self._toggleAddBranchNode, isCheckable=True)
-    self._editBranchNodeButton = createButton("Edit branching node", self._toggleEditBranchNode, isCheckable=True)
-    addEditButtonLayout.addWidget(self._addBranchNodeButton)
-    addEditButtonLayout.addWidget(self._editBranchNodeButton)
+    self._unlockNodePositionsButton = createButton("Unlock Node Positions", self._wizard.onEditNode, isCheckable=True)
+    addEditButtonLayout.addWidget(self._unlockNodePositionsButton)
 
     # Create vertical layout and add Add and edit buttons on top of extract button
     buttonLayout = qt.QVBoxLayout()
@@ -782,66 +832,43 @@ class VesselBranchWidget(qt.QWidget):
     buttonLayout.addWidget(self.extractVesselsButton)
     return buttonLayout
 
-  def _updateAddNodeStatus(self):
-    """Update add node button status. Call when the place mode has changed for the MRML scene
-    """
-    self._addBranchNodeButton.setChecked(self._markupNodeSelector.markupsPlaceWidget().placeModeEnabled)
-    self._toggleAddBranchNode()
-
-  def _toggleAddBranchNode(self):
-    """Depending on the add branch node button checked states, either starts to add branch nodes or stop it
-    """
-    if self._addBranchNodeButton.isChecked():
-      self._startAddBranchNode()
-    else:
-      self._stopAddBranchNode()
-
-  def _startAddBranchNode(self):
-    """Starts adding branch nodes in the scene by enabling markups selector place mode and stops branch node editing
-    """
-    self._stopEditBranchNode()
-    self._markupNodeSelector.setCurrentNode(self._markupNode)
-    self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(True)
-    self._addBranchNodeButton.setChecked(True)
-
-  def _stopAddBranchNode(self):
-    """Stops adding branch nodes in the scene
-    """
-    self._markupNodeSelector.markupsPlaceWidget().setPlaceModeEnabled(False)
-    self._addBranchNodeButton.setChecked(False)
-
-  def _toggleEditBranchNode(self):
-    """Depending on the edit branch node button checked status, either starts branch node editing or stops it
-    """
-    if self._editBranchNodeButton.isChecked():
-      self._startEditBranchNode()
-    else:
-      self._stopEditBranchNode()
-
-  def _startEditBranchNode(self):
-    """Starts node editing by unlocking markup node and stops node adding
-    """
-    self._stopAddBranchNode()
-    self._markupNode.SetLocked(False)
-    self._editBranchNodeButton.setChecked(True)
-
-  def _stopEditBranchNode(self):
-    """Stops node editing by locking markup node
-    """
-    self._markupNode.SetLocked(True)
-    self._editBranchNodeButton.setChecked(False)
+  def _updateButtonCheckedStatus(self):
+    interaction = self._wizard.getInteractionStatus()
+    self._unlockNodePositionsButton.setChecked(interaction == InteractionStatus.EDIT)
 
   def getBranchTree(self):
     return self._branchTree
 
+  def getBranchNames(self):
+    """
+    :return: Standardized branch names present in the tree. If some branches have been removed from the tree, they are
+      not present in the returned list.
+    """
+    return self._wizard.getVesselBranches()
+
   def getBranchMarkupNode(self):
-    return self._markupNode
+    return self._markupNode.GetSlicerNode()
 
   def setVisibleInScene(self, isVisible):
     """If isVisible, markups and tree will be shown in scene, else they will be hidden
     """
-    for i in range(self._markupNode.GetNumberOfFiducials()):
-      isNodeVisible = isVisible and self._branchTree.isInTree(self._markupNode.GetNthFiducialLabel(i))
-      self._markupNode.SetNthMarkupVisibility(i, isNodeVisible)
 
-    self._interactor.setVisibleInScene(isVisible)
+    self._wizard.setVisibleInScene(isVisible)
+
+  def stopInteraction(self):
+    self._wizard.onStopInteraction()
+
+  def isVesselTreeValid(self):
+    return self._wizard.isPlacingFinished()
+
+  def getVesselWizard(self):
+    return self._wizard
+
+  def getMarkupDisplayNode(self):
+    return self._markupNode.GetDisplayNode()
+
+  def getTreeDrawer(self):
+    return self._treeDrawer
+
+  def clear(self):
+    self._wizard.clear()

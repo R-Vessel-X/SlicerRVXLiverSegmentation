@@ -1,49 +1,50 @@
 import unittest
 
 from RVesselXLib import VesselBranchTree
+from RVesselXLib.VesselBranchWizard import PlaceStatus
 
 
 class VesselBranchTreeTestCase(unittest.TestCase):
   def testWhenTreeIsEmptyInsertAfterNoneCreatesRoot(self):
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("NodeId", "NodeName", None)
+    branchWidget.insertAfterNode("NodeId", None)
     self.assertEqual("NodeId", branchWidget.getRootNodeId())
 
   def testInsertAfterEmptyIsEquivalentToInsertAfterNone(self):
     branchWidget1 = VesselBranchTree()
-    branchWidget1.insertAfterNode("NodeId", "NodeId", None)
-    branchWidget1.insertAfterNode("NodeId2", "NodeId2", None)
+    branchWidget1.insertAfterNode("NodeId", None)
+    branchWidget1.insertAfterNode("NodeId2", None)
 
     branchWidget2 = VesselBranchTree()
-    branchWidget2.insertAfterNode("NodeId", "NodeId", "")
-    branchWidget2.insertAfterNode("NodeId2", "NodeId2", "")
+    branchWidget2.insertAfterNode("NodeId", "")
+    branchWidget2.insertAfterNode("NodeId2", "")
     self.assertEqual(branchWidget1.getTreeParentList(), branchWidget2.getTreeParentList())
 
   def testWhenTreeIsEmptyInsertBeforeNoneCreatesRoot(self):
     branchWidget = VesselBranchTree()
-    branchWidget.insertBeforeNode("NodeId", "NodeName", None)
+    branchWidget.insertBeforeNode("NodeId", None)
     self.assertEqual("NodeId", branchWidget.getRootNodeId())
 
   def testWhenTreeIsNotEmptyInsertBeforeNoneReplacesRoot(self):
     branchWidget = VesselBranchTree()
-    branchWidget.insertBeforeNode("NodeId", "NodeId", None)
-    branchWidget.insertBeforeNode("NodeId2", "NodeId2", None)
+    branchWidget.insertBeforeNode("NodeId", None)
+    branchWidget.insertBeforeNode("NodeId2", None)
     self.assertEqual("NodeId2", branchWidget.getRootNodeId())
 
   def testInsertBeforeEmptyIsEquivalentToInsertBeforeNone(self):
     branchWidget1 = VesselBranchTree()
-    branchWidget1.insertBeforeNode("NodeId", "NodeId", None)
-    branchWidget1.insertBeforeNode("NodeId2", "NodeId2", None)
+    branchWidget1.insertBeforeNode("NodeId", None)
+    branchWidget1.insertBeforeNode("NodeId2", None)
 
     branchWidget2 = VesselBranchTree()
-    branchWidget2.insertBeforeNode("NodeId", "NodeId", "")
-    branchWidget2.insertBeforeNode("NodeId2", "NodeId2", "")
+    branchWidget2.insertBeforeNode("NodeId", "")
+    branchWidget2.insertBeforeNode("NodeId2", "")
     self.assertEqual(branchWidget1.getTreeParentList(), branchWidget2.getTreeParentList())
 
   def testWhenInsertAfterNoneAndRootExistsSetsNewNodeAsNewRoot(self):
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("PrevRootId", "PrevRootName", None)
-    branchWidget.insertAfterNode("NewRootId", "NewRootName", None)
+    branchWidget.insertAfterNode("PrevRootId", None)
+    branchWidget.insertAfterNode("NewRootId", None)
 
     self.assertEqual(sorted([[None, "NewRootId"], ["NewRootId", "PrevRootId"]]),
                      sorted(branchWidget.getTreeParentList()))
@@ -54,10 +55,10 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     #     |_ Child2Id
     #             |_ SubChild1Id
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child2Id")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child2Id")
 
     expTree = [  #
       [None, "ParentId"],  #
@@ -67,6 +68,50 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     ]
 
     self.assertEqual(expTree, branchWidget.getTreeParentList())
+
+  def testGetNodeListReturnsListOfNodesWhichHaveBeenPlaced(self):
+    # ParentId
+    #     |_ Child1Id
+    #     |_ Child2Id
+    #             |_ SubChild1Id
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child2Id")
+
+    branchWidget.getTreeWidgetItem("ParentId").status = PlaceStatus.PLACED
+    branchWidget.getTreeWidgetItem("Child1Id").status = PlaceStatus.PLACING
+    branchWidget.getTreeWidgetItem("Child2Id").status = PlaceStatus.PLACED
+    branchWidget.getTreeWidgetItem("SubChild1Id").status = PlaceStatus.NOT_PLACED
+
+    nodeList = branchWidget.getPlacedNodeList()
+    self.assertNotIn("Child1Id", nodeList)
+    self.assertNotIn("SubChild1Id", nodeList)
+    self.assertIn("ParentId", nodeList)
+    self.assertIn("Child2Id", nodeList)
+
+  def testGetNodeListReturnsListOfEveryNodeInTree(self):
+    # ParentId
+    #     |_ Child1Id
+    #     |_ Child2Id
+    #             |_ SubChild1Id
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child2Id")
+
+    branchWidget.getTreeWidgetItem("ParentId").status = PlaceStatus.PLACED
+    branchWidget.getTreeWidgetItem("Child1Id").status = PlaceStatus.PLACING
+    branchWidget.getTreeWidgetItem("Child2Id").status = PlaceStatus.PLACED
+    branchWidget.getTreeWidgetItem("SubChild1Id").status = PlaceStatus.NOT_PLACED
+
+    nodeList = branchWidget.getNodeList()
+    self.assertIn("Child1Id", nodeList)
+    self.assertIn("SubChild1Id", nodeList)
+    self.assertIn("ParentId", nodeList)
+    self.assertIn("Child2Id", nodeList)
 
   def testWhenInsertBeforeNodeNewNodeIsInsertedBetweenNodeParentAndNode(self):
     # Before Tree
@@ -84,13 +129,13 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child1Id")
 
     # Insert child
-    branchWidget.insertBeforeNode("InsertedId", "Inserted", "Child1Id")
+    branchWidget.insertBeforeNode("InsertedId", "Child1Id")
 
     # Verify tree is as after tree
     expTree = [  #
@@ -115,11 +160,11 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "ParentId", None)
-    branchWidget.insertAfterNode("ChildId", "ChildId", "ParentId")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("ChildId", "ParentId")
 
     # Insert child
-    branchWidget.insertBeforeNode("InsertedId", "InsertedId", None)
+    branchWidget.insertBeforeNode("InsertedId", None)
 
     # Verify tree is as after tree
     expTree = [  #
@@ -142,11 +187,11 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "ParentId", None)
-    branchWidget.insertAfterNode("ChildId", "ChildId", "ParentId")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("ChildId", "ParentId")
 
     # Insert child
-    branchWidget.insertBeforeNode("InsertedId", "InsertedId", "ParentId")
+    branchWidget.insertBeforeNode("InsertedId", "ParentId")
 
     # Verify tree is as after tree
     expTree = [  #
@@ -173,11 +218,11 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("childToDeleteId", "childToDelete", "ParentId")
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "childToDeleteId")
-    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "childToDeleteId")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("childToDeleteId", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "childToDeleteId")
+    branchWidget.insertAfterNode("SubChild2Id", "childToDeleteId")
 
     # Remove child
     wasRemoved = branchWidget.removeNode("childToDeleteId")
@@ -204,11 +249,11 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
-    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "Child1Id")
 
     expTree = branchWidget.getTreeParentList()
 
@@ -222,7 +267,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
   def testWhenRemovingRootWhenLastRemainingRemovesRoot(self):
     # Create tree with one root
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
+    branchWidget.insertAfterNode("ParentId", None)
 
     # Remove root and expect success
     wasRemoved = branchWidget.removeNode("ParentId")
@@ -248,11 +293,11 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
-    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
-    branchWidget.insertAfterNode("SubChild3Id", "SubChild3", "Child1Id")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "Child1Id")
+    branchWidget.insertAfterNode("SubChild3Id", "Child1Id")
 
     # Remove root
     wasRemoved = branchWidget.removeNode("ParentId")
@@ -279,12 +324,12 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "Parent", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1", "ParentId")
-    branchWidget.insertAfterNode("Child2Id", "Child2", "ParentId")
-    branchWidget.insertAfterNode("SubChild1Id", "SubChild1", "Child1Id")
-    branchWidget.insertAfterNode("SubChild2Id", "SubChild2", "Child1Id")
-    branchWidget.insertAfterNode("SubChild3Id", "SubChild3", "Child2Id")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("Child2Id", "ParentId")
+    branchWidget.insertAfterNode("SubChild1Id", "Child1Id")
+    branchWidget.insertAfterNode("SubChild2Id", "Child1Id")
+    branchWidget.insertAfterNode("SubChild3Id", "Child2Id")
     return branchWidget
 
   def testParentNodeCanBeAccessedViaGetter(self):
@@ -359,10 +404,10 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId", "ParentId", None)
-    branchWidget.insertAfterNode("Child1Id", "Child1Id", "ParentId")
-    branchWidget.insertAfterNode("ParentId2", "ParentId2", None)
-    branchWidget.insertAfterNode("Child2Id", "Child2Id", "ParentId2")
+    branchWidget.insertAfterNode("ParentId", None)
+    branchWidget.insertAfterNode("Child1Id", "ParentId")
+    branchWidget.insertAfterNode("ParentId2", None)
+    branchWidget.insertAfterNode("Child2Id", "ParentId2")
 
     # Enforce one root
     branchWidget.enforceOneRoot()
@@ -390,9 +435,9 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Create before tree
     branchWidget = VesselBranchTree()
-    branchWidget.insertAfterNode("ParentId1", "ParentId1", None)
-    branchWidget.insertAfterNode("ParentId2", "ParentId2", None)
-    branchWidget.insertAfterNode("ParentId3", "ParentId3", None)
+    branchWidget.insertAfterNode("ParentId1", None)
+    branchWidget.insertAfterNode("ParentId2", None)
+    branchWidget.insertAfterNode("ParentId3", None)
 
     # Enforce one root
     branchWidget.enforceOneRoot()
@@ -412,3 +457,36 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Enforce one root and expect no error
     branchWidget.enforceOneRoot()
+
+  def testGetNextUnplaced(self):
+    # Tree
+    # id01
+    #   |_ id11
+    #     |_ id21
+    #     |_ id22
+    #       |_ id31
+    #   |_ id12
+    #     |_ id23
+    #     |_ id24
+
+    # Create before tree
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("id01", None)
+    branchWidget.insertAfterNode("id11", "id01")
+    branchWidget.insertAfterNode("id21", "id11")
+    branchWidget.insertAfterNode("id22", "id11")
+    branchWidget.insertAfterNode("id31", "id22")
+    branchWidget.insertAfterNode("id12", "id01")
+    branchWidget.insertAfterNode("id23", "id12")
+    branchWidget.insertAfterNode("id24", "id12")
+
+    def getItem(nodeId): return branchWidget.getTreeWidgetItem(nodeId)
+
+    getItem("id01").status = PlaceStatus.PLACED
+    self.assertEqual(getItem("id11"), branchWidget.getNextUnplacedItem("id01"))
+
+    getItem("id11").status = PlaceStatus.PLACED
+    self.assertEqual(getItem("id21"), branchWidget.getNextUnplacedItem("id11"))
+
+    getItem("id31").status = PlaceStatus.PLACED
+    self.assertEqual(getItem("id12"), branchWidget.getNextUnplacedItem("id31"))

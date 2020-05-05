@@ -1,3 +1,5 @@
+from itertools import count
+
 import logging
 import os
 
@@ -135,12 +137,14 @@ class GeometryExporter(object):
     -------
       str or None
     """
-    if isinstance(elementNode, slicer.vtkMRMLVolumeNode):  # Export volumes as NIFTI files
-      return ".nii"
-    elif isinstance(elementNode, slicer.vtkMRMLModelNode):  # Export meshes as vtk types
-      return ".vtk"
-    else:  # Other types are not supported for export
-      return None
+    typeExtensions = {slicer.vtkMRMLVolumeNode: ".nii", slicer.vtkMRMLModelNode: ".vtk",
+                      slicer.vtkMRMLMarkupsFiducialNode: ".fcsv"}
+
+    for fileType, fileExt in typeExtensions.items():
+      if isinstance(elementNode, fileType):
+        return fileExt
+
+    return None
 
   def __setitem__(self, key, value):
     self._elementsToExport[key] = value
@@ -172,18 +176,19 @@ def jumpSlicesToNthMarkupPosition(markupNode, i_nthMarkup):
   i_nthMarkup: int or None
     Index of the markup we want to center the slices on
   """
-  # Early return if incorrect markupNode or index
-  if not isinstance(markupNode, slicer.vtkMRMLMarkupsFiducialNode):
-    return
+  try:
+    # Early return if incorrect index
+    isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
+    if i_nthMarkup is None or not isMarkupIndexInRange:
+      return
 
-  isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
-  if i_nthMarkup is None or not isMarkupIndexInRange:
-    return
+    # Get fiducial position and center slices to it
+    pos = [0] * 3
+    markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
+    jumpSlicesToLocation(pos)
 
-  # Get fiducial position and center slices to it
-  pos = [0] * 3
-  markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
-  jumpSlicesToLocation(pos)
+  except AttributeError:
+    return
 
 
 def createInputNodeSelector(nodeType, toolTip, callBack=None):
@@ -331,7 +336,28 @@ def createLabelMapVolumeNodeBasedOnModel(modelVolume, volumeName):
   vtkMRMLLabelMapVolumeNode
     New Label map volume added to the scene
   """
-  newLabelMapNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
+  return createVolumeNodeBasedOnModel(modelVolume, volumeName, "vtkMRMLLabelMapVolumeNode")
+
+
+def createVolumeNodeBasedOnModel(modelVolume, volumeName, volumeClass):
+  """Creates new LabelMapVolume node which reproduces the input node orientation, spacing, and origins
+
+  Parameters
+  ----------
+  modelVolume : VolumeNode
+    Volume from which orientation, spacing and origin will be deduced
+  volumeName: str
+    base name for the volume when it will be added to slicer scene. A unique name will be derived
+    from this base name (ie : adding number indices in case the volume is already present in the scene)
+  volumeClass: str
+    class of the volume to create
+
+  Returns
+  -------
+  volumeClass
+    New volume added to the scene
+  """
+  newLabelMapNode = slicer.mrmlScene.CreateNodeByClass(volumeClass)
   newLabelMapNode.UnRegister(None)
   newLabelMapNode.CopyOrientation(modelVolume)
   newLabelMapNode.SetName(slicer.mrmlScene.GetUniqueNameByString(volumeName))
@@ -385,19 +411,6 @@ def removeNoneList(elements):
   if not isinstance(elements, list):
     elements = [elements]
   return [elt for elt in elements if elt is not None]
-
-
-def removeFromMRMLScene(nodesToRemove):
-  """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
-
-  Parameters
-  ----------
-  nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
-    Objects to remove from the scene
-  """
-  nodesInScene = [node for node in removeNoneList(nodesToRemove) if slicer.mrmlScene.IsNodePresent(node)]
-  for node in nodesInScene:
-    slicer.mrmlScene.RemoveNode(node)
 
 
 def getMarkupIdPositionDictionary(markup):
@@ -493,3 +506,98 @@ def raiseValueErrorIfInvalidType(**kwargs):
     # Verify value is of correct instance
     if not isinstance(value, expType):
       raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
+
+
+def createDisplayNode(volumeNode, presetName=None):
+  """
+  Create new rendering display node for input volume
+
+  :type volumeNode: vtkMRMLVolumeNode
+  :param presetName: Name of the preset to load for volume display node
+  :type presetName: str
+  """
+  volRenLogic = slicer.modules.volumerendering.logic()
+  volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+  volumeDisplayNode.SetVisibility(True)
+  volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
+  volRenLogic.UpdateDisplayNodeFromVolumeNode(volumeDisplayNode, volumeNode)
+
+  # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
+  if presetName is not None:
+    volumeDisplayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName(presetName))
+  return volumeDisplayNode
+
+
+class Signal(object):
+  """ Qt like signal slot connections. Enables using the same semantics with Slicer as qt.Signal lead to application
+  crash.
+  (see : https://discourse.slicer.org/t/custom-signal-slots-with-pythonqt/3278/5)
+  """
+
+  def __init__(self, *typeInfo):
+    self._id = count(0, 1)
+    self._connectDict = {}
+    self._typeInfo = str(typeInfo)
+
+  def emit(self, *args, **kwargs):
+    for slot in self._connectDict.values():
+      slot(*args, **kwargs)
+
+  def connect(self, slot):
+    nextId = next(self._id)
+    self._connectDict[nextId] = slot
+    return nextId
+
+  def disconnect(self, connectId):
+    if connectId in self._connectDict:
+      del self._connectDict[connectId]
+      return True
+    return False
+
+
+def removeNodeFromMRMLScene(node):
+  """
+  Remove node from slicer scene
+  :param node: str or vtkMRMLNode - node to remove from scene
+  """
+  if node is None:
+    return
+
+  if isinstance(node, str):
+    nodes = list(slicer.mrmlScene.GetNodesByName(node))
+    for node in nodes:
+      removeNodeFromMRMLScene(node)
+  elif slicer.mrmlScene.IsNodePresent(node):
+    slicer.mrmlScene.RemoveNode(node)
+
+
+def removeNodesFromMRMLScene(nodesToRemove):
+  """Removes the input nodes from the scene. Nodes will no longer be accessible from the mrmlScene or from the UI.
+
+  Parameters
+  ----------
+  nodesToRemove: List[vtkMRMLNode] or vtkMRMLNode
+    Objects to remove from the scene
+  """
+  for node in nodesToRemove:
+    removeNodeFromMRMLScene(node)
+
+
+def cropSourceVolume(sourceVolume, roi):
+  cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()
+  cropVolumeNode.SetScene(slicer.mrmlScene)
+  cropVolumeNode.SetName(slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cropped"))
+  slicer.mrmlScene.AddNode(cropVolumeNode)
+
+  cropVolumeNode.SetInputVolumeNodeID(sourceVolume.GetID())
+  cropVolumeNode.SetROINodeID(roi.GetID())
+
+  cropVolumeLogic = slicer.modules.cropvolume.logic()
+  cropVolumeLogic.Apply(cropVolumeNode)
+
+  return cropVolumeNode.GetOutputVolumeNode()
+
+
+def cloneSourceVolume(sourceVolume):
+  cloneName = slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cloned")
+  return slicer.vtkSlicerVolumesLogic().CloneVolume(slicer.mrmlScene, sourceVolume, cloneName, True)

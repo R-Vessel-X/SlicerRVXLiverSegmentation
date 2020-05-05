@@ -1,5 +1,6 @@
 import slicer
 
+from RVesselXLib import removeNodeFromMRMLScene
 from .RVesselXModuleLogic import RVesselXModuleLogic
 from .RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
 
@@ -229,8 +230,8 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
 
     # Call VMTK level set segmentation algorithm and return values
     seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition(seedsPositions, endPositions)
-    slicer.mrmlScene.RemoveNode(seedsNodes)
-    slicer.mrmlScene.RemoveNode(stoppersNodes)
+    removeNodeFromMRMLScene(seedsNodes)
+    removeNodeFromMRMLScene(stoppersNodes)
     return outVolume, outModel
 
 
@@ -292,7 +293,7 @@ class ExtractVesselFromVesselSeedPointsStrategy(IExtractVesselStrategy):
 
     outVolume, outModel = mergeVolumes(volumes, "levelSetSegmentation")
     for volume in elementsToRemoveFromScene:
-      slicer.mrmlScene.RemoveNode(volume)
+      removeNodeFromMRMLScene(volume)
 
     return outVolume, outModel
 

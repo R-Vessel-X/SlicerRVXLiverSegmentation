@@ -4,8 +4,10 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget
-from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase
+from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget, \
+  VesselSegmentEditWidget
+from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
+  VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
 
 class RVesselXModule(ScriptedLoadableModule):
@@ -43,9 +45,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._dataTab = None
     self._liverTab = None
     self._vesselsTab = None
+    self._vesselsSegmentEditTab = None
     self._tumorTab = None
     self._tabList = []
     self._obs = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, lambda *x: self.reloadModule())
+
+  def setTestingMode(self, isTesting):
+    for tab in self._tabList:
+      tab.setTestingMode(isTesting)
 
   def cleanup(self):
     """Cleanup called before reloading module. Removes mrmlScene observer to avoid multiple setup of the module
@@ -120,8 +127,12 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
     self._vesselsTab = VesselWidget(self.logic)
+    self._vesselsSegmentEditTab = VesselSegmentEditWidget(self.logic, self._vesselsTab.getVesselWizard())
     self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
                                    segmentNames=["Tumor", "Not Tumor"])
+
+    # Connect vessels tab to vessels edit tab
+    self._vesselsTab.vesselSegmentationChanged.connect(self._vesselsSegmentEditTab.onVesselSegmentationChanged)
 
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
@@ -132,13 +143,23 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._addTab(self._dataTab, "Data")
     self._addTab(self._liverTab, "Liver")
     self._addTab(self._vesselsTab, "Vessels")
+    self._addTab(self._vesselsSegmentEditTab, "Vessels Segmentation Edit")
     self._addTab(self._tumorTab, "Tumors")
+    self._dataTab.addInputNodeChangedCallback(lambda *x: self._clearTabs())
     self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._vesselsSegmentEditTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._tumorTab.setInputNode)
 
     # Setup previous and next buttons for the different tabs
     self._configurePreviousNextTabButtons()
+
+  def _clearTabs(self):
+    """
+    Clears all tabs from previous computations
+    """
+    for tab in self._tabList:
+      tab.clear()
 
   def _configure3DViewWithMaximumIntensityProjection(self):
     """Configures 3D View to render volumes with ray casting maximum intensity projection configuration.
@@ -295,12 +316,15 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
   def runTest(self):
     # Disable module reloading between tests
     RVesselXModuleWidget.enableReloadOnSceneClear = False
+    slicer.modules.RVesselXModuleWidget.setTestingMode(True)
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase]
+    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
+                 ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # Reactivate module reloading and cleanup slicer scene
     RVesselXModuleWidget.enableReloadOnSceneClear = True
+    slicer.modules.RVesselXModuleWidget.setTestingMode(False)
     slicer.mrmlScene.Clear()

@@ -43,23 +43,6 @@ class FakeLogic(IRVesselXModuleLogic):
     self._vessel = value
 
 
-def cropSourceVolume(sourceVolume, roi):
-  cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()
-  cropVolumeNode.SetScene(slicer.mrmlScene)
-  cropVolumeNode.SetName(sourceVolume.GetName() + "Cropped")
-  cropVolumeNode.SetIsotropicResampling(True)
-  cropVolumeNode.SetSpacingScalingConst(0.5)
-  slicer.mrmlScene.AddNode(cropVolumeNode)
-
-  cropVolumeNode.SetInputVolumeNodeID(sourceVolume.GetID())
-  cropVolumeNode.SetROINodeID(roi.GetID())
-
-  cropVolumeLogic = slicer.modules.cropvolume.logic()
-  cropVolumeLogic.Apply(cropVolumeNode)
-
-  return cropVolumeNode.GetOutputVolumeNode()
-
-
 def createEmptyVolume(volumeName):
   emptyVolume = slicer.mrmlScene.CreateNodeByClass("vtkMRMLLabelMapVolumeNode")
   emptyVolume.UnRegister(None)

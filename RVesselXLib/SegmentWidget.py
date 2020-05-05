@@ -1,7 +1,7 @@
 import qt
 import slicer
 
-from .RVesselXUtils import WidgetUtils, GeometryExporter
+from .RVesselXUtils import WidgetUtils, GeometryExporter, removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -18,6 +18,9 @@ class SegmentWidget(VerticalLayoutWidget):
       segmentNames = []
 
     self._inputNode = None
+    self._labelMap = None
+    self._scalarVolume = None
+    self._segmentNode = None
 
     # Get segmentation UI (segmentation UI contains singletons so only one instance can really exist in Slicer)
     self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
@@ -36,16 +39,34 @@ class SegmentWidget(VerticalLayoutWidget):
     # Hide segmentation node and master volume node
     self._setNodeSelectorVisible(False)
 
-    # Add segmentation volume for the widget
-    self._segmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
-    self._segmentNode.SetName(segmentNodeName)
-
-    # Add as many segments as names in input segmentNames
-    for segmentName in segmentNames:
-      self._segmentNode.GetSegmentation().AddEmptySegment(segmentName)
-
     self._verticalLayout.addWidget(self._segmentUi)
     self._layoutList = []
+
+    # Add segmentation volume for the widget
+    self._segmentNodeName = segmentNodeName
+    self._segmentNames = segmentNames
+    self._setupSegmentNode()
+
+  def clear(self):
+    removeNodeFromMRMLScene(self._segmentNode)
+    removeNodeFromMRMLScene(self._labelMap)
+    removeNodeFromMRMLScene(self._scalarVolume)
+    self._segmentNode = None
+    self._labelMap = None
+    self._scalarVolume = None
+    self._setupSegmentNode()
+
+  def _setupSegmentNode(self):
+    # Add segmentation volume for the widget
+    self._segmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
+    self._segmentNode.SetName(self._segmentNodeName)
+
+    # Add as many segments as names in input segmentNames
+    self._addSegmentationNodes(self._segmentNames)
+
+  def _addSegmentationNodes(self, segmentNames):
+    for segmentName in segmentNames:
+      self._segmentNode.GetSegmentation().AddEmptySegment(segmentName)
 
   def _setNodeSelectorVisible(self, isVisible):
     """Changes visibility for master volume selector and segmentation node selector. Both selectors need to be hidden
@@ -84,19 +105,33 @@ class SegmentWidget(VerticalLayoutWidget):
     segmentName = self._segmentNode.GetName()
 
     # Create Label map from visible segments
-    labelMapName = segmentName + "VolumeLabel"
-    labelMap = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", labelMapName)
-    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, labelMap)
+    labelMap = self._createLabelMapVolumeNode()
 
     # Create volume node from label map
-    volumeName = segmentName + "Volume"
-    volume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", volumeName)
-    slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, volume, labelMap)
+    volume = self._createScalarVolumeNode(labelMap)
 
     # Return geometry exporter with created volumes
     geometryExporter = GeometryExporter()
     geometryExporter[segmentName] = volume
     return [geometryExporter]
+
+  def _createScalarVolumeNode(self, labelMap):
+    removeNodeFromMRMLScene(self._scalarVolume)
+    volumeName = self._segmentNode.GetName() + "Volume"
+    self._scalarVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", volumeName)
+    slicer.modules.volumes.logic().CreateScalarVolumeFromVolume(slicer.mrmlScene, self._scalarVolume, labelMap)
+
+    return self._scalarVolume
+
+  def _createLabelMapVolumeNode(self):
+    removeNodeFromMRMLScene(self._labelMap)
+
+    segmentName = self._segmentNode.GetName()
+    labelMapName = segmentName + "VolumeLabel"
+
+    self._labelMap = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", labelMapName)
+    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, self._labelMap)
+    return self._labelMap
 
   def addLayout(self, layout):
     """Override of base addLayout to save all the different layouts added to the widget and their order.
