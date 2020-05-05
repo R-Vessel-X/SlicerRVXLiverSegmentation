@@ -32,12 +32,22 @@ class VesselSegmentEditWidget(SegmentWidget):
     self.insertLayout(0, layout)
 
   def proceedToVesselSplitting(self):
+    progressText = "Preparing Vessel Splitting.\nThis may take a minute..."
+    progressDialog = slicer.util.createProgressDialog(parent=self, windowTitle="Preparing Vessel Splitting",
+                                                      labelText=progressText)
+    progressDialog.setRange(0, 0)
+    progressDialog.setModal(True)
+    progressDialog.show()
+    slicer.app.processEvents()
+
     self._removePreviousCenterLineVolume()
     self._extractCenterLine()
     self._addSegmentationNodes(self._vesselBranches.names())
     self._proceedButton.setEnabled(False)
     self._segmentNode.GetDisplayNode().SetOpacity3D(self._segmentOpacity)
     self._prepareSplittingTools()
+
+    progressDialog.hide()
 
   def _extractCenterLine(self):
     branchVolume = self._getSegmentClosedModel(self._vesselSegmentName)
