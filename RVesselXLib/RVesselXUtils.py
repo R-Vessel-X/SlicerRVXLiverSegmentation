@@ -587,8 +587,6 @@ def cropSourceVolume(sourceVolume, roi):
   cropVolumeNode = slicer.vtkMRMLCropVolumeParametersNode()
   cropVolumeNode.SetScene(slicer.mrmlScene)
   cropVolumeNode.SetName(slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cropped"))
-  cropVolumeNode.SetIsotropicResampling(True)
-  cropVolumeNode.SetSpacingScalingConst(0.5)
   slicer.mrmlScene.AddNode(cropVolumeNode)
 
   cropVolumeNode.SetInputVolumeNodeID(sourceVolume.GetID())

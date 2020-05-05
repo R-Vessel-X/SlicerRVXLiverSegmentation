@@ -75,7 +75,11 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _selectScissorsWithFillInsideOption(self, segmentEditorNode):
     segmentEditorNode.SetActiveEffectName("Scissors")
-    activeEffectOptionFrame = self._segmentationWidget.activeEffect().optionsFrame()
+    activeEffect = self._segmentationWidget.activeEffect()
+    if activeEffect is None:
+      return
+
+    activeEffectOptionFrame = activeEffect.optionsFrame()
     fillInsideButton = None
     for child in activeEffectOptionFrame.children():
       if not hasattr(child, "text"):
