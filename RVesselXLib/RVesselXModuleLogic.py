@@ -351,6 +351,35 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     return seedsNodes, outVolume, outModel
 
   @staticmethod
+  def openSurfaceAtPoint(polyData, seed):
+    """
+    Copied from https://github.com/vmtk/SlicerExtension-VMTK/blob/master/CenterlineComputation/CenterlineComputation.py
+
+    Interface has changed between versions of the VMTK module and module logic cannot be used as is for all users.
+    """
+    pointLocator = vtk.vtkPointLocator()
+    pointLocator.SetDataSet(polyData)
+    pointLocator.BuildLocator()
+
+    # find the closest point next to the seed on the surface
+    id = pointLocator.FindClosestPoint(seed)
+
+    if id < 0:
+      # Calling GetPoint(-1) would crash the application
+      raise ValueError("openSurfaceAtPoint failed: empty input polydata")
+
+    # Tell the polydata to build 'upward' links from points to cells
+    polyData.BuildLinks()
+    # Mark cells as deleted
+    cellIds = vtk.vtkIdList()
+    polyData.GetPointCells(id, cellIds)
+    for cellIdIndex in range(cellIds.GetNumberOfIds()):
+      polyData.DeleteCell(cellIds.GetId(cellIdIndex))
+
+    # Remove the marked cells
+    polyData.RemoveDeletedCells()
+
+  @staticmethod
   def centerLineFilter(levelSetSegmentationModel, startPoint, endPoints):
     """
     Extracts center line from input level set segmentation model (ie : vessel polyData) and start and end points
@@ -399,7 +428,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     model.DeepCopy(logic.decimateSurface(preparedModel))
 
     # open the model at the seed (only for network extraction)
-    model.DeepCopy(logic.openSurfaceAtPoint(model, currentCoordinatesRAS))
+    RVesselXModuleLogic.openSurfaceAtPoint(model, currentCoordinatesRAS)
 
     # extract Network
     network.DeepCopy(logic.extractNetwork(model))

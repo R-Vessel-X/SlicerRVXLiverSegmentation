@@ -60,6 +60,7 @@ class SegmentWidget(VerticalLayoutWidget):
     # Add segmentation volume for the widget
     self._segmentNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
     self._segmentNode.SetName(self._segmentNodeName)
+    self._segmentationWidget.setSegmentationNode(self._segmentNode)
 
     # Add as many segments as names in input segmentNames
     self._addSegmentationNodes(self._segmentNames)

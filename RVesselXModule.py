@@ -246,7 +246,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Aggregate every volume to export
     volumesToExport = []
     for tab in self._tabList:
-      volumesToExport.extend(tab.getGeometryExporters())
+      exporters = tab.getGeometryExporters()
+      if exporters:
+        volumesToExport.extend(exporters)
 
     # return only not None elements
     return [vol for vol in volumesToExport if vol is not None]

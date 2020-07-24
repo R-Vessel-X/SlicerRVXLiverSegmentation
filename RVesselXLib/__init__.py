@@ -15,5 +15,5 @@ from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOn
 from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId, NodeBranches, InteractionStatus, \
   VesselTreeColumnRole
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
-from .VesselWidget import VesselWidget
+from .VesselWidget import VesselWidget, VesselAdjacencyMatrixExporter
 from .VesselSegmentEditWidget import VesselSegmentEditWidget

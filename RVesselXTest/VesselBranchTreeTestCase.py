@@ -1,7 +1,6 @@
 import unittest
 
-from RVesselXLib import VesselBranchTree
-from RVesselXLib.VesselBranchWizard import PlaceStatus
+from RVesselXLib import VesselBranchTree, PlaceStatus, VesselAdjacencyMatrixExporter
 
 
 class VesselBranchTreeTestCase(unittest.TestCase):
@@ -112,6 +111,32 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     self.assertIn("SubChild1Id", nodeList)
     self.assertIn("ParentId", nodeList)
     self.assertIn("Child2Id", nodeList)
+
+  def testBranchTreeCanBeExportedAsAdjacencyMatrix(self):
+    # ParentId
+    #     |_ Child1Id
+    #     |_ Child2Id
+    #             |_ SubChild1Id
+    #                     |_ SubSubChild1Id
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("N00", None)
+    branchWidget.insertAfterNode("N10", "N00")
+    branchWidget.insertAfterNode("N11", "N00")
+    branchWidget.insertAfterNode("N20", "N11")
+    branchWidget.insertAfterNode("N30", "N20")
+
+    exp_nodes = ["N00", "N10", "N11", "N20", "N30"]
+    exp_matrix = [  #
+      [0, 1, 1, 0, 0],  #
+      [1, 0, 0, 0, 0],  #
+      [1, 0, 0, 1, 0],  #
+      [0, 0, 1, 0, 1],  #
+      [0, 0, 0, 1, 0],  #
+    ]
+
+    nodes, matrix = VesselAdjacencyMatrixExporter.toAdjacencyMatrix(branchWidget)
+    self.assertEqual(exp_nodes, nodes)
+    self.assertEqual(exp_matrix, matrix)
 
   def testWhenInsertBeforeNodeNewNodeIsInsertedBetweenNodeParentAndNode(self):
     # Before Tree

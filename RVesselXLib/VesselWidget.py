@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import logging
+import os
 
 import ctk
 import qt
@@ -11,7 +12,45 @@ from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
 from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
   getMarkupIdPositionDictionary
 from .VerticalLayoutWidget import VerticalLayoutWidget
-from .VesselBranchTree import VesselBranchWidget
+from .VesselBranchTree import VesselBranchWidget, VesselBranchTree
+
+
+class VesselAdjacencyMatrixExporter(GeometryExporter):
+  def __init__(self, **elementsToExport):
+    GeometryExporter.__init__(self, **elementsToExport)
+
+  def exportToDirectory(self, selectedDir):
+    for treeName, tree in self._elementsToExport.items():
+      output_file = os.path.join(selectedDir, treeName + ".csv")
+      self._exportAsCSV(tree, output_file)
+
+  def _exportAsCSV(self, tree, output_file):
+    tree_nodes, adjacency_matrix = self.toAdjacencyMatrix(tree)
+    with open(output_file, "w") as f:
+      sep = ";"
+      f.write(sep.join([""] + tree_nodes) + "\n")
+
+      for i_node, node_name in enumerate(tree_nodes):
+        f.write(sep.join([node_name] + map(str, adjacency_matrix[i_node])) + "\n")
+
+  @staticmethod
+  def toAdjacencyMatrix(tree):
+    """
+    :type tree: VesselBranchTree
+    :return: Tuple[List[str], List[List[int]]]
+    """
+    node_list = sorted(tree.getNodeList())
+    matrix = []
+    for node_name_1 in node_list:
+      row = []
+      for node_name_2 in node_list:
+        if tree.getParentNodeId(node_name_2) == node_name_1 or node_name_1 in tree.getChildrenNodeId(node_name_2):
+          row.append(1)
+        else:
+          row.append(0)
+      matrix.append(row)
+
+    return node_list, matrix
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -457,7 +496,8 @@ class VesselWidget(VerticalLayoutWidget):
 
   def getGeometryExporters(self):
     return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode,
-                             vesselsNode=self._vesselBranchWidget.getBranchMarkupNode())]
+                             vesselsNode=self._vesselBranchWidget.getBranchMarkupNode()),
+            VesselAdjacencyMatrixExporter(vesselsAdjacencyMatrix=self._vesselBranchWidget.getBranchTree())]
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
