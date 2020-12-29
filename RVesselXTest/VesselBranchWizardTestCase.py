@@ -73,7 +73,8 @@ class VesselBranchWizardTestCase(unittest.TestCase):
   def test_given_construction_populates_tree_with_predefined_node_names(self):
     # Expect tree widget to be constructed with proper names
     expTree = [  #
-      [None, VeinId.portalVein],  #
+      [None, VeinId.portalVeinRoot],  #
+      [VeinId.portalVeinRoot, VeinId.portalVein],  #
       [VeinId.portalVein, VeinId.rightPortalVein],  #
       [VeinId.portalVein, VeinId.leftPortalVein],  #
       [VeinId.rightPortalVein, VeinId.anteriorBranch],  #

@@ -323,6 +323,7 @@ class RVesselXModuleTest(ScriptedLoadableModuleTest):
     # Gather tests for the plugin and run them in a test suite
     testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
                  ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
+
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 

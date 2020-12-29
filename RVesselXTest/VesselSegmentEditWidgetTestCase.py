@@ -6,13 +6,18 @@ from RVesselXLib import RVesselXModuleLogic, VesselSegmentEditWidget, NodeBranch
 from RVesselXTest.ModuleLogicTestCase import prepareEndToEndTest
 
 
+class FakeTreeWizard(object):
+  def setVisibleInScene(self, isVisible):
+    pass
+
+
 class VesselSegmentEditWidgetTestCase(unittest.TestCase):
   def setUp(self):
     """ Clear scene before each tests
     """
     slicer.mrmlScene.Clear(0)
     self.logic = RVesselXModuleLogic()
-    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=None)
+    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard())
 
   def testVesselSegmentEditExtractsOneCenterlineFromInputBranch(self):
     # Prepare source volume, start position and end position

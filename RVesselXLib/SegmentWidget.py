@@ -1,6 +1,7 @@
 import qt
 import slicer
 
+from .RVesselXModuleLogic import RVesselXModuleLogic
 from .RVesselXUtils import WidgetUtils, GeometryExporter, removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
@@ -21,6 +22,7 @@ class SegmentWidget(VerticalLayoutWidget):
     self._labelMap = None
     self._scalarVolume = None
     self._segmentNode = None
+    self._model = None
 
     # Get segmentation UI (segmentation UI contains singletons so only one instance can really exist in Slicer)
     self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
@@ -51,9 +53,11 @@ class SegmentWidget(VerticalLayoutWidget):
     removeNodeFromMRMLScene(self._segmentNode)
     removeNodeFromMRMLScene(self._labelMap)
     removeNodeFromMRMLScene(self._scalarVolume)
+    removeNodeFromMRMLScene(self._model)
     self._segmentNode = None
     self._labelMap = None
     self._scalarVolume = None
+    self._model = None
     self._setupSegmentNode()
 
   def _setupSegmentNode(self):
@@ -64,6 +68,9 @@ class SegmentWidget(VerticalLayoutWidget):
 
     # Add as many segments as names in input segmentNames
     self._addSegmentationNodes(self._segmentNames)
+
+    # Update master volume
+    self._updateSegmentationMasterVolumeNode()
 
   def _addSegmentationNodes(self, segmentNames):
     for segmentName in segmentNames:
@@ -91,9 +98,14 @@ class SegmentWidget(VerticalLayoutWidget):
     Update is called multiple times to avoid problems when switching to segmentation widget. (problem may come from
     implementation detail in SegmentationEditor module)
     """
+
     if self._inputNode:
+      def updateMasterVolumeNode():
+        self._segmentationWidget.setMasterVolumeNode(self._inputNode)
+        self._segmentNode.SetReferenceImageGeometryParameterFromVolumeNode(self._inputNode)
+
       # Wrap update in QTimer for better reliability on set event (otherwise set can fail somehow)
-      qt.QTimer.singleShot(0, lambda: self._segmentationWidget.setMasterVolumeNode(self._inputNode))
+      qt.QTimer.singleShot(0, updateMasterVolumeNode)
 
   def getGeometryExporters(self):
     """Converts liver segment to label volume and returns the GeometryExporter associated with create volume.
@@ -111,9 +123,13 @@ class SegmentWidget(VerticalLayoutWidget):
     # Create volume node from label map
     volume = self._createScalarVolumeNode(labelMap)
 
+    # Create model
+    model = self._createLabelMapModel()
+
     # Return geometry exporter with created volumes
     geometryExporter = GeometryExporter()
     geometryExporter[segmentName] = volume
+    geometryExporter[segmentName + "Model"] = model
     return [geometryExporter]
 
   def _createScalarVolumeNode(self, labelMap):
@@ -131,8 +147,16 @@ class SegmentWidget(VerticalLayoutWidget):
     labelMapName = segmentName + "VolumeLabel"
 
     self._labelMap = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", labelMapName)
-    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, self._labelMap)
+    slicer.vtkSlicerSegmentationsModuleLogic().ExportVisibleSegmentsToLabelmapNode(self._segmentNode, self._labelMap,
+                                                                                   self._inputNode)
     return self._labelMap
+
+  def _createLabelMapModel(self):
+    removeNodeFromMRMLScene(self._model)
+    self._model = RVesselXModuleLogic.createVolumeBoundaryModel(self._labelMap, self._segmentNode.GetName() + "Model",
+                                                                threshold=0.5)
+    self._model.SetDisplayVisibility(False)
+    return self._model
 
   def addLayout(self, layout):
     """Override of base addLayout to save all the different layouts added to the widget and their order.

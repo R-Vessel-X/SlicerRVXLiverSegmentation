@@ -113,19 +113,11 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._centerLineVolume = None
 
   def onVesselSegmentationChanged(self, vesselLabelMap, vesselBranches):
-    self._removeAllSegmentationNodes()
+    self.clear()
     self._importLabelMap(vesselLabelMap)
     self._vesselBranches = vesselBranches
     self._proceedButton.setEnabled(True)
-
-  def _removeAllSegmentationNodes(self):
-    segmentIds = []
-    for i in range(self._segmentationObj().GetNumberOfSegments()):
-      segmentIds.append(
-        self._segmentationObj().GetSegmentIdBySegmentName(self._segmentationObj().GetNthSegment(i).GetName()))
-
-    for segmentId in segmentIds:
-      self._segmentationObj().RemoveSegment(segmentId)
+    self.setVisibleInScene(self.visible)
 
   def _importLabelMap(self, vesselLabelMap):
     self._segmentationLogic.ImportLabelmapToSegmentationNode(vesselLabelMap, self._segmentNode)

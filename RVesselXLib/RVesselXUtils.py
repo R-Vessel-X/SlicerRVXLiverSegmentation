@@ -1,11 +1,12 @@
 from itertools import count
-
 import logging
 import os
 
 import ctk
+import numpy as np
 import qt
 import slicer
+import vtk
 
 
 class Icons(object):
@@ -508,7 +509,7 @@ def raiseValueErrorIfInvalidType(**kwargs):
       raise ValueError("%s Type error.\nExpected : %s but got %s." % (valueName, expType, type(value)))
 
 
-def createDisplayNode(volumeNode, presetName=None):
+def createDisplayNodeIfNecessary(volumeNode, presetName=None):
   """
   Create new rendering display node for input volume
 
@@ -517,9 +518,13 @@ def createDisplayNode(volumeNode, presetName=None):
   :type presetName: str
   """
   volRenLogic = slicer.modules.volumerendering.logic()
-  volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+  volumeDisplayNode = volRenLogic.GetFirstVolumeRenderingDisplayNode(volumeNode)
+
+  if volumeDisplayNode is None:
+    volumeDisplayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+    volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
+
   volumeDisplayNode.SetVisibility(True)
-  volumeNode.AddAndObserveDisplayNodeID(volumeDisplayNode.GetID())
   volRenLogic.UpdateDisplayNodeFromVolumeNode(volumeDisplayNode, volumeNode)
 
   # https://www.slicer.org/wiki/Documentation/Nightly/ScriptRepository#Show_volume_rendering_automatically_when_a_volume_is_loaded
@@ -601,3 +606,31 @@ def cropSourceVolume(sourceVolume, roi):
 def cloneSourceVolume(sourceVolume):
   cloneName = slicer.mrmlScene.GetUniqueNameByString(sourceVolume.GetName() + "Cloned")
   return slicer.vtkSlicerVolumesLogic().CloneVolume(slicer.mrmlScene, sourceVolume, cloneName, True)
+
+
+def arrayFromVTKMatrix(vtk_matrix):
+  """
+  Return vtkMatrix4x4 or vtkMatrix3x3 elements as numpy array.
+  The returned array is just a copy and so any modification in the array will not affect the input matrix.
+  To set VTK matrix from a numpy array, use :py:meth:`vtkMatrixFromArray` or
+  :py:meth:`updateVTKMatrixFromArray`.
+
+  Copied from newer Slicer.util file (not available in Slicer 4.10.2).
+  """
+
+  if isinstance(vtk_matrix, vtk.vtkMatrix4x4):
+    matrixSize = 4
+  elif isinstance(vtk_matrix, vtk.vtkMatrix3x3):
+    matrixSize = 3
+  else:
+    raise RuntimeError("Input must be vtk.vtkMatrix3x3 or vtk.vtkMatrix4x4")
+  np_array = np.eye(matrixSize)
+  vtk_matrix.DeepCopy(np_array.ravel(), vtk_matrix)
+  return np_array
+
+
+def getVolumeIJKToRASDirectionMatrixAsNumpyArray(vol):
+  """Return input volume ijk to RAS matrix as an numpy array"""
+  m = vtk.vtkMatrix4x4()
+  vol.GetIJKToRASDirectionMatrix(m)
+  return arrayFromVTKMatrix(m)

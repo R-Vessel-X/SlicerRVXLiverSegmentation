@@ -4,6 +4,7 @@ from RVesselXLib import Signal, jumpSlicesToNthMarkupPosition
 
 
 class VeinId(object):
+  portalVeinRoot = "PortalVeinRoot"
   portalVein = "PortalVein"
   rightPortalVein = "RightPortalVein"
   leftPortalVein = "LeftPortalVein"
@@ -18,9 +19,9 @@ class VeinId(object):
   segmentalBranch_8 = "SegmentalBranch_8"
 
   def sortedIds(self):
-    return [self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch, self.posteriorBranch,
-            self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4, self.segmentalBranch_5,
-            self.segmentalBranch_6, self.segmentalBranch_7, self.segmentalBranch_8]
+    return [self.portalVeinRoot, self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch,
+            self.posteriorBranch, self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4,
+            self.segmentalBranch_5, self.segmentalBranch_6, self.segmentalBranch_7, self.segmentalBranch_8]
 
 
 class NodeBranches(object):
@@ -118,7 +119,8 @@ class VesselBranchWizard(object):
     """
     Prepares tree with the different hepatic vessel node names
     """
-    self._tree.insertAfterNode(VeinId.portalVein, None)
+    self._tree.insertAfterNode(VeinId.portalVeinRoot, None)
+    self._tree.insertAfterNode(VeinId.portalVein, VeinId.portalVeinRoot)
     self._tree.insertAfterNode(VeinId.rightPortalVein, VeinId.portalVein)
     self._tree.insertAfterNode(VeinId.leftPortalVein, VeinId.portalVein)
     self._tree.insertAfterNode(VeinId.anteriorBranch, VeinId.rightPortalVein)

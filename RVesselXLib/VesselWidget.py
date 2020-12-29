@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import logging
 import os
 
 import ctk
@@ -9,7 +8,7 @@ import slicer
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
 from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
+from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNodeIfNecessary, Signal, \
   getMarkupIdPositionDictionary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget, VesselBranchTree
@@ -360,7 +359,7 @@ class VesselWidget(VerticalLayoutWidget):
     if self._vesselnessDisplay is not None:
       self._vesselnessDisplay.SetVisibility(False)
 
-    self._vesselnessDisplay = createDisplayNode(vesselness, "Vesselness")
+    self._vesselnessDisplay = createDisplayNodeIfNecessary(vesselness, "Vesselness")
     return self._vesselnessDisplay
 
   def _extractVessel(self):
@@ -495,7 +494,7 @@ class VesselWidget(VerticalLayoutWidget):
       self._updateButtonStatusAndFilterParameters()
 
   def getGeometryExporters(self):
-    return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode,
+    return [GeometryExporter(vesselsVolumeRaw=self._vesselVolumeNode, vesselsOuterMeshRaw=self._vesselModelNode,
                              vesselsNode=self._vesselBranchWidget.getBranchMarkupNode()),
             VesselAdjacencyMatrixExporter(vesselsAdjacencyMatrix=self._vesselBranchWidget.getBranchTree())]
 
@@ -505,6 +504,11 @@ class VesselWidget(VerticalLayoutWidget):
 
     self._vesselVolumeNode.SetDisplayVisibility(isVisible)
     self._vesselModelNode.SetDisplayVisibility(isVisible)
+
+    def show_label_in_2d_views():
+      slicer.util.setSliceViewerLayers(label=self._vesselVolumeNode if isVisible else None)
+
+    qt.QTimer.singleShot(0, show_label_in_2d_views)
 
   def showEvent(self, event):
     self._vesselBranchWidget.enableShortcuts(True)
