@@ -1,3 +1,4 @@
+import os
 import unittest
 
 import qt
@@ -235,6 +236,9 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Export each volume to export to export directory
     for vol in self._volumesToExport():
       vol.exportToDirectory(selectedDir)
+
+    # Save scene as MRB
+    slicer.util.saveScene(os.path.join(selectedDir, "Scene.mrb"))
 
   def _volumesToExport(self):
     """Creates list of GeometryExporter associated with every element to export (ie Vessels, liver and tumors)

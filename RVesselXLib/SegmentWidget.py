@@ -155,7 +155,10 @@ class SegmentWidget(VerticalLayoutWidget):
     removeNodeFromMRMLScene(self._model)
     self._model = RVesselXModuleLogic.createVolumeBoundaryModel(self._labelMap, self._segmentNode.GetName() + "Model",
                                                                 threshold=0.5)
-    self._model.SetDisplayVisibility(False)
+    # Disable created model visibility in scene
+    if self._model:
+      self._model.SetDisplayVisibility(False)
+
     return self._model
 
   def addLayout(self, layout):

@@ -406,7 +406,7 @@ class VesselWidget(VerticalLayoutWidget):
       qt.QMessageBox.warning(self, "Failed to extract vessels", warning_message)
 
     progressDialog.hide()
-    self._updateVesselnessVisibility()
+    self._updateVisibility()
 
   def _removePreviouslyExtractedVessels(self):
     """Remove previous nodes from mrmlScene if necessary.
@@ -494,9 +494,9 @@ class VesselWidget(VerticalLayoutWidget):
       self._updateButtonStatusAndFilterParameters()
 
   def getGeometryExporters(self):
-    return [GeometryExporter(vesselsVolumeRaw=self._vesselVolumeNode, vesselsOuterMeshRaw=self._vesselModelNode,
-                             vesselsNode=self._vesselBranchWidget.getBranchMarkupNode()),
-            VesselAdjacencyMatrixExporter(vesselsAdjacencyMatrix=self._vesselBranchWidget.getBranchTree())]
+    return [GeometryExporter(VesselsTreeRaw=self._vesselVolumeNode, VesselsTreeRawModel=self._vesselModelNode,
+                             VesselsNode=self._vesselBranchWidget.getBranchMarkupNode()),
+            VesselAdjacencyMatrixExporter(VesselsAdjacencyMatrix=self._vesselBranchWidget.getBranchTree())]
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
@@ -511,18 +511,18 @@ class VesselWidget(VerticalLayoutWidget):
     qt.QTimer.singleShot(0, show_label_in_2d_views)
 
   def showEvent(self, event):
-    self._vesselBranchWidget.enableShortcuts(True)
-    self._vesselBranchWidget.setVisibleInScene(True)
-    self._setExtractedVolumeVisible(True)
-    self._updateVesselnessVisibility()
     super(VesselWidget, self).showEvent(event)
+    self._updateVisibility()
 
   def hideEvent(self, event):
-    self._vesselBranchWidget.enableShortcuts(False)
-    self._vesselBranchWidget.setVisibleInScene(False)
-    self._setExtractedVolumeVisible(False)
-    self._setVesselnessVisible(False)
     super(VesselWidget, self).hideEvent(event)
+    self._updateVisibility()
+
+  def _updateVisibility(self):
+    self._vesselBranchWidget.enableShortcuts(self.visible)
+    self._vesselBranchWidget.setVisibleInScene(self.visible)
+    self._setExtractedVolumeVisible(self.visible)
+    self._setVesselnessVisible(self._showVesselness if self.visible else False)
 
   def getVesselWizard(self):
     return self._vesselBranchWidget.getVesselWizard()

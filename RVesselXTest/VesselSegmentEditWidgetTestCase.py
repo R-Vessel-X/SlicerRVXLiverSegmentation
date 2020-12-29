@@ -1,5 +1,6 @@
 import unittest
 
+import qt
 import slicer
 
 from RVesselXLib import RVesselXModuleLogic, VesselSegmentEditWidget, NodeBranches
@@ -18,6 +19,12 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
     slicer.mrmlScene.Clear(0)
     self.logic = RVesselXModuleLogic()
     self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard())
+
+  def testExportWhenNoSegmentationDoneDoesntRaise(self):
+    tmpDir = qt.QTemporaryDir()
+    exporters = self.vesselEdit.getGeometryExporters()
+    for exporter in exporters:
+      exporter.exportToDirectory(tmpDir.path())
 
   def testVesselSegmentEditExtractsOneCenterlineFromInputBranch(self):
     # Prepare source volume, start position and end position
