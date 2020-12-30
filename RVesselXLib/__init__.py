@@ -13,7 +13,7 @@ from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOn
   ExtractOneVesselPerParentAndSubChildNode, ExtractVesselFromVesselSeedPointsStrategy, ExtractOneVesselPerBranch, \
   VesselSeedPoints
 from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId, NodeBranches, InteractionStatus, \
-  VesselTreeColumnRole
+  VesselTreeColumnRole, setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget
-from .VesselWidget import VesselWidget, VesselAdjacencyMatrixExporter
-from .VesselSegmentEditWidget import VesselSegmentEditWidget
+from .VesselWidget import VesselWidget, VesselAdjacencyMatrixExporter, PortalVesselWidget, IVCVesselWidget
+from .VesselSegmentEditWidget import VesselSegmentEditWidget, PortalVesselEditWidget, IVCVesselEditWidget

@@ -157,7 +157,7 @@ class DataWidget(VerticalLayoutWidget):
     """
     try:
       dicomWidget = slicer.modules.DICOMWidget
-    except:
+    except AttributeError:
       dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
 
     if dicomWidget is not None:

@@ -10,8 +10,9 @@ class VesselSegmentEditWidget(SegmentWidget):
   Class responsible for editing the vessel automatic segmentation
   """
 
-  def __init__(self, logic, treeWizard):
-    super(VesselSegmentEditWidget, self).__init__("Vessel Segmentation Edit Tab", "VesselsTree")
+  def __init__(self, logic, treeWizard, widgetName):
+    super(VesselSegmentEditWidget, self).__init__(widgetName + " Edit Tab", widgetName.replace(" ", "") + "Tree")
+    self._widgetName = widgetName
     self._vesselBranches = NodeBranches()
     self._logic = logic
     self._centerLineVolume = None
@@ -155,3 +156,13 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _segmentationObj(self):
     return self._segmentNode.GetSegmentation()
+
+
+class PortalVesselEditWidget(VesselSegmentEditWidget):
+  def __init__(self, logic, treeWizard):
+    super(PortalVesselEditWidget, self).__init__(logic, treeWizard, "Portal Vessels")
+
+
+class IVCVesselEditWidget(VesselSegmentEditWidget):
+  def __init__(self, logic, treeWizard):
+    super(IVCVesselEditWidget, self).__init__(logic, treeWizard, "IVC Vessels")

@@ -214,7 +214,7 @@ class VesselBranchTree(qt.QTreeWidget):
       Unique ID of the node to insert in the tree
     beforeNodeId: str or None
       Unique ID of the node before which the new node will be inserted. If None or "" will insert node at root.
-    status: PlaceStatus
+    status: Union[PlaceStatus, int]
 
     Raises
     ------
@@ -752,7 +752,13 @@ class VesselBranchWidget(qt.QWidget):
   Creates the node edition buttons, branch node tree and starts and connects the branch markup node.
   """
 
-  def __init__(self, parent=None):
+  def __init__(self, setupBranchF, parent=None):
+    """
+    Parameters
+    ----------
+    setupBranchF: Callable[]
+    parent: Optional[qt.QWidget]
+    """
     qt.QWidget.__init__(self, parent)
 
     # Create Markups node
@@ -765,7 +771,8 @@ class VesselBranchWidget(qt.QWidget):
     self._treeDrawer = TreeDrawer(self._branchTree, self._markupNode)
 
     # Create interaction wizard
-    self._wizard = VesselBranchWizard(self._branchTree, self._markupNode, self._markupPlaceWidget, self._treeDrawer)
+    self._wizard = VesselBranchWizard(self._branchTree, self._markupNode, self._markupPlaceWidget, self._treeDrawer,
+                                      setupBranchF)
     self._wizard.interactionChanged.connect(self._updateButtonCheckedStatus)
 
     # Create layout for the widget
@@ -850,10 +857,16 @@ class VesselBranchWidget(qt.QWidget):
     return self._markupNode.GetSlicerNode()
 
   def setVisibleInScene(self, isVisible):
-    """If isVisible, markups and tree will be shown in scene, else they will be hidden
+    """
+    If isVisible, markups and tree will be shown in scene, else they will be hidden.
+    This method will disable placement mode for the widget
     """
 
     self._wizard.setVisibleInScene(isVisible)
+    if isVisible:
+      self._markupNodeSelector.markupsSelectorComboBox().setCurrentNode(self._markupNode.GetSlicerNode())
+
+    self._markupPlaceWidget.setPlaceModeEnabled(False)
 
   def stopInteraction(self):
     self._wizard.onStopInteraction()

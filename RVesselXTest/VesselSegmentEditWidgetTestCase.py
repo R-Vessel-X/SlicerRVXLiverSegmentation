@@ -18,7 +18,7 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
     """
     slicer.mrmlScene.Clear(0)
     self.logic = RVesselXModuleLogic()
-    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard())
+    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard(), widgetName="")
 
   def testExportWhenNoSegmentationDoneDoesntRaise(self):
     tmpDir = qt.QTemporaryDir()

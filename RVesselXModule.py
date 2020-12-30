@@ -6,7 +6,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget, \
-  VesselSegmentEditWidget
+  VesselSegmentEditWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget
 from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
   VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
@@ -45,8 +45,11 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._tabWidget = None
     self._dataTab = None
     self._liverTab = None
-    self._vesselsTab = None
-    self._vesselsSegmentEditTab = None
+    self._portalVesselsTab = None
+    self._ivcVesselsTab = None
+    self._portalVesselsEditTab = None
+    self._ivcEditTab = None
+
     self._tumorTab = None
     self._tabList = []
     self._obs = slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, lambda *x: self.reloadModule())
@@ -127,13 +130,17 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._dataTab = DataWidget()
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
-    self._vesselsTab = VesselWidget(self.logic)
-    self._vesselsSegmentEditTab = VesselSegmentEditWidget(self.logic, self._vesselsTab.getVesselWizard())
+    self._portalVesselsTab = PortalVesselWidget(self.logic)
+    self._ivcVesselsTab = IVCVesselWidget(self.logic)
+
+    self._portalVesselsEditTab = PortalVesselEditWidget(self.logic, self._portalVesselsTab.getVesselWizard())
+    self._ivcEditTab = IVCVesselEditWidget(self.logic, self._ivcVesselsTab.getVesselWizard())
     self._tumorTab = SegmentWidget(segmentWidgetName="Tumor Tab", segmentNodeName="Tumors",
                                    segmentNames=["Tumor", "Not Tumor"])
 
     # Connect vessels tab to vessels edit tab
-    self._vesselsTab.vesselSegmentationChanged.connect(self._vesselsSegmentEditTab.onVesselSegmentationChanged)
+    self._portalVesselsTab.vesselSegmentationChanged.connect(self._portalVesselsEditTab.onVesselSegmentationChanged)
+    self._ivcVesselsTab.vesselSegmentationChanged.connect(self._ivcEditTab.onVesselSegmentationChanged)
 
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
@@ -143,13 +150,17 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Add widgets to tab widget and connect data tab input change to the liver and vessels tab set input methods
     self._addTab(self._dataTab, "Data")
     self._addTab(self._liverTab, "Liver")
-    self._addTab(self._vesselsTab, "Vessels")
-    self._addTab(self._vesselsSegmentEditTab, "Vessels Segmentation Edit")
+    self._addTab(self._portalVesselsTab, "Portal Veins")
+    self._addTab(self._portalVesselsEditTab, "Portal Veins Edit")
+    self._addTab(self._ivcVesselsTab, "IVC Veins")
+    self._addTab(self._ivcEditTab, "IVC Veins Edit")
     self._addTab(self._tumorTab, "Tumors")
     self._dataTab.addInputNodeChangedCallback(lambda *x: self._clearTabs())
     self._dataTab.addInputNodeChangedCallback(self._liverTab.setInputNode)
-    self._dataTab.addInputNodeChangedCallback(self._vesselsTab.setInputNode)
-    self._dataTab.addInputNodeChangedCallback(self._vesselsSegmentEditTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._portalVesselsTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._portalVesselsEditTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._ivcVesselsTab.setInputNode)
+    self._dataTab.addInputNodeChangedCallback(self._ivcEditTab.setInputNode)
     self._dataTab.addInputNodeChangedCallback(self._tumorTab.setInputNode)
 
     # Setup previous and next buttons for the different tabs
