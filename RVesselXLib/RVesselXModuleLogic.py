@@ -6,8 +6,8 @@ from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import vtk
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
-  createModelNode, getFiducialPositions, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, \
-  cloneSourceVolume
+  createModelNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, cloneSourceVolume, \
+  getVolumeIJKToRASDirectionMatrixAsNumpyArray
 
 
 class VMTKModule(object):
@@ -193,9 +193,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     return vesselnessFiltered
 
-  @staticmethod
-  def _applyLevelSetSegmentationFromNodePositions(sourceVolume, vesselnessVolume, seedsPositions, endPositions,
-                                                  levelSetParameters):
+  @classmethod
+  def _applyLevelSetSegmentationFromNodePositions(cls, sourceVolume, croppedSourceVolume, vesselnessVolume,
+                                                  seedsPositions, endPositions, levelSetParameters):
     """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input seed positions and end positions
 
     Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
@@ -203,7 +203,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     Parameters
     ----------
     sourceVolume : vtkMRMLScalarVolumeNode
-      Original volume (before vesselness filter
+      Original volume (before vesselness filter or cropping)
+    croppedSourceVolume : vtkMRMLScalarVolumeNode
+      Cropped original volume. This volume is expected to have the same size as the vesselness volume)
     vesselnessVolume : vtkMRMLScalarVolumeNode
       Volume after filtering by vesselness filter
     seedsPositions : List[List[float]]
@@ -225,6 +227,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
+                                 croppedSourceVolume=(croppedSourceVolume, "vtkMRMLScalarVolumeNode"),
                                  vesselnessVolume=(vesselnessVolume, "vtkMRMLScalarVolumeNode"))
 
     # Get module logic from VMTK LevelSetSegmentation
@@ -232,7 +235,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     segmentationLogic = VMTKModule.getLevelSetSegmentationLogic()
 
     # Create output volume node
-    outVolume = createLabelMapVolumeNodeBasedOnModel(sourceVolume, "LevelSetSegmentation")
+    tmpVolume = createLabelMapVolumeNodeBasedOnModel(croppedSourceVolume, "LevelSetSegmentation")
 
     # Copy paste code from LevelSetSegmentation start method
     # https://github.com/vmtk/SlicerExtension-VMTK/blob/master/LevelSetSegmentation/LevelSetSegmentation.py
@@ -281,12 +284,50 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     labelMap.DeepCopy(segmentationLogic.buildSimpleLabelMap(evolImageData, 5, 0))
 
     # propagate the label map to the node
-    outVolume.SetAndObserveImageData(labelMap)
+    tmpVolume.SetAndObserveImageData(labelMap)
+
+    # Resample output volume to be the same size and orientation as non cropped volume
+    outVolume = cls.resampleLabelMap(newVolumeTemplate=sourceVolume, labelMapToResample=tmpVolume,
+                                     labelMapName="LevelSetSegmentation")
+
+    # Remove tmp volume
+    slicer.mrmlScene.RemoveNode(tmpVolume)
 
     # Construct model boundary mesh
     outModel = RVesselXModuleLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
 
     return seedsNodes, stoppersNodes, outVolume, outModel
+
+  @classmethod
+  def resampleLabelMap(cls, newVolumeTemplate, labelMapToResample, labelMapName):
+    import SimpleITK as sitk
+
+    def volume_itk_direction(v):
+      """Returns volume IJK to RAS direction matrix in ITK compliant format"""
+      m = getVolumeIJKToRASDirectionMatrixAsNumpyArray(v)
+      return m[0:3, 0:3].flatten()
+
+    to_resample_array = slicer.util.arrayFromVolume(labelMapToResample)
+
+    to_resample_itk_im = sitk.GetImageFromArray(to_resample_array)
+    to_resample_itk_im.SetOrigin(labelMapToResample.GetOrigin())
+    to_resample_itk_im.SetSpacing(labelMapToResample.GetSpacing())
+    to_resample_itk_im.SetDirection(volume_itk_direction(labelMapToResample))
+
+    resample_filter = sitk.ResampleImageFilter()
+    resample_filter.SetInterpolator(sitk.sitkNearestNeighbor)
+    resample_filter.SetOutputOrigin(newVolumeTemplate.GetOrigin())
+    resample_filter.SetOutputSpacing(newVolumeTemplate.GetSpacing())
+    resample_filter.SetOutputDirection(volume_itk_direction(newVolumeTemplate))
+    resample_filter.SetSize(newVolumeTemplate.GetImageData().GetDimensions())
+    resample_filter.SetTransform(sitk.Transform())
+    resample_filter.SetDefaultPixelValue(0)
+    resampled_itk_im = resample_filter.Execute(to_resample_itk_im)
+    resampled_array = sitk.GetArrayFromImage(resampled_itk_im)
+
+    resampled_label_map = createLabelMapVolumeNodeBasedOnModel(newVolumeTemplate, labelMapName)
+    slicer.util.updateVolumeFromArray(resampled_label_map, resampled_array)
+    return resampled_label_map
 
   @staticmethod
   def createVolumeBoundaryModel(sourceVolume, modelName, imageData=None, threshold=0.0):
@@ -294,7 +335,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     if imageData is None:
       imageData = sourceVolume.GetImageData()
 
-    raiseValueErrorIfInvalidType(imageData=(imageData, vtk.vtkImageData))
+    if imageData is None:
+      return None
 
     # we need the ijkToRas transform for the marching cubes call
     ijkToRasMatrix = vtk.vtkMatrix4x4()
@@ -311,44 +353,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     modelNode.CreateDefaultDisplayNodes()
 
     return modelNode
-
-  @staticmethod
-  def _applyLevelSetSegmentation(sourceVolume, vesselnessVolume, startPoint, endPoint, levelSetParameters):
-    """ Apply VMTK LevelSetSegmentation to vesselnessVolume given input startPoint and endPoint.
-
-    Returns label Map Volume with segmentation information and model containing marching cubes iso surface extraction
-
-    Parameters
-    ----------
-    sourceVolume : vtkMRMLScalarVolumeNode
-      Original volume (before vesselness filter
-    vesselnessVolume : vtkMRMLScalarVolumeNode
-      Volume after filtering by vesselness filter
-    startPoint : vtkMRMLMarkupsFiducialNode
-      Start point for the vessel
-    endPoint : vtkMRMLMarkupsFiducialNode
-      End point for the vessel
-
-    Returns
-    -------
-    LevelSetSeeds : vtkMRMLMarkupsFiducialNode
-      Nodes used as seeds during level set segmentation (aggregate of start point and end point)
-    LevelSetSegmentation : vtkMRMLLabelMapVolumeNode
-      segmentation volume output
-    LevelSetModel : vtkMRMLModelNode
-      Model after marching cubes on the segmentation data
-    """
-    # Type checking
-    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"),
-                                 vesselnessVolume=(vesselnessVolume, "vtkMRMLScalarVolumeNode"),
-                                 startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
-                                 endPoint=(endPoint, "vtkMRMLMarkupsFiducialNode"))
-
-    startPos = getFiducialPositions(startPoint)
-    endPos = getFiducialPositions(endPoint)
-    seedsNodes, stoppersNodes, outVolume, outModel = RVesselXModuleLogic._applyLevelSetSegmentationFromNodePositions(
-      sourceVolume, vesselnessVolume, startPos, endPos, levelSetParameters)
-    return seedsNodes, outVolume, outModel
 
   @staticmethod
   def openSurfaceAtPoint(polyData, seed):
@@ -646,5 +650,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     if self._vesselnessVolume is None:
       raise ValueError("Please extract vesselness volume before extracting vessels")
-    return self._applyLevelSetSegmentationFromNodePositions(self._croppedInputVolume, self.getCurrentVesselnessVolume(),
-                                                            seedsPositions, endPositions, self.levelSetParameters)
+    return self._applyLevelSetSegmentationFromNodePositions(sourceVolume=self._inputVolume,
+                                                            croppedSourceVolume=self._croppedInputVolume,
+                                                            vesselnessVolume=self.getCurrentVesselnessVolume(),
+                                                            seedsPositions=seedsPositions, endPositions=endPositions,
+                                                            levelSetParameters=self.levelSetParameters)

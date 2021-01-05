@@ -1,15 +1,15 @@
 from collections import OrderedDict
-import logging
 import os
 
 import ctk
 import qt
 import slicer
 
+from RVesselXLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
 from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNode, Signal, \
+from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNodeIfNecessary, Signal, \
   getMarkupIdPositionDictionary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget, VesselBranchTree
@@ -63,16 +63,17 @@ class VesselWidget(VerticalLayoutWidget):
       Vessels Branch Node Tree : View tree to select, add, show / hide vessels intersection to extract them in one go
   """
 
-  def __init__(self, logic):
+  def __init__(self, logic, widgetName, setupBranchF):
     """
     Parameters
     ----------
     logic: RVesselXModuleLogic
     """
-    VerticalLayoutWidget.__init__(self, "Vessel Tab")
+    VerticalLayoutWidget.__init__(self, widgetName + " Tab")
 
     self.vesselSegmentationChanged = Signal("vtkMRMLLabelMapVolumeNode", "List[str]")
 
+    self._widgetName = widgetName
     self._vesselStartSelector = None
     self._vesselEndSelector = None
     self._vesselnessVolume = None
@@ -82,7 +83,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselnessDisplay = None
     self._logic = logic
     self._segmentationOpacity = 0.7  # Initial segmentation opacity set to 70% to still view the vessel tree
-    self._vesselBranchWidget = VesselBranchWidget()
+    self._vesselBranchWidget = VesselBranchWidget(setupBranchF)
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
     self._vesselBranchWidget.treeValidityChanged.connect(self._updateButtonStatusAndFilterParameters)
 
@@ -360,7 +361,7 @@ class VesselWidget(VerticalLayoutWidget):
     if self._vesselnessDisplay is not None:
       self._vesselnessDisplay.SetVisibility(False)
 
-    self._vesselnessDisplay = createDisplayNode(vesselness, "Vesselness")
+    self._vesselnessDisplay = createDisplayNodeIfNecessary(vesselness, "Vesselness")
     return self._vesselnessDisplay
 
   def _extractVessel(self):
@@ -407,7 +408,7 @@ class VesselWidget(VerticalLayoutWidget):
       qt.QMessageBox.warning(self, "Failed to extract vessels", warning_message)
 
     progressDialog.hide()
-    self._updateVesselnessVisibility()
+    self._updateVisibility()
 
   def _removePreviouslyExtractedVessels(self):
     """Remove previous nodes from mrmlScene if necessary.
@@ -495,9 +496,10 @@ class VesselWidget(VerticalLayoutWidget):
       self._updateButtonStatusAndFilterParameters()
 
   def getGeometryExporters(self):
-    return [GeometryExporter(vesselsVolume=self._vesselVolumeNode, vesselsOuterMesh=self._vesselModelNode,
-                             vesselsNode=self._vesselBranchWidget.getBranchMarkupNode()),
-            VesselAdjacencyMatrixExporter(vesselsAdjacencyMatrix=self._vesselBranchWidget.getBranchTree())]
+    name = self._widgetName.replace(" ", "")
+    return [GeometryExporter(**{name + "TreeRaw": self._vesselVolumeNode, name + "TreeRawModel": self._vesselModelNode,
+                                name + "Node": self._vesselBranchWidget.getBranchMarkupNode()}),
+            VesselAdjacencyMatrixExporter(**{name + "AdjacencyMatrix": self._vesselBranchWidget.getBranchTree()})]
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
@@ -506,19 +508,34 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselVolumeNode.SetDisplayVisibility(isVisible)
     self._vesselModelNode.SetDisplayVisibility(isVisible)
 
+    def show_label_in_2d_views():
+      slicer.util.setSliceViewerLayers(label=self._vesselVolumeNode if isVisible else None)
+
+    qt.QTimer.singleShot(0, show_label_in_2d_views)
+
   def showEvent(self, event):
-    self._vesselBranchWidget.enableShortcuts(True)
-    self._vesselBranchWidget.setVisibleInScene(True)
-    self._setExtractedVolumeVisible(True)
-    self._updateVesselnessVisibility()
     super(VesselWidget, self).showEvent(event)
+    self._updateVisibility()
 
   def hideEvent(self, event):
-    self._vesselBranchWidget.enableShortcuts(False)
-    self._vesselBranchWidget.setVisibleInScene(False)
-    self._setExtractedVolumeVisible(False)
-    self._setVesselnessVisible(False)
     super(VesselWidget, self).hideEvent(event)
+    self._updateVisibility()
+
+  def _updateVisibility(self):
+    self._vesselBranchWidget.enableShortcuts(self.visible)
+    self._vesselBranchWidget.setVisibleInScene(self.visible)
+    self._setExtractedVolumeVisible(self.visible)
+    self._setVesselnessVisible(self._showVesselness if self.visible else False)
 
   def getVesselWizard(self):
     return self._vesselBranchWidget.getVesselWizard()
+
+
+class PortalVesselWidget(VesselWidget):
+  def __init__(self, logic):
+    super(PortalVesselWidget, self).__init__(logic, "Portal Vessels", setup_portal_vein_default_branch)
+
+
+class IVCVesselWidget(VesselWidget):
+  def __init__(self, logic):
+    super(IVCVesselWidget, self).__init__(logic, "IVC Vessels", setup_inferior_cava_vein_default_branch)

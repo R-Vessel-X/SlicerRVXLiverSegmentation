@@ -10,9 +10,9 @@ class VesselSegmentEditWidget(SegmentWidget):
   Class responsible for editing the vessel automatic segmentation
   """
 
-  def __init__(self, logic, treeWizard):
-    super(VesselSegmentEditWidget, self).__init__("Vessel Segmentation Edit Tab", "VesselTree")
-    self._vesselSegmentName = "VesselTree"
+  def __init__(self, logic, treeWizard, widgetName):
+    super(VesselSegmentEditWidget, self).__init__(widgetName + " Edit Tab", widgetName.replace(" ", "") + "Tree")
+    self._widgetName = widgetName
     self._vesselBranches = NodeBranches()
     self._logic = logic
     self._centerLineVolume = None
@@ -50,13 +50,13 @@ class VesselSegmentEditWidget(SegmentWidget):
     progressDialog.hide()
 
   def _extractCenterLine(self):
-    branchVolume = self._getSegmentClosedModel(self._vesselSegmentName)
+    branchVolume = self._getSegmentClosedModel(self._segmentNodeName)
     if self._hasInvalidVolume(branchVolume):
       return
 
     startPoints, endPoints = self._vesselBranches.startPoints(), self._vesselBranches.endPoints()
     self._centerLineVolume = self._logic.centerLineFilterFromNodePositions(branchVolume, startPoints, endPoints)
-    self._centerLineVolume.SetName(self._vesselSegmentName + "CenterLine")
+    self._centerLineVolume.SetName(self._segmentNodeName + "CenterLine")
 
   def _prepareSplittingTools(self):
     # Get segmentation editor widget
@@ -66,7 +66,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._selectScissorsWithFillInsideOption(segmentEditorNode)
 
     # Set filtered segment as vessel tree
-    treeId = self._segmentNode.GetSegmentation().GetSegmentIdBySegmentName(self._vesselSegmentName)
+    treeId = self._segmentNode.GetSegmentation().GetSegmentIdBySegmentName(self._segmentNodeName)
     segmentEditorNode.SetMaskSegmentID(treeId)
 
     # Allow editing inside a segment only
@@ -113,19 +113,11 @@ class VesselSegmentEditWidget(SegmentWidget):
     self._centerLineVolume = None
 
   def onVesselSegmentationChanged(self, vesselLabelMap, vesselBranches):
-    self._removeAllSegmentationNodes()
+    self.clear()
     self._importLabelMap(vesselLabelMap)
     self._vesselBranches = vesselBranches
     self._proceedButton.setEnabled(True)
-
-  def _removeAllSegmentationNodes(self):
-    segmentIds = []
-    for i in range(self._segmentationObj().GetNumberOfSegments()):
-      segmentIds.append(
-        self._segmentationObj().GetSegmentIdBySegmentName(self._segmentationObj().GetNthSegment(i).GetName()))
-
-    for segmentId in segmentIds:
-      self._segmentationObj().RemoveSegment(segmentId)
+    self.setVisibleInScene(self.visible)
 
   def _importLabelMap(self, vesselLabelMap):
     self._segmentationLogic.ImportLabelmapToSegmentationNode(vesselLabelMap, self._segmentNode)
@@ -136,13 +128,14 @@ class VesselSegmentEditWidget(SegmentWidget):
       raise ValueError("Failed to extract vessel tree from vesselness volume.")
 
     # Rename imported segment
-    self._segmentationObj().GetNthSegment(0).SetName(self._vesselSegmentName)
+    self._segmentationObj().GetNthSegment(0).SetName(self._segmentNodeName)
 
   def getGeometryExporters(self):
     exporters = super(VesselSegmentEditWidget, self).getGeometryExporters()
     if self._centerLineVolume is not None:
       exporters.append(GeometryExporter(**{self._centerLineVolume.GetName(): self._centerLineVolume}))
-      return exporters
+
+    return exporters
 
   def setVisibleInScene(self, isVisible):
     self._treeWizard.setVisibleInScene(isVisible)
@@ -163,3 +156,13 @@ class VesselSegmentEditWidget(SegmentWidget):
 
   def _segmentationObj(self):
     return self._segmentNode.GetSegmentation()
+
+
+class PortalVesselEditWidget(VesselSegmentEditWidget):
+  def __init__(self, logic, treeWizard):
+    super(PortalVesselEditWidget, self).__init__(logic, treeWizard, "Portal Vessels")
+
+
+class IVCVesselEditWidget(VesselSegmentEditWidget):
+  def __init__(self, logic, treeWizard):
+    super(IVCVesselEditWidget, self).__init__(logic, treeWizard, "IVC Vessels")

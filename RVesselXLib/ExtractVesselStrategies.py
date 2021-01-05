@@ -402,7 +402,7 @@ class ExtractOneVesselPerParentAndSubChildNode(ExtractVesselFromVesselSeedPoints
 
 
 class ExtractOneVesselPerBranch(ExtractVesselFromVesselSeedPointsStrategy):
-  """Strategy uses continuous nodes without parents to extract VTMK runs
+  """Strategy uses continuous nodes without parents to extract VMTK runs
 
   Example :
     n0

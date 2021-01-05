@@ -4,6 +4,7 @@ from RVesselXLib import Signal, jumpSlicesToNthMarkupPosition
 
 
 class VeinId(object):
+  portalVeinRoot = "PortalVeinRoot"
   portalVein = "PortalVein"
   rightPortalVein = "RightPortalVein"
   leftPortalVein = "LeftPortalVein"
@@ -17,10 +18,37 @@ class VeinId(object):
   segmentalBranch_7 = "SegmentalBranch_7"
   segmentalBranch_8 = "SegmentalBranch_8"
 
+  inferiorCavaVeinRoot = "InferiorCavaVeinRoot"
+  inferiorCavaVein = "InferiorCavaVein"
+  rightHepaticVein = "RightHepaticVein"
+  rightHepaticVein_RightBranch = "RightHepaticVein_RightBranch"
+  rightHepaticVein_LeftBranch = "RightHepaticVein_LeftBranch"
+  medianHepaticVein = "MedianHepaticVein"
+  medianHepaticVein_RightBranch = "MedianHepaticVein_RightBranch"
+  medianHepaticVein_LeftBranch = "MedianHepaticVein_LeftBranch"
+  leftHepaticVein = "LeftHepaticVein"
+  leftHepaticVein_RightBranch = "LeftHepaticVein_RightBranch"
+  leftHepaticVein_LeftBranch = "LeftHepaticVein_LeftBranch"
+
+  hepaticVein_Segment_1 = "HepaticVein_Segment_1"
+  hepaticVein_Segment_2 = "HepaticVein_Segment_2"
+  hepaticVein_Segment_3 = "HepaticVein_Segment_3"
+  hepaticVein_Segment_4 = "HepaticVein_Segment_4"
+  hepaticVein_Segment_5 = "HepaticVein_Segment_5"
+  hepaticVein_Segment_6 = "HepaticVein_Segment_6"
+  hepaticVein_Segment_7 = "HepaticVein_Segment_7"
+  hepaticVein_Segment_8 = "HepaticVein_Segment_8"
+
   def sortedIds(self):
-    return [self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch, self.posteriorBranch,
-            self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4, self.segmentalBranch_5,
-            self.segmentalBranch_6, self.segmentalBranch_7, self.segmentalBranch_8]
+    return [self.portalVeinRoot, self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch,
+            self.posteriorBranch, self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4,
+            self.segmentalBranch_5, self.segmentalBranch_6, self.segmentalBranch_7, self.segmentalBranch_8,
+            self.inferiorCavaVeinRoot, self.inferiorCavaVein, self.rightHepaticVein, self.rightHepaticVein_RightBranch,
+            self.rightHepaticVein_LeftBranch, self.medianHepaticVein, self.medianHepaticVein_RightBranch,
+            self.medianHepaticVein_LeftBranch, self.leftHepaticVein, self.leftHepaticVein_RightBranch,
+            self.leftHepaticVein_LeftBranch, self.hepaticVein_Segment_1, self.hepaticVein_Segment_2,
+            self.hepaticVein_Segment_3, self.hepaticVein_Segment_4, self.hepaticVein_Segment_5,
+            self.hepaticVein_Segment_6, self.hepaticVein_Segment_7, self.hepaticVein_Segment_8]
 
 
 class NodeBranches(object):
@@ -60,6 +88,50 @@ class InteractionStatus(object):
   PLACING = "Placing"
 
 
+def setup_portal_vein_default_branch(tree):
+  branches = [(VeinId.portalVeinRoot, None),  #
+              (VeinId.portalVein, VeinId.portalVeinRoot),  #
+              (VeinId.rightPortalVein, VeinId.portalVein),  #
+              (VeinId.leftPortalVein, VeinId.portalVein),  #
+              (VeinId.anteriorBranch, VeinId.rightPortalVein),  #
+              (VeinId.posteriorBranch, VeinId.rightPortalVein),  #
+              (VeinId.segmentalBranch_3, VeinId.leftPortalVein),  #
+              (VeinId.segmentalBranch_2, VeinId.leftPortalVein),  #
+              (VeinId.segmentalBranch_4, VeinId.leftPortalVein),  #
+              (VeinId.segmentalBranch_8, VeinId.anteriorBranch),  #
+              (VeinId.segmentalBranch_5, VeinId.anteriorBranch),  #
+              (VeinId.segmentalBranch_7, VeinId.posteriorBranch),  #
+              (VeinId.segmentalBranch_6, VeinId.posteriorBranch)]
+
+  for child, parent in branches:
+    tree.insertAfterNode(nodeId=child, parentNodeId=parent)
+
+
+def setup_inferior_cava_vein_default_branch(tree):
+  branches = [(VeinId.inferiorCavaVeinRoot, None),  #
+              (VeinId.inferiorCavaVein, VeinId.inferiorCavaVeinRoot),  #
+              (VeinId.rightHepaticVein, VeinId.inferiorCavaVein),  #
+              (VeinId.medianHepaticVein, VeinId.inferiorCavaVein),  #
+              (VeinId.leftHepaticVein, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_1, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_2, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_3, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_4, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_5, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_6, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_7, VeinId.inferiorCavaVein),  #
+              (VeinId.hepaticVein_Segment_8, VeinId.inferiorCavaVein),  #
+              (VeinId.rightHepaticVein_RightBranch, VeinId.rightHepaticVein),  #
+              (VeinId.rightHepaticVein_LeftBranch, VeinId.rightHepaticVein),  #
+              (VeinId.medianHepaticVein_RightBranch, VeinId.medianHepaticVein),  #
+              (VeinId.medianHepaticVein_LeftBranch, VeinId.medianHepaticVein),  #
+              (VeinId.leftHepaticVein_RightBranch, VeinId.leftHepaticVein),  #
+              (VeinId.leftHepaticVein_LeftBranch, VeinId.leftHepaticVein)]
+
+  for child, parent in branches:
+    tree.insertAfterNode(nodeId=child, parentNodeId=parent)
+
+
 class VesselBranchWizard(object):
   """
   Object responsible for handling interaction with the branch tree and the markup in the 3D and 2D views.
@@ -67,18 +139,20 @@ class VesselBranchWizard(object):
   modifiers
   """
 
-  def __init__(self, tree, markupNode, nodePlaceWidget, treeDrawer):
+  def __init__(self, tree, markupNode, nodePlaceWidget, treeDrawer, setupDefaultBranchF):
     """
     Parameters
     ----------
-    tree: VesselBranchTree
+    tree: VesselBranchTree.VesselBranchTree
     markupNode: MarkupNode
     nodePlaceWidget: INodePlaceWidget
     treeDrawer: TreeDrawer
+    setupDefaultBranchF: Callable[]
     """
     self._tree = tree
     self._node = markupNode
     self._node.SetLocked(True)
+    self._setupDefaultBranchF = setupDefaultBranchF
     self._setupDefaultBranchNodes()
     self._placeWidget = nodePlaceWidget
     self._currentTreeItem = None
@@ -118,18 +192,7 @@ class VesselBranchWizard(object):
     """
     Prepares tree with the different hepatic vessel node names
     """
-    self._tree.insertAfterNode(VeinId.portalVein, None)
-    self._tree.insertAfterNode(VeinId.rightPortalVein, VeinId.portalVein)
-    self._tree.insertAfterNode(VeinId.leftPortalVein, VeinId.portalVein)
-    self._tree.insertAfterNode(VeinId.anteriorBranch, VeinId.rightPortalVein)
-    self._tree.insertAfterNode(VeinId.posteriorBranch, VeinId.rightPortalVein)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_3, VeinId.leftPortalVein)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_2, VeinId.leftPortalVein)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_4, VeinId.leftPortalVein)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_8, VeinId.anteriorBranch)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_5, VeinId.anteriorBranch)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_7, VeinId.posteriorBranch)
-    self._tree.insertAfterNode(VeinId.segmentalBranch_6, VeinId.posteriorBranch)
+    self._setupDefaultBranchF(self._tree)
     self._placingFinished = False
 
   def getInteractionStatus(self):
@@ -150,7 +213,8 @@ class VesselBranchWizard(object):
   def _isCurrentNodePlaced(self):
     return self._currentItemPlaceStatus() == PlaceStatus.PLACED
 
-  def _isNodeItemPlaced(self, nodeItem):
+  @staticmethod
+  def _isNodeItemPlaced(nodeItem):
     return nodeItem.status == PlaceStatus.PLACED if nodeItem is not None else False
 
   def _isParentNodePlaced(self):
@@ -292,7 +356,8 @@ class VesselBranchWizard(object):
     self._currentTreeItem = self._tree.getTreeWidgetItem(insertedId)
     self.onInsertBeforeNode()
 
-  def _nextInsertedNodeId(self, nodeId):
+  @staticmethod
+  def _nextInsertedNodeId(nodeId):
     """
     :type nodeId: str
     :return: new node ID with base inputNodeId followed by _nodeIndex

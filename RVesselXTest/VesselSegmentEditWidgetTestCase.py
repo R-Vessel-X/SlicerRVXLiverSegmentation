@@ -1,9 +1,15 @@
 import unittest
 
+import qt
 import slicer
 
 from RVesselXLib import RVesselXModuleLogic, VesselSegmentEditWidget, NodeBranches
 from RVesselXTest.ModuleLogicTestCase import prepareEndToEndTest
+
+
+class FakeTreeWizard(object):
+  def setVisibleInScene(self, isVisible):
+    pass
 
 
 class VesselSegmentEditWidgetTestCase(unittest.TestCase):
@@ -12,7 +18,13 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
     """
     slicer.mrmlScene.Clear(0)
     self.logic = RVesselXModuleLogic()
-    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=None)
+    self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard(), widgetName="")
+
+  def testExportWhenNoSegmentationDoneDoesntRaise(self):
+    tmpDir = qt.QTemporaryDir()
+    exporters = self.vesselEdit.getGeometryExporters()
+    for exporter in exporters:
+      exporter.exportToDirectory(tmpDir.path())
 
   def testVesselSegmentEditExtractsOneCenterlineFromInputBranch(self):
     # Prepare source volume, start position and end position

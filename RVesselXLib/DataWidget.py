@@ -3,7 +3,7 @@ import qt
 import slicer
 import vtk
 
-from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNode
+from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNodeIfNecessary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -157,7 +157,7 @@ class DataWidget(VerticalLayoutWidget):
     """
     try:
       dicomWidget = slicer.modules.DICOMWidget
-    except:
+    except AttributeError:
       dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
 
     if dicomWidget is not None:
@@ -208,7 +208,7 @@ class DataWidget(VerticalLayoutWidget):
       self._volumeDisplayNode.SetVisibility(False)
 
     # Create new display node for input volume
-    self._volumeDisplayNode = createDisplayNode(volumeNode, 'MR-Default')
+    self._volumeDisplayNode = createDisplayNodeIfNecessary(volumeNode, 'MR-Default')
     self._volumeDisplayNode.SetFollowVolumeDisplayNode(True)
 
     slicer.util.resetThreeDViews()

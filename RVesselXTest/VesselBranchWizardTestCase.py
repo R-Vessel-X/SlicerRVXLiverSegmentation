@@ -2,7 +2,8 @@ import qt
 import slicer
 import unittest
 
-from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole
+from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole, \
+  setup_portal_vein_default_branch
 from RVesselXLib.VesselBranchTree import MarkupNode, TreeDrawer, INodePlaceWidget
 from RVesselXLib.VesselBranchWizard import InteractionStatus
 
@@ -54,7 +55,8 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.treeDrawer.updateTreeLines = Mock()
 
     # Create interactor with dependencies
-    self.wizard = VesselBranchWizard(self.tree, self.markupNode, self.nodePlace, self.treeDrawer)
+    self.wizard = VesselBranchWizard(self.tree, self.markupNode, self.nodePlace, self.treeDrawer,
+                                     setupDefaultBranchF=setup_portal_vein_default_branch)
 
     self.status_update_listener = Mock()
     self.wizard.interactionChanged.connect(self.status_update_listener)
@@ -73,7 +75,8 @@ class VesselBranchWizardTestCase(unittest.TestCase):
   def test_given_construction_populates_tree_with_predefined_node_names(self):
     # Expect tree widget to be constructed with proper names
     expTree = [  #
-      [None, VeinId.portalVein],  #
+      [None, VeinId.portalVeinRoot],  #
+      [VeinId.portalVeinRoot, VeinId.portalVein],  #
       [VeinId.portalVein, VeinId.rightPortalVein],  #
       [VeinId.portalVein, VeinId.leftPortalVein],  #
       [VeinId.rightPortalVein, VeinId.anteriorBranch],  #

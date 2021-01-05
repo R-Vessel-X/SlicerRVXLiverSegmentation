@@ -1,11 +1,11 @@
 import os
 import unittest
 
+import numpy as np
 import slicer
 
-from RVesselXLib import RVesselXModuleLogic, GeometryExporter, cropSourceVolume
+from RVesselXLib import RVesselXModuleLogic, GeometryExporter, getVolumeIJKToRASDirectionMatrixAsNumpyArray
 from .TestUtils import TemporaryDir, createNonEmptyVolume, createNonEmptyModel
-import numpy as np
 
 
 def prepareEndToEndTest():
@@ -41,11 +41,35 @@ class RVesselXModuleTestCase(unittest.TestCase):
     self.assertIsNotNone(outModel)
     self.assertNotEqual(0, outModel.GetPolyData().GetNumberOfCells())
 
+  def testSegmentedVesselPositionAndSizeIsTheSameAsSourceVolume(self):
+    # Prepare source volume, start position and end position
+    sourceVolume, startPosition, endPosition = prepareEndToEndTest()
+
+    # Run vessel extraction and expect non empty values and data
+    logic = RVesselXModuleLogic()
+    logic.setInputVolume(sourceVolume)
+    logic.updateVesselnessVolume([startPosition, endPosition])
+    _, _, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition], [endPosition])
+
+    # Assert segmentation volume contains data
+    self.assertGreater(np.max(slicer.util.arrayFromVolume(outVolume)), 0)
+
+    # Origin
+    np.testing.assert_array_almost_equal(sourceVolume.GetOrigin(), outVolume.GetOrigin())
+
+    # Spacing
+    np.testing.assert_array_almost_equal(sourceVolume.GetSpacing(), outVolume.GetSpacing())
+
+    # Orientation matrix
+    np.testing.assert_array_almost_equal(getVolumeIJKToRASDirectionMatrixAsNumpyArray(sourceVolume),
+                                         getVolumeIJKToRASDirectionMatrixAsNumpyArray(outVolume))
+
+    # Image dimensions
+    np.testing.assert_array_almost_equal(sourceVolume.GetImageData().GetDimensions(),
+                                         outVolume.GetImageData().GetDimensions())
+
   def testLogicRaisesErrorWhenCalledWithNoneInputs(self):
     logic = RVesselXModuleLogic()
-
-    with self.assertRaises(ValueError):
-      logic._applyLevelSetSegmentation(None, None, None, None, None)
 
     with self.assertRaises(ValueError):
       logic._applyVesselnessFilter(None, None)
