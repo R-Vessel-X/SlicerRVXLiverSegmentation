@@ -9,43 +9,32 @@ from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNod
   createModelNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, cloneSourceVolume, \
   getVolumeIJKToRASDirectionMatrixAsNumpyArray
 
+try:
+  from LevelSetSegmentation import LevelSetSegmentationWidget, LevelSetSegmentationLogic
+  from VesselnessFiltering import VesselnessFilteringLogic
+  from CenterlineComputation import CenterlineComputationLogic
+
+  VMTK_FOUND = True
+except ImportError:
+  VMTK_FOUND = False
+
 
 class VMTKModule(object):
-  """Helper class for loading VMTK module and accessing VMTK Module logic from RVessel module
+  """
+  Helper class for accessing VMTK Module logic from RVessel module
   """
 
   @staticmethod
-  def tryToLoad():
-    """Try to load every VMTK widgets in slicer.
-
-    Returns
-    -------
-      list of VMTK modules where loading failed. Empty list if success
-    """
-    notFound = []
-    for moduleName in ["VesselnessFiltering", "LevelSetSegmentation", "CenterlineComputation"]:
-      try:
-        slicer.util.getModule(moduleName).widgetRepresentation()
-      except AttributeError:
-        notFound.append(moduleName)
-
-    return notFound
-
-  @staticmethod
   def getVesselnessFilteringLogic():
-    return slicer.modules.VesselnessFilteringWidget.logic
+    return VesselnessFilteringLogic()
 
   @staticmethod
   def getLevelSetSegmentationLogic():
-    return VMTKModule.getLevelSetSegmentationWidget().logic
-
-  @staticmethod
-  def getLevelSetSegmentationWidget():
-    return slicer.modules.LevelSetSegmentationWidget
+    return LevelSetSegmentationLogic()
 
   @staticmethod
   def getCenterlineComputationLogic():
-    return slicer.modules.CenterlineComputationWidget.logic
+    return CenterlineComputationLogic()
 
 
 class VesselnessFilterParameters(object):
@@ -111,9 +100,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self, parent)
     IRVesselXModuleLogic.__init__(self)
 
-    notFound = VMTKModule.tryToLoad()
-    if notFound:
-      errorMsg = "Failed to load the following VMTK Modules : %s\nPlease make sure VMTK is installed." % notFound
+    if not VMTK_FOUND:
+      errorMsg = "Failed to import VMTK Modules\nPlease make sure VMTK is installed."
       slicer.util.errorDisplay(errorMsg)
 
     self._inputVolume = None
@@ -231,7 +219,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
                                  vesselnessVolume=(vesselnessVolume, "vtkMRMLScalarVolumeNode"))
 
     # Get module logic from VMTK LevelSetSegmentation
-    segmentationWidget = VMTKModule.getLevelSetSegmentationWidget()
     segmentationLogic = VMTKModule.getLevelSetSegmentationLogic()
 
     # Create output volume node
@@ -246,9 +233,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     # now we need to convert the fiducials to vtkIdLists
     seedsNodes = createFiducialNode("LevelSetSegmentationSeeds", *allSeedsPositions)
     stoppersNodes = createFiducialNode("LevelSetSegmentationStoppers", *endPositions)
-    seeds = segmentationWidget.convertFiducialHierarchyToVtkIdList(seedsNodes, vesselnessVolume)
-    stoppers = segmentationWidget.convertFiducialHierarchyToVtkIdList(stoppersNodes,
-                                                                      vesselnessVolume) if stoppersNodes else vtk.vtkIdList()
+    seeds = LevelSetSegmentationWidget.convertFiducialHierarchyToVtkIdList(seedsNodes, vesselnessVolume)
+    stoppers = LevelSetSegmentationWidget.convertFiducialHierarchyToVtkIdList(stoppersNodes,
+                                                                              vesselnessVolume) if stoppersNodes else vtk.vtkIdList()
 
     # the input image for the initialization
     inputImage = vtk.vtkImageData()
