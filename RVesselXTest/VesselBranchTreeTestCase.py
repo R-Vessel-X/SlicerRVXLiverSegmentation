@@ -1,6 +1,7 @@
 import unittest
 
 from RVesselXLib import VesselBranchTree, PlaceStatus, VesselAdjacencyMatrixExporter
+from TestUtils import FakeMarkupNode
 
 
 class VesselBranchTreeTestCase(unittest.TestCase):
@@ -137,6 +138,47 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     nodes, matrix = VesselAdjacencyMatrixExporter.toAdjacencyMatrix(branchWidget)
     self.assertEqual(exp_nodes, nodes)
     self.assertEqual(exp_matrix, matrix)
+
+  def testBranchTreeAndNodesCanBeExportedInDgtalFormat(self):
+    # ParentId
+    #     |_ Child1Id
+    #     |_ Child2Id
+    #             |_ SubChild1Id
+    #                     |_ SubSubChild1Id
+
+    branchWidget = VesselBranchTree()
+    branchWidget.insertAfterNode("N00", None)
+    branchWidget.insertAfterNode("N10", "N00")
+    branchWidget.insertAfterNode("N11", "N00")
+    branchWidget.insertAfterNode("N20", "N11")
+    branchWidget.insertAfterNode("N30", "N20")
+
+    markup = FakeMarkupNode()
+    markup.add_node("N00", [0] * 3)
+    markup.add_node("N10", [1] * 3)
+    markup.add_node("N11", [2] * 3)
+    markup.add_node("N20", [3] * 3)
+    markup.add_node("N30", [4] * 3)
+
+    edges, vertex = VesselAdjacencyMatrixExporter.toDgtal(markup, branchWidget)
+
+    exp_edges = [  #
+      [0, 1],  #
+      [0, 2],  #
+      [2, 3],  #
+      [3, 4],  #
+    ]
+
+    exp_vertex = [  #
+      [0] * 3,  #
+      [1] * 3,  #
+      [2] * 3,  #
+      [3] * 3,  #
+      [4] * 3,  #
+    ]
+
+    self.assertEqual(exp_edges, edges)
+    self.assertEqual(exp_vertex, vertex)
 
   def testWhenInsertBeforeNodeNewNodeIsInsertedBetweenNodeParentAndNode(self):
     # Before Tree

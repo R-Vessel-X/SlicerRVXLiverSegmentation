@@ -20,11 +20,12 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
     GeometryExporter.__init__(self, **elementsToExport)
 
   def exportToDirectory(self, selectedDir):
-    for treeName, tree in self._elementsToExport.items():
-      output_file = os.path.join(selectedDir, treeName + ".csv")
-      self._exportAsCSV(tree, output_file)
+    for treeName, (markup, tree) in self._elementsToExport.items():
+      base_path = os.path.join(selectedDir, treeName)
+      self._exportTreeAsAdjacencyCSV(tree, base_path + "AdjacencyMatrix.csv")
+      self._exportTreeAndMarkupAsDgtalFormat(markup, tree, base_path)
 
-  def _exportAsCSV(self, tree, output_file):
+  def _exportTreeAsAdjacencyCSV(self, tree, output_file):
     tree_nodes, adjacency_matrix = self.toAdjacencyMatrix(tree)
     with open(output_file, "w") as f:
       sep = ";"
@@ -33,8 +34,20 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
       for i_node, node_name in enumerate(tree_nodes):
         f.write(sep.join([node_name] + map(str, adjacency_matrix[i_node])) + "\n")
 
-  @staticmethod
-  def toAdjacencyMatrix(tree):
+  def _exportTreeAndMarkupAsDgtalFormat(self, markup, tree, basePath):
+    edges, vertices = self.toDgtal(markup, tree)
+    self._toSpaceSepFile(edges, basePath + "_edges.bat")
+    self._toSpaceSepFile(vertices, basePath + "_vertex.sdp")
+
+  @classmethod
+  def _toSpaceSepFile(cls, matrix, filePath):
+    with open(filePath, "w") as f:
+      for r in matrix:
+        r_str = " ".join([str(c) for c in r])
+        f.write(r_str + "\n")
+
+  @classmethod
+  def toAdjacencyMatrix(cls, tree):
     """
     :type tree: VesselBranchTree
     :return: Tuple[List[str], List[List[int]]]
@@ -51,6 +64,40 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
       matrix.append(row)
 
     return node_list, matrix
+
+  @classmethod
+  def toDgtal(cls, markup, tree):
+    """
+    Convert the input markup node and associated tree to dgtal output format.
+    https://github.com/DGtal-team/DGtalTools-contrib/tree/master/Samples
+
+    Parameters
+    ----------
+      markup: Slicer MarkupFiducialNode
+      tree: VesselBranchTree
+
+    Returns
+    -------
+      Edges, Vertices
+      Tuple[List[List[int]], List[List[int]]]
+    """
+
+    node_list, matrix = cls.toAdjacencyMatrix(tree)
+
+    vertices = []
+    edges = []
+    for i_n, node_name in enumerate(node_list):
+      node_position = [0] * 3
+      markup.GetNthFiducialPosition(i_n, node_position)
+      vertices.append(node_position)
+
+    l_matrix = len(matrix)
+    for row in range(l_matrix):
+      for col in range(row, l_matrix):
+        if matrix[row][col]:
+          edges.append([row, col])
+
+    return edges, vertices
 
 
 class VesselWidget(VerticalLayoutWidget):
@@ -497,9 +544,9 @@ class VesselWidget(VerticalLayoutWidget):
 
   def getGeometryExporters(self):
     name = self._widgetName.replace(" ", "")
-    return [GeometryExporter(**{name + "TreeRaw": self._vesselVolumeNode, name + "TreeRawModel": self._vesselModelNode,
-                                name + "Node": self._vesselBranchWidget.getBranchMarkupNode()}),
-            VesselAdjacencyMatrixExporter(**{name + "AdjacencyMatrix": self._vesselBranchWidget.getBranchTree()})]
+    node = self._vesselBranchWidget.getBranchMarkupNode()
+    return [GeometryExporter(**{name + "Node": node}),
+            VesselAdjacencyMatrixExporter(**{name: (node, self._vesselBranchWidget.getBranchTree())})]
 
   def _setExtractedVolumeVisible(self, isVisible):
     if self._vesselVolumeNode is None or self._vesselModelNode is None:
