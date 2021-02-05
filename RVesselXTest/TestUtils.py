@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import slicer
 import vtk
 
@@ -69,3 +71,24 @@ def createNonEmptyModel(modelName="ModelName"):
   modelNode.SetAndObservePolyData(sphere.GetOutput())
   modelNode.SetName(modelName)
   return modelNode
+
+
+class FakeMarkupNode(object):
+  """Partial implementation of a markup with injection of positions and node IDs"""
+
+  def __init__(self):
+    self._nodes = OrderedDict()
+
+  def add_node(self, label, position):
+    self._nodes[label] = position
+
+  def GetNumberOfFiducials(self):
+    return len(self._nodes)
+
+  def GetNthFiducialLabel(self, i_fiducial):
+    return self._nodes.keys()[i_fiducial]
+
+  def GetNthFiducialPosition(self, i_fiducial, out_position):
+    node_pos = self._nodes.values()[i_fiducial]
+    for i in range(len(out_position)):
+      out_position[i] = node_pos[i]
