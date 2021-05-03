@@ -84,10 +84,13 @@ class VesselBranchWizardTestCase(unittest.TestCase):
       [VeinId.leftPortalVein, "SegmentalBranch_3"],  #
       [VeinId.leftPortalVein, "SegmentalBranch_2"],  #
       [VeinId.leftPortalVein, "SegmentalBranch_4"],  #
+      [VeinId.leftPortalVein, "OptionalBranch_3"],  #
       ["AnteriorBranch", "SegmentalBranch_8"],  #
       ["AnteriorBranch", "SegmentalBranch_5"],  #
+      ["AnteriorBranch", "OptionalBranch_1"],  #
       ["PosteriorBranch", "SegmentalBranch_7"],  #
       ["PosteriorBranch", VeinId.segmentalBranch_6],  #
+      ["PosteriorBranch", "OptionalBranch_2"],  #
     ]
     self.assertEqual(sorted(expTree), sorted(self.tree.getTreeParentList()))
     self.assertEqual(0, self.markupNode.GetNumberOfFiducials())
@@ -154,8 +157,8 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.assertFalse(self.tree.isInTree(VeinId.rightPortalVein))
     self.assertFalse(self.markupNode.GetNthFiducialVisibility(1))
 
-  def test_given_segmental_branch_6_placed_placing_switch_to_left_portal_vein(self):
-    self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.segmentalBranch_6), 0)
+  def test_given_optional_branch_2_placed_placing_switch_to_left_portal_vein(self):
+    self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.portalOptional_2), 0)
     self.nodePlace.placeNode()
     self.assertIn(self.placing_text, self.tree.getText(VeinId.leftPortalVein))
 

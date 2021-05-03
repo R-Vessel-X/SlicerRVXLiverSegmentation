@@ -18,6 +18,10 @@ class VeinId(object):
   segmentalBranch_7 = "SegmentalBranch_7"
   segmentalBranch_8 = "SegmentalBranch_8"
 
+  portalOptional_1 = "OptionalBranch_1"
+  portalOptional_2 = "OptionalBranch_2"
+  portalOptional_3 = "OptionalBranch_3"
+
   inferiorCavaVeinRoot = "InferiorCavaVeinRoot"
   inferiorCavaVein = "InferiorCavaVein"
   rightHepaticVein = "RightHepaticVein"
@@ -39,6 +43,10 @@ class VeinId(object):
   hepaticVein_Segment_7 = "HepaticVein_Segment_7"
   hepaticVein_Segment_8 = "HepaticVein_Segment_8"
 
+  ivcOptional_1 = "OptionalBranch_1"
+  ivcOptional_2 = "OptionalBranch_2"
+  ivcOptional_3 = "OptionalBranch_3"
+
   def sortedIds(self):
     return [self.portalVeinRoot, self.portalVein, self.rightPortalVein, self.leftPortalVein, self.anteriorBranch,
             self.posteriorBranch, self.segmentalBranch_2, self.segmentalBranch_3, self.segmentalBranch_4,
@@ -48,7 +56,8 @@ class VeinId(object):
             self.medianHepaticVein_LeftBranch, self.leftHepaticVein, self.leftHepaticVein_RightBranch,
             self.leftHepaticVein_LeftBranch, self.hepaticVein_Segment_1, self.hepaticVein_Segment_2,
             self.hepaticVein_Segment_3, self.hepaticVein_Segment_4, self.hepaticVein_Segment_5,
-            self.hepaticVein_Segment_6, self.hepaticVein_Segment_7, self.hepaticVein_Segment_8]
+            self.hepaticVein_Segment_6, self.hepaticVein_Segment_7, self.hepaticVein_Segment_8, self.ivcOptional_1,
+            self.ivcOptional_2, self.ivcOptional_3, self.portalOptional_1, self.portalOptional_2, self.portalOptional_3]
 
 
 class NodeBranches(object):
@@ -98,10 +107,14 @@ def setup_portal_vein_default_branch(tree):
               (VeinId.segmentalBranch_3, VeinId.leftPortalVein),  #
               (VeinId.segmentalBranch_2, VeinId.leftPortalVein),  #
               (VeinId.segmentalBranch_4, VeinId.leftPortalVein),  #
+              (VeinId.portalOptional_3, VeinId.leftPortalVein),  #
               (VeinId.segmentalBranch_8, VeinId.anteriorBranch),  #
               (VeinId.segmentalBranch_5, VeinId.anteriorBranch),  #
+              (VeinId.portalOptional_1, VeinId.anteriorBranch),  #
               (VeinId.segmentalBranch_7, VeinId.posteriorBranch),  #
-              (VeinId.segmentalBranch_6, VeinId.posteriorBranch)]
+              (VeinId.segmentalBranch_6, VeinId.posteriorBranch),  #
+              (VeinId.portalOptional_2, VeinId.posteriorBranch),  #
+              ]
 
   for child, parent in branches:
     tree.insertAfterNode(nodeId=child, parentNodeId=parent)
@@ -123,10 +136,14 @@ def setup_inferior_cava_vein_default_branch(tree):
               (VeinId.hepaticVein_Segment_8, VeinId.inferiorCavaVein),  #
               (VeinId.rightHepaticVein_RightBranch, VeinId.rightHepaticVein),  #
               (VeinId.rightHepaticVein_LeftBranch, VeinId.rightHepaticVein),  #
+              (VeinId.ivcOptional_1, VeinId.rightHepaticVein),  #
               (VeinId.medianHepaticVein_RightBranch, VeinId.medianHepaticVein),  #
               (VeinId.medianHepaticVein_LeftBranch, VeinId.medianHepaticVein),  #
+              (VeinId.ivcOptional_2, VeinId.medianHepaticVein),  #
               (VeinId.leftHepaticVein_RightBranch, VeinId.leftHepaticVein),  #
-              (VeinId.leftHepaticVein_LeftBranch, VeinId.leftHepaticVein)]
+              (VeinId.leftHepaticVein_LeftBranch, VeinId.leftHepaticVein),  #
+              (VeinId.ivcOptional_3, VeinId.leftHepaticVein),  #
+              ]
 
   for child, parent in branches:
     tree.insertAfterNode(nodeId=child, parentNodeId=parent)
