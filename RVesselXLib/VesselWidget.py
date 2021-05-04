@@ -170,7 +170,8 @@ class VesselWidget(VerticalLayoutWidget):
     textScaleSlider.maximum = 20
     textScaleSlider.singleStep = 0.1
     textScaleSlider.value = markupDisplay.GetTextScale()
-    textScaleSlider.connect("valueChanged(double)", markupDisplay.SetTextScale)
+    valueChangedSig = "valueChanged(double)"
+    textScaleSlider.connect(valueChangedSig, markupDisplay.SetTextScale)
     advancedFormLayout.addRow("Node text scale:", textScaleSlider)
 
     glyphScale = ctk.ctkSliderWidget()
@@ -179,7 +180,7 @@ class VesselWidget(VerticalLayoutWidget):
     glyphScale.maximum = 20
     glyphScale.singleStep = 0.1
     glyphScale.value = markupDisplay.GetGlyphScale()
-    glyphScale.connect("valueChanged(double)", markupDisplay.SetGlyphScale)
+    glyphScale.connect(valueChangedSig, markupDisplay.SetGlyphScale)
     advancedFormLayout.addRow("Node glyph scale:", glyphScale)
 
     nodeOpacity = ctk.ctkSliderWidget()
@@ -188,7 +189,7 @@ class VesselWidget(VerticalLayoutWidget):
     nodeOpacity.maximum = 1
     nodeOpacity.singleStep = 0.1
     nodeOpacity.value = markupDisplay.GetOpacity()
-    nodeOpacity.connect("valueChanged(double)", markupDisplay.SetOpacity)
+    nodeOpacity.connect(valueChangedSig, markupDisplay.SetOpacity)
     advancedFormLayout.addRow("Node opacity:", nodeOpacity)
 
     # Tree display
@@ -199,7 +200,7 @@ class VesselWidget(VerticalLayoutWidget):
     treeLineSizeSlider.maximum = 20
     treeLineSizeSlider.singleStep = 0.1
     treeLineSizeSlider.value = tree.getLineWidth()
-    treeLineSizeSlider.connect("valueChanged(double)", tree.setLineWidth)
+    treeLineSizeSlider.connect(valueChangedSig, tree.setLineWidth)
     advancedFormLayout.addRow("Line width:", treeLineSizeSlider)
 
     treeLineOpacitySlider = ctk.ctkSliderWidget()
@@ -208,7 +209,7 @@ class VesselWidget(VerticalLayoutWidget):
     treeLineOpacitySlider.maximum = 1
     treeLineOpacitySlider.singleStep = 0.1
     treeLineOpacitySlider.value = tree.getOpacity()
-    treeLineOpacitySlider.connect("valueChanged(double)", tree.setOpacity)
+    treeLineOpacitySlider.connect(valueChangedSig, tree.setOpacity)
     advancedFormLayout.addRow("Line opacity:", treeLineOpacitySlider)
 
     # Segmented volume display
@@ -218,7 +219,7 @@ class VesselWidget(VerticalLayoutWidget):
     segmentationOpacity.maximum = 1
     segmentationOpacity.singleStep = 0.1
     segmentationOpacity.value = self._segmentationOpacity
-    segmentationOpacity.connect("valueChanged(double)", self._setSegmentationOpacity)
+    segmentationOpacity.connect(valueChangedSig, self._setSegmentationOpacity)
     advancedFormLayout.addRow("Segmentation opacity:", segmentationOpacity)
 
     return filterOptionCollapsibleButton
@@ -369,7 +370,7 @@ class VesselWidget(VerticalLayoutWidget):
 
     # Strategy combo box
     self._strategyChoice = qt.QComboBox()
-    self._strategyChoice.addItems(self._strategies.keys())
+    self._strategyChoice.addItems(list(self._strategies.keys()))
     self._strategyChoice.toolTip = "Choose the strategy for vessel tree segmentation"
     segmentationAdvancedFormLayout.addRow("Segmentation strategy:", self._strategyChoice)
 

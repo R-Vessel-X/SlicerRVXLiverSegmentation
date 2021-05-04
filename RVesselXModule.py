@@ -18,10 +18,8 @@ class RVesselXModule(ScriptedLoadableModule):
     self.parent.categories = [self.parent.title]
     self.parent.dependencies = []
     self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS"]
-    self.parent.helpText = """
-        """
-    self.parent.acknowledgementText = """
-        """
+    self.parent.helpText = ""
+    self.parent.acknowledgementText = ""
 
 
 class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
@@ -117,6 +115,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def setup(self):
     """Setups widget in Slicer UI.
     """
+    app_ver = slicer.app.applicationVersion.split(".")
+    vMajor = int(app_ver[0])
+    vMinor = int(app_ver[1])
+    if not (vMajor, vMinor) > (4, 10):
+      slicer.util.errorDisplay("The RVesselX plugin is only compatible from Slicer 4.11 onwards.\n"
+                               "Please download the latest Slicer version to use this plugin.")
+      return
+
     ScriptedLoadableModuleWidget.setup(self)
     # Reset tab list
     self._tabList = []

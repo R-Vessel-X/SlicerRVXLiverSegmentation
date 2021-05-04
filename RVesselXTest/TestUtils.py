@@ -22,7 +22,6 @@ class TemporaryDir(object):
   def __exit__(self, *args):
     import shutil
     shutil.rmtree(self._dir)
-    pass
 
 
 class FakeLogic(IRVesselXModuleLogic):
@@ -30,6 +29,7 @@ class FakeLogic(IRVesselXModuleLogic):
   """
 
   def __init__(self, returnedVessel=None):
+    super(FakeLogic, self).__init__()
     self.returnedVessel = returnedVessel
     self._input = None
 
@@ -73,6 +73,13 @@ def createNonEmptyModel(modelName="ModelName"):
   return modelNode
 
 
+def treeSort(tree):
+  def removeNone(iterable):
+    return [v if v is not None else "" for v in iterable]
+
+  return sorted(tree, key=removeNone)
+
+
 class FakeMarkupNode(object):
   """Partial implementation of a markup with injection of positions and node IDs"""
 
@@ -89,6 +96,6 @@ class FakeMarkupNode(object):
     return self._nodes.keys()[i_fiducial]
 
   def GetNthFiducialPosition(self, i_fiducial, out_position):
-    node_pos = self._nodes.values()[i_fiducial]
+    node_pos = list(self._nodes.values())[i_fiducial]
     for i in range(len(out_position)):
       out_position[i] = node_pos[i]

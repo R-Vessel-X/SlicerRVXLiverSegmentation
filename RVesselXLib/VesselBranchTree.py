@@ -649,8 +649,8 @@ class MarkupNode(object):
       pointAddedEvent = slicer.vtkMRMLMarkupsNode.MarkupAddedEvent
       pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointClickedEvent
     else:
-      pointAddedEvent = slicer.vtkMRMLMarkupsNode.PointAddedEvent
-      pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointStartInteractionEvent
+      pointAddedEvent = slicer.vtkMRMLMarkupsNode.PointPositionDefinedEvent
+      pointClickedEvent = slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent
 
     # Connect markup events as signals
     self._nodeObsId = []

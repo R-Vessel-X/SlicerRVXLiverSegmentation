@@ -4,11 +4,12 @@ import qt
 import slicer
 
 from RVesselXLib import RVesselXModuleLogic, VesselSegmentEditWidget, NodeBranches
-from RVesselXTest.ModuleLogicTestCase import prepareEndToEndTest
+from .ModuleLogicTestCase import prepareEndToEndTest
 
 
 class FakeTreeWizard(object):
   def setVisibleInScene(self, isVisible):
+    """Necessary interface in the tests"""
     pass
 
 

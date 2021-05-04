@@ -12,7 +12,7 @@ from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNod
 try:
   from LevelSetSegmentation import LevelSetSegmentationWidget, LevelSetSegmentationLogic
   from VesselnessFiltering import VesselnessFilteringLogic
-  from CenterlineComputation import CenterlineComputationLogic
+  from ExtractCenterline import ExtractCenterlineLogic
 
   VMTK_FOUND = True
 except ImportError:
@@ -33,8 +33,8 @@ class VMTKModule(object):
     return LevelSetSegmentationLogic()
 
   @staticmethod
-  def getCenterlineComputationLogic():
-    return CenterlineComputationLogic()
+  def getCenterlineExtractionLogic():
+    return ExtractCenterlineLogic()
 
 
 class VesselnessFilterParameters(object):
@@ -371,7 +371,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     polyData.RemoveDeletedCells()
 
   @staticmethod
-  def centerLineFilter(levelSetSegmentationModel, startPoint, endPoints):
+  def centerLineFilter(levelSetSegmentationModel, endPoints):
     """
     Extracts center line from input level set segmentation model (ie : vessel polyData) and start and end points
     Implementation copied from :
@@ -395,108 +395,25 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(levelSetSegmentationModel=(levelSetSegmentationModel, "vtkMRMLModelNode"),
-                                 startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"),
                                  endPoint=(endPoints, "vtkMRMLMarkupsFiducialNode"))
 
     # Create output node
     centerLineModel = createModelNode("CenterLineModel")
 
-    # the output models
-    preparedModel = vtk.vtkPolyData()
-    model = vtk.vtkPolyData()
-    network = vtk.vtkPolyData()
+    logic = VMTKModule.getCenterlineExtractionLogic()
 
-    logic = VMTKModule.getCenterlineComputationLogic()
+    # Preprocess poly data
+    targetNumberOfPoints = 5000
+    decimationAggressiveness = 4.0
+    subdivideInputSurface = False
+    inputSurfacePolyData = logic.polyDataFromNode(levelSetSegmentationModel, None)
+    preprocessedPolyData = logic.preprocess(inputSurfacePolyData, targetNumberOfPoints, decimationAggressiveness,
+                                            subdivideInputSurface)
 
     # grab the current coordinates
-    currentCoordinatesRAS = [0, 0, 0]
-    startPoint.GetNthFiducialPosition(0, currentCoordinatesRAS)
+    centerlinePolyData, _ = logic.extractCenterline(preprocessedPolyData, endPoints, 1.0)
 
-    # prepare the model
-    preparedModel.DeepCopy(logic.prepareModel(levelSetSegmentationModel.GetPolyData()))
-
-    # decimate the model (only for network extraction)
-    model.DeepCopy(logic.decimateSurface(preparedModel))
-
-    # open the model at the seed (only for network extraction)
-    RVesselXModuleLogic.openSurfaceAtPoint(model, currentCoordinatesRAS)
-
-    # extract Network
-    network.DeepCopy(logic.extractNetwork(model))
-
-    # here we start the actual centerline computation which is mathematically more robust and accurate but takes longer
-    # than the network extraction
-    # clip surface at endpoints identified by the network extraction
-    tupel = logic.clipSurfaceAtEndPoints(network, levelSetSegmentationModel.GetPolyData())
-    endpoints = tupel[1]
-
-    # now find the one endpoint which is closest to the seed and use it as the source point for centerline computation
-    # all other endpoints are the target points
-    # the following arrays have the same indexes and are synchronized at all times
-    distancesToSeed = []
-    targetPoints = []
-
-    # we now need to loop through the endpoints two times
-
-    # first loop is to detect the endpoint resulting in the tiny hole we poked in the surface
-    # this is very close to our seed but not the correct sourcePoint
-    for i in range(endpoints.GetNumberOfPoints()):
-      currentPoint = endpoints.GetPoint(i)
-      # get the euclidean distance
-      currentDistanceToSeed = math.sqrt(math.pow((currentPoint[0] - currentCoordinatesRAS[0]), 2) + math.pow(
-        (currentPoint[1] - currentCoordinatesRAS[1]), 2) + math.pow((currentPoint[2] - currentCoordinatesRAS[2]), 2))
-
-      targetPoints.append(currentPoint)
-      distancesToSeed.append(currentDistanceToSeed)
-
-    # now we have a list of distances with the corresponding points
-    # the index with the most minimal distance is the holePoint, we want to ignore it
-    # the index with the second minimal distance is the point closest to the seed, we want to set it as sourcepoint
-    # all other points are the targetpoints
-
-    # get the index of the holePoint, which we want to remove from our endPoints
-    holePointIndex = distancesToSeed.index(min(distancesToSeed))
-    # .. and remove it
-    distancesToSeed.pop(holePointIndex)
-    targetPoints.pop(holePointIndex)
-
-    # now find the sourcepoint
-    sourcePointIndex = distancesToSeed.index(min(distancesToSeed))
-    # .. and remove it after saving it as the sourcePoint
-    sourcePoint = targetPoints[sourcePointIndex]
-    distancesToSeed.pop(sourcePointIndex)
-    targetPoints.pop(sourcePointIndex)
-
-    # again, at this point we have a) the sourcePoint and b) a list of real targetPoints
-
-    # now create the sourceIdList and targetIdList for the actual centerline computation
-    sourceIdList = vtk.vtkIdList()
-    targetIdList = vtk.vtkIdList()
-
-    pointLocator = vtk.vtkPointLocator()
-    pointLocator.SetDataSet(preparedModel)
-    pointLocator.BuildLocator()
-
-    # locate the source on the surface
-    sourceId = pointLocator.FindClosestPoint(sourcePoint)
-    sourceIdList.InsertNextId(sourceId)
-
-    endPoints.GetDisplayNode().SetTextScale(0)
-    endPoints.RemoveAllMarkups()
-
-    endPoints.AddFiducialFromArray(sourcePoint)
-
-    # locate the endpoints on the surface
-    for p in targetPoints:
-      fid = endPoints.AddFiducialFromArray(p)
-      endPoints.SetNthFiducialSelected(fid, False)
-      id = pointLocator.FindClosestPoint(p)
-      targetIdList.InsertNextId(id)
-
-    tupel = logic.computeCenterlines(preparedModel, sourceIdList, targetIdList)
-    network.DeepCopy(tupel[0])
-
-    centerLineModel.SetAndObservePolyData(network)
+    centerLineModel.SetAndObservePolyData(centerlinePolyData)
     return centerLineModel
 
   @staticmethod
@@ -518,14 +435,12 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       Contains center line vtkPolyData extracted from input vessel model
     """
     # Create temporary fiducials for input nodes
-    startPoints = createFiducialNode("startPoint", *startPoints)
-    endPoints = createFiducialNode("endPoint", *endPoints)
+    endPoints = createFiducialNode("endPoint", *(startPoints + endPoints))
 
     # Call centerline extraction
-    centerLineModel = RVesselXModuleLogic.centerLineFilter(levelSetSegmentationModel, startPoints, endPoints)
+    centerLineModel = RVesselXModuleLogic.centerLineFilter(levelSetSegmentationModel, endPoints)
 
-    # remove start point and end point from slicer
-    removeNodeFromMRMLScene(startPoints)
+    # remove end point from slicer
     removeNodeFromMRMLScene(endPoints)
 
     # Return centerLineModel
@@ -578,6 +493,8 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
   @staticmethod
   def calculateRoiExtent(nodePositions, minExtent, growthFactor):
+    nodePositions = list(nodePositions)
+
     minPosition = np.array(nodePositions[0])
     maxPosition = np.array(nodePositions[0])
     for pos in nodePositions:

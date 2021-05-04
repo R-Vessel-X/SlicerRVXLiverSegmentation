@@ -1,7 +1,7 @@
 import unittest
 
 from RVesselXLib import VesselBranchTree, PlaceStatus, VesselAdjacencyMatrixExporter
-from TestUtils import FakeMarkupNode
+from .TestUtils import FakeMarkupNode, treeSort
 
 
 class VesselBranchTreeTestCase(unittest.TestCase):
@@ -46,8 +46,8 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     branchWidget.insertAfterNode("PrevRootId", None)
     branchWidget.insertAfterNode("NewRootId", None)
 
-    self.assertEqual(sorted([[None, "NewRootId"], ["NewRootId", "PrevRootId"]]),
-                     sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort([[None, "NewRootId"], ["NewRootId", "PrevRootId"]]),
+                     treeSort(branchWidget.getTreeParentList()))
 
   def testWhenInsertAfterNodeNewNodeIsAddedAsChild(self):
     # ParentId
@@ -213,7 +213,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["Child1Id", "SubChild1Id"],  #
     ]
 
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenInsertBeforeNodeAndParentIsNoneNewNodeIsAddedAsRootItem(self):
     # Before Tree
@@ -240,7 +240,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["ParentId", "ChildId"],  #
     ]
 
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenInsertBeforeRootNewNodeIsAddedAsRootItem(self):
     # Before Tree
@@ -267,7 +267,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["ParentId", "ChildId"],  #
     ]
 
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenRemovingIntermediateNodeConnectsChildrenNodesToParentNode(self):
     # Before Tree
@@ -303,7 +303,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     ]
 
     self.assertTrue(wasRemoved)
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenRemovingRootAndHasMultipleChildrenDoesNothing(self):
     # Before Tree and after tree
@@ -329,7 +329,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
 
     # Verify tree hasn't changed
     self.assertFalse(wasRemoved)
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenRemovingRootWhenLastRemainingRemovesRoot(self):
     # Create tree with one root
@@ -378,7 +378,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
     ]
 
     self.assertTrue(wasRemoved)
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def _createArbitraryTree(self):
     # Tree
@@ -487,7 +487,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["ParentId2", "Child2Id"],  #
     ]
 
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenReorderingTreeReorderingStopsWhenOnlyOneItemIsLeftAsRoot(self):
     # Before Tree
@@ -516,7 +516,7 @@ class VesselBranchTreeTestCase(unittest.TestCase):
       ["ParentId2", "ParentId1"],  #
     ]
 
-    self.assertEqual(sorted(expTree), sorted(branchWidget.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(branchWidget.getTreeParentList()))
 
   def testWhenReorderingEmptyTreeDoesNothing(self):
     # Create empty tree

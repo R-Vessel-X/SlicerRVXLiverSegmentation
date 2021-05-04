@@ -1,13 +1,12 @@
-import logging
 import unittest
 
 from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, VesselBranchTree, \
-  VesselSeedPoints, ExtractOneVesselPerBranch
-from RVesselXLib.VesselBranchWizard import PlaceStatus
+  VesselSeedPoints, ExtractOneVesselPerBranch, PlaceStatus
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):
-  def fakePosDictWithIdAsPosition(self, *args):
+  @classmethod
+  def fakePosDictWithIdAsPosition(cls, *args):
     return {arg: arg for arg in args}
 
   def testVesselSeedPointsReturnsAllButLastNodePositionAsSeedPositions(self):

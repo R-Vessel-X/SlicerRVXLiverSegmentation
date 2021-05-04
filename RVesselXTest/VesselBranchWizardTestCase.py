@@ -3,9 +3,8 @@ import slicer
 import unittest
 
 from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole, \
-  setup_portal_vein_default_branch
-from RVesselXLib.VesselBranchTree import MarkupNode, TreeDrawer, INodePlaceWidget
-from RVesselXLib.VesselBranchWizard import InteractionStatus
+  setup_portal_vein_default_branch, MarkupNode, TreeDrawer, INodePlaceWidget, InteractionStatus
+from .TestUtils import treeSort
 
 
 class FakeNodePlaceWidget(INodePlaceWidget):
@@ -92,7 +91,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
       ["PosteriorBranch", VeinId.segmentalBranch_6],  #
       ["PosteriorBranch", "OptionalBranch_2"],  #
     ]
-    self.assertEqual(sorted(expTree), sorted(self.tree.getTreeParentList()))
+    self.assertEqual(treeSort(expTree), treeSort(self.tree.getTreeParentList()))
     self.assertEqual(0, self.markupNode.GetNumberOfFiducials())
     self.assertIn('start placing', self.get_first_element_text())
 
@@ -266,4 +265,4 @@ class VesselBranchWizardTestCase(unittest.TestCase):
 
   def assertNTimesInTree(self, veinId, ntimes):
     nodeIds = filter(lambda x: veinId in x, self.tree.getNodeList())
-    self.assertEqual(ntimes, len(nodeIds))
+    self.assertEqual(ntimes, len(list(nodeIds)))

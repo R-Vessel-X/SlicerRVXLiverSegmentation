@@ -25,7 +25,7 @@ class SegmentWidget(VerticalLayoutWidget):
     self._model = None
 
     # Get segmentation UI (segmentation UI contains singletons so only one instance can really exist in Slicer)
-    self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor)
+    self._segmentUi = slicer.util.getModuleGui(slicer.modules.segmenteditor).parent
 
     # Extract segmentation Widget from segmentation UI
     self._segmentationWidget = WidgetUtils.getFirstChildContainingName(self._segmentUi, "EditorWidget")

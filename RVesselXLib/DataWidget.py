@@ -3,7 +3,8 @@ import qt
 import slicer
 import vtk
 
-from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, createDisplayNodeIfNecessary
+from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, \
+  createDisplayNodeIfNecessary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
 
@@ -37,6 +38,7 @@ class DataWidget(VerticalLayoutWidget):
     self._volumeDisplayNode = None
     self._sceneObserver = None
     self._newNodeObserver = None
+    self._importButton = None
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
                                                  callBack=self.onInputSelectorNodeChanged)
 
@@ -161,7 +163,23 @@ class DataWidget(VerticalLayoutWidget):
       dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
 
     if dicomWidget is not None:
-      dicomWidget.detailsPopup.open()
+      # Show dicom widget as a popup
+      dicomWidget.browserWidget.setWindowFlags(qt.Qt.Popup | qt.Qt.Dialog)
+
+      # Add import button to layout
+      if self._importButton is None:
+        self._importButton = qt.QPushButton("Import DICOM Files")
+        self._importButton.clicked.connect(dicomWidget.importFolder)
+
+        actionFrame = slicer.util.findChild(dicomWidget.browserWidget, "ActionButtonsFrame")
+        actionFrame.layout().insertWidget(2, self._importButton)
+
+      dicomWidget.browserWidget.show()
+      self._centerWidget(dicomWidget.browserWidget, slicer.util.mainWindow())
+
+  @staticmethod
+  def _centerWidget(widget, host):
+    widget.move(host.geometry.center() - widget.rect.center())
 
   def onLoadDataClicked(self):
     slicer.app.ioManager().openAddDataDialog()

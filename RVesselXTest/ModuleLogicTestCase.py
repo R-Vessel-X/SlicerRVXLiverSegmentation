@@ -75,7 +75,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
       logic._applyVesselnessFilter(None, None)
 
     with self.assertRaises(ValueError):
-      logic.centerLineFilter(None, None, None)
+      logic.centerLineFilter(None, None)
 
   def testGeometryExporterSavesVolumesAsNiftiAndModelsAsVtkFiles(self):
     # Create non empty model and volume nodes (empty nodes are not exported)
