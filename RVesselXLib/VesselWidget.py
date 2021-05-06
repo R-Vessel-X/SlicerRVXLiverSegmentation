@@ -32,7 +32,7 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
       f.write(sep.join([""] + tree_nodes) + "\n")
 
       for i_node, node_name in enumerate(tree_nodes):
-        f.write(sep.join([node_name] + map(str, adjacency_matrix[i_node])) + "\n")
+        f.write(sep.join([node_name] + list(map(str, adjacency_matrix[i_node]))) + "\n")
 
   def _exportTreeAndMarkupAsDgtalFormat(self, markup, tree, basePath):
     edges, vertices = self.toDgtal(markup, tree)
