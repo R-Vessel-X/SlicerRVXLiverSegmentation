@@ -17,9 +17,11 @@ class RVesselXModule(ScriptedLoadableModule):
     self.parent.title = "R Vessel X"
     self.parent.categories = [self.parent.title]
     self.parent.dependencies = []
-    self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS"]
-    self.parent.helpText = ""
-    self.parent.acknowledgementText = ""
+    self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
+                                "Camille Huet - Kitware SAS"]
+    self.parent.helpText = "Liver and hepatic vessels annotation plugin."
+    self.parent.acknowledgementText = "Initially developed during the RVesselX research project. " \
+                                      "See https://anr.fr/Projet-ANR-18-CE45-0018 for details."
 
 
 class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
@@ -115,15 +117,14 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
   def setup(self):
     """Setups widget in Slicer UI.
     """
-    app_ver = slicer.app.applicationVersion.split(".")
-    vMajor = int(app_ver[0])
-    vMinor = int(app_ver[1])
-    if not (vMajor, vMinor) > (4, 10):
+    ScriptedLoadableModuleWidget.setup(self)
+
+    # Verify Slicer version compatibility
+    if not (slicer.app.majorVersion, slicer.app.minorVersion) > (4, 10):
       slicer.util.errorDisplay("The RVesselX plugin is only compatible from Slicer 4.11 onwards.\n"
                                "Please download the latest Slicer version to use this plugin.")
       return
 
-    ScriptedLoadableModuleWidget.setup(self)
     # Reset tab list
     self._tabList = []
 
