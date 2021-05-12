@@ -67,6 +67,8 @@ class LevelSetParameters(object):
     self.curvature = 70
     self.attraction = 50
     self.iterationNumber = 10
+    self.initializationMethod = "collidingfronts"
+    self.levelSetMethod = "geodesic"
 
 
 class IRVesselXModuleLogic(object):
@@ -254,7 +256,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     initImageData.DeepCopy(
       segmentationLogic.performInitialization(inputImage, minimumScalarValue, maximumScalarValue, seeds, stoppers,
-                                              'collidingfronts'))
+                                              levelSetParameters.initializationMethod))
 
     if not initImageData.GetPointData().GetScalars():
       # something went wrong, the image is empty
@@ -264,7 +266,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     evolImageData.DeepCopy(
       segmentationLogic.performEvolution(sourceVolume.GetImageData(), initImageData, levelSetParameters.iterationNumber,
                                          levelSetParameters.inflation, levelSetParameters.curvature,
-                                         levelSetParameters.attraction, 'geodesic'))
+                                         levelSetParameters.attraction, levelSetParameters.levelSetMethod))
 
     # create segmentation labelMap
     labelMap = vtk.vtkImageData()

@@ -142,6 +142,16 @@ class VesselWidget(VerticalLayoutWidget):
     self._strategies["One vessel for whole tree"] = ExtractAllVesselsInOneGoStrategy()
     self._defaultStrategy = "One vessel per branch"
 
+    # LevelSet Initialization
+    self._levelSetInitializations = OrderedDict()
+    self._levelSetInitializations["Colliding Fronts"] = "collidingfronts"
+    self._levelSetInitializations["Fast Marching"] = "fastmarching"
+
+    # LevelSet method
+    self._levelSetSegmentations = OrderedDict()
+    self._levelSetSegmentations["Geodesic"] = "geodesic"
+    self._levelSetSegmentations["Curves"] = "curves"
+
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
     self._verticalLayout.addWidget(self._createDisplayOptionWidget())
@@ -374,6 +384,18 @@ class VesselWidget(VerticalLayoutWidget):
     self._strategyChoice.toolTip = "Choose the strategy for vessel tree segmentation"
     segmentationAdvancedFormLayout.addRow("Segmentation strategy:", self._strategyChoice)
 
+    # initialization combo box
+    self._levelSetInitializationChoice = qt.QComboBox()
+    self._levelSetInitializationChoice.addItems(list(self._levelSetInitializations.keys()))
+    self._levelSetInitializationChoice.toolTip = "Choose the level set initialization methods"
+    segmentationAdvancedFormLayout.addRow("Segmentation initialization:", self._levelSetInitializationChoice)
+
+    # initialization combo box
+    self._levelSetSegmentationChoice = qt.QComboBox()
+    self._levelSetSegmentationChoice.addItems(list(self._levelSetSegmentations.keys()))
+    self._levelSetSegmentationChoice.toolTip = "Choose the level set method"
+    segmentationAdvancedFormLayout.addRow("Segmentation method:", self._levelSetSegmentationChoice)
+
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
@@ -472,6 +494,9 @@ class VesselWidget(VerticalLayoutWidget):
     parameters.inflation = self._inflationSlider.value
     parameters.attraction = self._attractionSlider.value
     parameters.curvature = self._curvatureSlider.value
+    parameters.levelSetMethod = self._levelSetSegmentations[self._levelSetSegmentationChoice.currentText]
+    parameters.initializationMethod = self._levelSetInitializations[self._levelSetInitializationChoice.currentText]
+
     self._logic.levelSetParameters = parameters
 
   def _updateVesselnessVolume(self):
@@ -504,6 +529,8 @@ class VesselWidget(VerticalLayoutWidget):
     self._inflationSlider.value = p.inflation
     self._iterationSpinBox.value = p.iterationNumber
     self._strategyChoice.setCurrentIndex(self._strategyChoice.findText(self._defaultStrategy))
+    self._levelSetInitializationChoice.setCurrentIndex(0)
+    self._levelSetSegmentationChoice.setCurrentIndex(0)
 
   def _updateVesselnessFilterParameters(self, params):
     """Updates UI vessel filter parameters with the input VesselnessFilterParameters
