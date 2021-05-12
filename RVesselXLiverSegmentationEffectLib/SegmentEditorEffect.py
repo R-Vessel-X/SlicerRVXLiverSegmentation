@@ -22,6 +22,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
   """This effect segments the liver in the input volume using a UNet model"""
 
   def __init__(self, scriptedEffect):
+    self.device = qt.QComboBox()
     scriptedEffect.name = 'Segment CT Liver'
     scriptedEffect.perSegment = True  # this effect operates on a single selected segment
     AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)
@@ -53,6 +54,11 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     """
     Setup the ROI selection comboBox and the apply segmentation button
     """
+
+    # CPU / CUDA options
+    self.device.addItems(["cuda", "cpu"])
+    self.scriptedEffect.addLabeledOptionsWidget("Device:", self.device)
+
     # Add ROI options
     self.roiSelector.nodeTypes = ['vtkMRMLAnnotationROINode']
     self.roiSelector.noneEnabled = True
@@ -86,20 +92,25 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     Overwrites the selected segment labelMap when done.
     """
     qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
-
     masterVolumeNode = slicer.vtkMRMLScalarVolumeNode()
     slicer.mrmlScene.AddNode(masterVolumeNode)
     slicer.vtkSlicerSegmentationsModuleLogic.CopyOrientedImageDataToVolumeNode(self.getClippedMasterImageData(),
                                                                                masterVolumeNode)
+    try:
+      self.logic.launchLiverSegmentation(masterVolumeNode, use_cuda=self.device.currentText == "cuda")
 
-    self.logic.launchLiverSegmentation(masterVolumeNode)
+      self.scriptedEffect.saveStateForUndo()
+      self.scriptedEffect.modifySelectedSegmentByLabelmap(
+        slicer.vtkSlicerSegmentationsModuleLogic.CreateOrientedImageDataFromVolumeNode(masterVolumeNode),
+        slicer.qSlicerSegmentEditorAbstractEffect.ModificationModeSet)
 
-    self.scriptedEffect.modifySelectedSegmentByLabelmap(
-      slicer.vtkSlicerSegmentationsModuleLogic.CreateOrientedImageDataFromVolumeNode(masterVolumeNode),
-      slicer.qSlicerSegmentEditorAbstractEffect.ModificationModeSet)
+    except Exception as e:
+      qt.QApplication.restoreOverrideCursor()
+      slicer.util.errorDisplay(str(e))
 
-    slicer.mrmlScene.RemoveNode(masterVolumeNode)
-    qt.QApplication.restoreOverrideCursor()
+    finally:
+      qt.QApplication.restoreOverrideCursor()
+      slicer.mrmlScene.RemoveNode(masterVolumeNode)
 
   def getClippedMasterImageData(self):
     """
@@ -199,45 +210,54 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
     return Compose([AddChanneld(keys=["volume"]), Spacingd(keys=['volume'], pixdim=original_spacing, mode="nearest")])
 
   @classmethod
-  def launchLiverSegmentation(cls, in_out_volume_node):
+  def launchLiverSegmentation(cls, in_out_volume_node, use_cuda):
     """
     Runs the segmentation on the input volume and returns the segmentation in the same volume.
     """
-    device = torch.device("cpu")
 
-    model_path = os.path.join(os.path.dirname(__file__), "liver_ct_model.pt")
-    model = cls.createUNetModel(device=device)
-    model.load_state_dict(torch.load(model_path))
+    try:
+      device = torch.device("cpu") if not use_cuda or not torch.cuda.is_available() else torch.device("cuda:0")
 
-    transform_output = cls.getPreprocessingTransform()(in_out_volume_node)
-    model_input = transform_output['volume'].to(device)
+      model_path = os.path.join(os.path.dirname(__file__), "liver_ct_model.pt")
+      model = cls.createUNetModel(device=device)
+      model.load_state_dict(torch.load(model_path))
 
-    print("debug 2 : to device input")
-    model_output = sliding_window_inference(model_input, (160, 160, 160), 4, model)  # optimal size (160,160,160)
+      transform_output = cls.getPreprocessingTransform()(in_out_volume_node)
+      model_input = transform_output['volume'].to(device)
 
-    print("debug 3 : model execution")
-    post_processed = KeepLargestConnectedComponent(applied_labels=[1])(AsDiscrete(argmax=True)(model_output))
-    output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
-    transform_output["volume"] = output_volume
-    original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
-    output_inverse_transform = cls.getPostProcessingTransform(original_spacing)(transform_output)
-    label_map_input = output_inverse_transform["volume"][0, :, :, :]
+      print("debug 2 : to device input")
+      model_output = sliding_window_inference(model_input, (160, 160, 160), 4, model)  # optimal size (160,160,160)
+      del model, model_input
 
-    print("debug 5 :", label_map_input.shape)
+      print("debug 3 : model execution")
+      post_processed = KeepLargestConnectedComponent(applied_labels=[1])(AsDiscrete(argmax=True)(model_output))
+      output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
+      del post_processed, model_output
 
-    unique, counts = np.unique(label_map_input, return_counts=True)
-    print("debug 6 : {}".format(dict(zip(unique, counts))))
+      transform_output["volume"] = output_volume
+      original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
+      output_inverse_transform = cls.getPostProcessingTransform(original_spacing)(transform_output)
+      label_map_input = output_inverse_transform["volume"][0, :, :, :]
 
-    output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
-    in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
-    slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
-    print("debug 7 : end")
+      print("debug 5 :", label_map_input.shape)
 
-    # Cleanup memory
-    del model_input
-    del model_output
-    del post_processed
-    del model
-    del transform_output
-    torch.cuda.empty_cache()
-    gc.collect()
+      unique, counts = np.unique(label_map_input, return_counts=True)
+      print("debug 6 : {}".format(dict(zip(unique, counts))))
+
+      output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
+      in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
+      slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
+      del transform_output
+      print("debug 7 : end")
+
+    finally:
+      # Cleanup any remaining memory
+      def del_local(v):
+        if v in locals():
+          del locals()[v]
+
+      for n in ["model_input", "model_output", "post_processed", "model", "transform_output"]:
+        del_local(n)
+
+      gc.collect()
+      torch.cuda.empty_cache()
