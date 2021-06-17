@@ -163,7 +163,7 @@ class SlicerLoadImage(MapTransform):
   def __call__(self, volume_node):
     data = slicer.util.arrayFromVolume(volume_node)
     data = np.swapaxes(data, 0, 2)
-    print("debug 1 : {}Mb\tshape {}\tdtype {}".format(data.nbytes * 0.000001, data.shape, data.dtype))
+    print("Load volume from Slicer : {}Mb\tshape {}\tdtype {}".format(data.nbytes * 0.000001, data.shape, data.dtype))
     spatial_shape = data.shape
 
     # apply spacing
@@ -216,39 +216,36 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
     """
 
     try:
-      device = torch.device("cpu") if not use_cuda or not torch.cuda.is_available() else torch.device("cuda:0")
+      with torch.no_grad():
+        device = torch.device("cpu") if not use_cuda or not torch.cuda.is_available() else torch.device("cuda:0")
+        print("Start liver segmentation using device :", device)
 
-      model_path = os.path.join(os.path.dirname(__file__), "liver_ct_model.pt")
-      model = cls.createUNetModel(device=device)
-      model.load_state_dict(torch.load(model_path))
+        model_path = os.path.join(os.path.dirname(__file__), "liver_ct_model.pt")
+        model = cls.createUNetModel(device=device)
+        model.load_state_dict(torch.load(model_path))
 
-      transform_output = cls.getPreprocessingTransform()(in_out_volume_node)
-      model_input = transform_output['volume'].to(device)
+        transform_output = cls.getPreprocessingTransform()(in_out_volume_node)
+        model_input = transform_output['volume'].to(device)
 
-      print("debug 2 : to device input")
-      model_output = sliding_window_inference(model_input, (160, 160, 160), 4, model)  # optimal size (160,160,160)
-      del model, model_input
+        print("Run UNet model on input volume using sliding window inference")
+        model_output = sliding_window_inference(model_input, (160, 160, 160), 4, model)
+        del model, model_input
 
-      print("debug 3 : model execution")
-      post_processed = KeepLargestConnectedComponent(applied_labels=[1])(AsDiscrete(argmax=True)(model_output))
-      output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
-      del post_processed, model_output
+        print("Keep largest connected components and threshold UNet output")
+        post_processed = KeepLargestConnectedComponent(applied_labels=[1])(AsDiscrete(argmax=True)(model_output))
+        output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
+        del post_processed, model_output
 
-      transform_output["volume"] = output_volume
-      original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
-      output_inverse_transform = cls.getPostProcessingTransform(original_spacing)(transform_output)
-      label_map_input = output_inverse_transform["volume"][0, :, :, :]
+        transform_output["volume"] = output_volume
+        original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
+        output_inverse_transform = cls.getPostProcessingTransform(original_spacing)(transform_output)
+        label_map_input = output_inverse_transform["volume"][0, :, :, :]
+        print("Output label map shape :", label_map_input.shape)
 
-      print("debug 5 :", label_map_input.shape)
-
-      unique, counts = np.unique(label_map_input, return_counts=True)
-      print("debug 6 : {}".format(dict(zip(unique, counts))))
-
-      output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
-      in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
-      slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
-      del transform_output
-      print("debug 7 : end")
+        output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
+        in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
+        slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
+        del transform_output
 
     finally:
       # Cleanup any remaining memory
