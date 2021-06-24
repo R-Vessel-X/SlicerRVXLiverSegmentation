@@ -1,5 +1,6 @@
 import os
-import qt, slicer
+
+import slicer
 from slicer.ScriptedLoadableModule import *
 
 
@@ -24,12 +25,13 @@ class RVesselXLiverSegmentationEffect(ScriptedLoadableModule):
   def registerEditorEffect(self):
     import qSlicerSegmentationsEditorEffectsPythonQt as qSlicerSegmentationsEditorEffects
 
-    DependencyChecker.installDependenciesIfNeeded()
-    if DependencyChecker.areDependenciesSatisfied():
-      instance = qSlicerSegmentationsEditorEffects.qSlicerSegmentEditorScriptedEffect(None)
-      effectFilename = os.path.join(os.path.dirname(__file__), self.__class__.__name__ + 'Lib/SegmentEditorEffect.py')
-      instance.setPythonSource(effectFilename.replace('\\', '/'))
-      instance.self().register()
+    if not DependencyChecker.areDependenciesSatisfied():
+      return
+
+    instance = qSlicerSegmentationsEditorEffects.qSlicerSegmentEditorScriptedEffect(None)
+    effectFilename = os.path.join(os.path.dirname(__file__), self.__class__.__name__ + 'Lib/SegmentEditorEffect.py')
+    instance.setPythonSource(effectFilename.replace('\\', '/'))
+    instance.self().register()
 
 
 class DependencyChecker(object):
@@ -41,6 +43,7 @@ class DependencyChecker(object):
   def areDependenciesSatisfied(cls):
     try:
       import monai
+      import itk
       import torch
       import skimage
       import gdown
@@ -50,13 +53,14 @@ class DependencyChecker(object):
       return False
 
   @classmethod
-  def installDependenciesIfNeeded(cls):
+  def installDependenciesIfNeeded(cls, progressDialog=None):
     if cls.areDependenciesSatisfied():
       return
 
-    slicer.util.pip_install("monai")
+    progressDialog = progressDialog or slicer.util.createProgressDialog(maximum=0)
+    progressDialog.labelText = "Installing PyTorch"
     slicer.util.pip_install("https://download.pytorch.org/whl/cu101/torch-1.8.1%2Bcu101-cp36-cp36m-win_amd64.whl")
-    slicer.util.pip_install("nibabel")
-    slicer.util.pip_install("scikit-image")
-    slicer.util.pip_install("tensorboard")
-    slicer.util.pip_install("gdown")
+
+    for dep in ["itk", "nibabel", "scikit-image", "gdown", "monai"]:
+      progressDialog.labelText = dep
+      slicer.util.pip_install(dep)

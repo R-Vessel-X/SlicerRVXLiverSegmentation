@@ -2,7 +2,6 @@ import numpy as np
 import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import vtk
-import itk
 
 from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
   createModelNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, cloneSourceVolume, \
@@ -101,15 +100,15 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self, parent)
     IRVesselXModuleLogic.__init__(self)
 
-    if not VMTK_FOUND:
-      errorMsg = "Failed to import VMTK Modules\nPlease make sure VMTK is installed."
-      slicer.util.errorDisplay(errorMsg)
-
     self._inputVolume = None
     self._croppedInputVolume = None
     self._vesselnessVolume = None
     self._inputRoi = None
     self.levelSetParameters = LevelSetParameters()
+
+  @staticmethod
+  def isVmtkFound():
+    return VMTK_FOUND
 
   def setInputVolume(self, inputVolume):
     """
@@ -178,13 +177,16 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     outputVolume : vtkMRMLLabelMapVolumeNode
       Volume with vesselness information
     """
+    import itk
+
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"))
 
     # Convert input volume to ITK
     np_array = slicer.util.arrayFromVolume(sourceVolume)
     itk_image = itk.image_view_from_array(np_array)
-    hessian_image = itk.hessian_recursive_gaussian_image_filter(itk_image, sigma=self._vesselnessFilterParam.satoSigma)
+    hessian_image = itk.hessian_recursive_gaussian_image_filter(itk_image.astype(itk.F),
+                                                                sigma=self._vesselnessFilterParam.satoSigma)
 
     vesselness_filter = itk.Hessian3DToVesselnessMeasureImageFilter[itk.F].New()
     vesselness_filter.SetInput(hessian_image)
