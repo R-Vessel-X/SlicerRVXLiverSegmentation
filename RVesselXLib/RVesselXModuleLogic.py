@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
@@ -43,18 +41,18 @@ class VesselnessFilterParameters(object):
   """
 
   def __init__(self):
+    self.useROI = True
+    self.roiGrowthFactor = 1.2
+    self.minROIExtent = 20
     self.minimumDiameter = 1
     self.maximumDiameter = 7
     self.suppressPlatesPercent = 50
     self.suppressBlobsPercent = 50
     self.vesselContrast = 5
-    self.roiGrowthFactor = 1.2
-    self.useROI = True
-    self.minROIExtent = 20
-
-  def asTuple(self):
-    return (self.minimumDiameter, self.maximumDiameter, self.suppressPlatesPercent, self.suppressBlobsPercent,
-            self.vesselContrast, self.roiGrowthFactor, self.useROI)
+    self.satoSigma = 2
+    self.satoAlpha1 = 0.5
+    self.satoAlpha2 = 2
+    self.useVmtkFilter = False
 
 
 class LevelSetParameters(object):
@@ -67,6 +65,8 @@ class LevelSetParameters(object):
     self.curvature = 70
     self.attraction = 50
     self.iterationNumber = 10
+    self.initializationMethod = "collidingfronts"
+    self.levelSetMethod = "geodesic"
 
 
 class IRVesselXModuleLogic(object):
@@ -100,15 +100,15 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self, parent)
     IRVesselXModuleLogic.__init__(self)
 
-    if not VMTK_FOUND:
-      errorMsg = "Failed to import VMTK Modules\nPlease make sure VMTK is installed."
-      slicer.util.errorDisplay(errorMsg)
-
     self._inputVolume = None
     self._croppedInputVolume = None
     self._vesselnessVolume = None
     self._inputRoi = None
     self.levelSetParameters = LevelSetParameters()
+
+  @staticmethod
+  def isVmtkFound():
+    return VMTK_FOUND
 
   def setInputVolume(self, inputVolume):
     """
@@ -121,17 +121,13 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     if self._inputVolume != inputVolume:
       self._inputVolume = inputVolume
 
-  def _applyVesselnessFilter(self, sourceVolume, startPoint):
+  def _applyVmtkVesselnessFilter(self, sourceVolume):
     """Apply VMTK VesselnessFilter to source volume given start point. Returns ouput volume with vesselness information
 
     Parameters
     ----------
     sourceVolume: vtkMRMLScalarVolumeNode
       Volume which will be labeled with vesselness information
-    startPoint: vtkMRMLMarkupsFiducialNode or None
-      Start point of the vessel. Gives indication on the target diameter of the vessel which will be
-      filtered by the method.
-      If start point is None, vessel contrast and maximum diameters will be read from vesselness parameters.
 
     Returns
     -------
@@ -140,11 +136,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     """
     # Type checking
     raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"))
-    if startPoint is None:
-      isContrastCalculated = False
-    else:
-      isContrastCalculated = True
-      raiseValueErrorIfInvalidType(startPoint=(startPoint, "vtkMRMLMarkupsFiducialNode"))
 
     # Get module logic from VMTK Vesselness Filtering module
     vesselnessLogic = VMTKModule.getVesselnessFilteringLogic()
@@ -152,17 +143,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     # Create output node
     vesselnessFiltered = createVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered", "vtkMRMLScalarVolumeNode")
 
-    if isContrastCalculated:
-      # Extract diameter size from start point position
-      vesselPositionRas = [0, 0, 0]
-      startPoint.GetNthFiducialPosition(0, vesselPositionRas)
-      vesselPositionIJK = vesselnessLogic.getIJKFromRAS(sourceVolume, vesselPositionRas)
-      self._vesselnessFilterParam.maximumDiameter = vesselnessLogic.getDiameter(sourceVolume.GetImageData(),
-                                                                                vesselPositionIJK)
-      # Extract contrast from seed
-      self._vesselnessFilterParam.vesselContrast = vesselnessLogic.calculateContrastMeasure(sourceVolume.GetImageData(),
-                                                                                            vesselPositionIJK,
-                                                                                            self._vesselnessFilterParam.maximumDiameter)
     maximumVesselDiameter = self._vesselnessFilterParam.maximumDiameter
     contrastMeasure = self._vesselnessFilterParam.vesselContrast
 
@@ -178,6 +158,52 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     vesselnessLogic.computeVesselnessVolume(sourceVolume, vesselnessFiltered, maximumDiameterMm=maximumDiameter,
                                             minimumDiameterMm=minimumDiameter, alpha=alpha, beta=beta,
                                             contrastMeasure=contrastMeasure)
+
+    return vesselnessFiltered
+
+  def _applySatoVesselnessFilter(self, sourceVolume):
+    """Apply SATO VesselnessFilter to source volume. Returns output volume with vesselness information.
+
+    Implementation is based on the following documentation :
+    https://itk.org/ITKExamples/src/Filtering/ImageFeature/SegmentBloodVessels/Documentation.html
+
+    Parameters
+    ----------
+    sourceVolume: vtkMRMLScalarVolumeNode
+      Volume which will be labeled with vesselness information
+
+    Returns
+    -------
+    outputVolume : vtkMRMLLabelMapVolumeNode
+      Volume with vesselness information
+    """
+    import itk
+
+    # Type checking
+    raiseValueErrorIfInvalidType(sourceVolume=(sourceVolume, "vtkMRMLScalarVolumeNode"))
+
+    # Convert input volume to ITK
+    np_array = slicer.util.arrayFromVolume(sourceVolume)
+    itk_image = itk.image_view_from_array(np_array)
+    hessian_image = itk.hessian_recursive_gaussian_image_filter(itk_image.astype(itk.F),
+                                                                sigma=self._vesselnessFilterParam.satoSigma)
+
+    vesselness_filter = itk.Hessian3DToVesselnessMeasureImageFilter[itk.F].New()
+    vesselness_filter.SetInput(hessian_image)
+    vesselness_filter.SetAlpha1(self._vesselnessFilterParam.satoAlpha1)
+    vesselness_filter.SetAlpha2(self._vesselnessFilterParam.satoAlpha2)
+
+    # Convert output back to Slicer format
+    vesselness_filter.Update()
+    filtered_image = vesselness_filter.GetOutput()
+
+    # Normalize output between 0 and 1
+    output_array = itk.array_view_from_image(filtered_image)
+    output_array = (output_array - np.min(output_array)) / (np.max(output_array) - np.min(output_array))
+
+    # Initialize output volume from input volume
+    vesselnessFiltered = createVolumeNodeBasedOnModel(sourceVolume, "VesselnessFiltered", "vtkMRMLScalarVolumeNode")
+    slicer.util.updateVolumeFromArray(vesselnessFiltered, output_array)
 
     return vesselnessFiltered
 
@@ -254,7 +280,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
     initImageData.DeepCopy(
       segmentationLogic.performInitialization(inputImage, minimumScalarValue, maximumScalarValue, seeds, stoppers,
-                                              'collidingfronts'))
+                                              levelSetParameters.initializationMethod))
 
     if not initImageData.GetPointData().GetScalars():
       # something went wrong, the image is empty
@@ -264,7 +290,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     evolImageData.DeepCopy(
       segmentationLogic.performEvolution(sourceVolume.GetImageData(), initImageData, levelSetParameters.iterationNumber,
                                          levelSetParameters.inflation, levelSetParameters.curvature,
-                                         levelSetParameters.attraction, 'geodesic'))
+                                         levelSetParameters.attraction, levelSetParameters.levelSetMethod))
 
     # create segmentation labelMap
     labelMap = vtk.vtkImageData()
@@ -353,9 +379,9 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     pointLocator.BuildLocator()
 
     # find the closest point next to the seed on the surface
-    id = pointLocator.FindClosestPoint(seed)
+    pointId = pointLocator.FindClosestPoint(seed)
 
-    if id < 0:
+    if pointId < 0:
       # Calling GetPoint(-1) would crash the application
       raise ValueError("openSurfaceAtPoint failed: empty input polydata")
 
@@ -363,7 +389,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     polyData.BuildLinks()
     # Mark cells as deleted
     cellIds = vtk.vtkIdList()
-    polyData.GetPointCells(id, cellIds)
+    polyData.GetPointCells(pointId, cellIds)
     for cellIdIndex in range(cellIds.GetNumberOfIds()):
       polyData.DeleteCell(cellIds.GetId(cellIdIndex))
 
@@ -455,9 +481,6 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
   def _areExtremitiesValid(startPoint, endPoint):
     return RVesselXModuleLogic._isPointValid(startPoint) and RVesselXModuleLogic._isPointValid(endPoint)
 
-  def _currentVesselnessKey(self):
-    return self._inputVolume, self.vesselnessFilterParameters.asTuple()
-
   def updateVesselnessVolume(self, nodePositions):
     """Update vesselness volume node for current input volume and current filter parameters.
 
@@ -486,7 +509,11 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
       self._croppedInputVolume = cloneSourceVolume(self._inputVolume)
 
     self._croppedInputVolume.GetDisplayNode().SetVisibility(False)
-    self._vesselnessVolume = self._applyVesselnessFilter(self._croppedInputVolume, startPoint=None)
+
+    if self._vesselnessFilterParam.useVmtkFilter:
+      self._vesselnessVolume = self._applyVmtkVesselnessFilter(self._croppedInputVolume)
+    else:
+      self._vesselnessVolume = self._applySatoVesselnessFilter(self._croppedInputVolume)
 
     time.sleep(1)  # Short sleep for this thread to enable volume to be updated
     return True

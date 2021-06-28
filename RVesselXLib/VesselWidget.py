@@ -32,7 +32,7 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
       f.write(sep.join([""] + tree_nodes) + "\n")
 
       for i_node, node_name in enumerate(tree_nodes):
-        f.write(sep.join([node_name] + map(str, adjacency_matrix[i_node])) + "\n")
+        f.write(sep.join([node_name] + list(map(str, adjacency_matrix[i_node]))) + "\n")
 
   def _exportTreeAndMarkupAsDgtalFormat(self, markup, tree, basePath):
     edges, vertices = self.toDgtal(markup, tree)
@@ -142,6 +142,16 @@ class VesselWidget(VerticalLayoutWidget):
     self._strategies["One vessel for whole tree"] = ExtractAllVesselsInOneGoStrategy()
     self._defaultStrategy = "One vessel per branch"
 
+    # LevelSet Initialization
+    self._levelSetInitializations = OrderedDict()
+    self._levelSetInitializations["Colliding Fronts"] = "collidingfronts"
+    self._levelSetInitializations["Fast Marching"] = "fastmarching"
+
+    # LevelSet method
+    self._levelSetSegmentations = OrderedDict()
+    self._levelSetSegmentations["Geodesic"] = "geodesic"
+    self._levelSetSegmentations["Curves"] = "curves"
+
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
     self._verticalLayout.addWidget(self._createDisplayOptionWidget())
@@ -235,16 +245,42 @@ class VesselWidget(VerticalLayoutWidget):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
     filterOptionCollapsibleButton.text = "Vesselness Filter Options"
     filterOptionCollapsibleButton.collapsed = True
-    advancedFormLayout = qt.QFormLayout(filterOptionCollapsibleButton)
+    self._vesselnessFormLayout = qt.QFormLayout(filterOptionCollapsibleButton)
 
-    # Add markups selector
+    # Vesselness filter selection
+    self._useVmtkCheckBox = qt.QCheckBox()
+    self._useVmtkCheckBox.connect("stateChanged(int)", lambda *_: self._updateVesselnessFilterParameterVisibility())
+    self._vesselnessFormLayout.addRow("Use VMTK Vesselness:", self._useVmtkCheckBox)
+
+    # ROI parameters selection
+    self._useROI = qt.QCheckBox()
+    self._useROI.toolTip = "If true will limit vesselness filter and vessel extraction to placed nodes extent."
+    self._vesselnessFormLayout.addRow("Use bounding box:", self._useROI)
+
+    self._roiSlider = ctk.ctkSliderWidget()
+    self._roiSlider.decimals = 1
+    self._roiSlider.minimum = 1
+    self._roiSlider.maximum = 5
+    self._roiSlider.singleStep = 0.1
+    self._roiSlider.toolTip = "Growth factor of the bounding box around defined nodes."
+    self._vesselnessFormLayout.addRow("Bounding box growth factor:", self._roiSlider)
+
+    self._minRoiSlider = ctk.ctkSliderWidget()
+    self._minRoiSlider.decimals = 0
+    self._minRoiSlider.minimum = 0
+    self._minRoiSlider.maximum = 100
+    self._minRoiSlider.singleStep = 1
+    self._minRoiSlider.toolTip = "Minimum thickness of the bounding box in pixels."
+    self._vesselnessFormLayout.addRow("Min Bounding Box extent:", self._minRoiSlider)
+
+    # VMTK parameters
     self._minimumDiameterSpinBox = qt.QSpinBox()
     self._minimumDiameterSpinBox.minimum = 1
     self._minimumDiameterSpinBox.maximum = 1000
     self._minimumDiameterSpinBox.singleStep = 1
     self._minimumDiameterSpinBox.suffix = " voxels"
     self._minimumDiameterSpinBox.toolTip = "Tubular structures that have minimum this diameter will be enhanced."
-    advancedFormLayout.addRow("Minimum vessel diameter:", self._minimumDiameterSpinBox)
+    self._vesselnessFormLayout.addRow("Minimum vessel diameter:", self._minimumDiameterSpinBox)
 
     self._maximumDiameterSpinBox = qt.QSpinBox()
     self._maximumDiameterSpinBox.minimum = 0
@@ -252,7 +288,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._maximumDiameterSpinBox.singleStep = 1
     self._maximumDiameterSpinBox.suffix = " voxels"
     self._maximumDiameterSpinBox.toolTip = "Tubular structures that have maximum this diameter will be enhanced."
-    advancedFormLayout.addRow("Maximum vessel diameter:", self._maximumDiameterSpinBox)
+    self._vesselnessFormLayout.addRow("Maximum vessel diameter:", self._maximumDiameterSpinBox)
 
     self._contrastSlider = ctk.ctkSliderWidget()
     self._contrastSlider.decimals = 0
@@ -260,7 +296,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._contrastSlider.maximum = 500
     self._contrastSlider.singleStep = 10
     self._contrastSlider.toolTip = "If the intensity contrast in the input image between vessel and background is high, choose a high value else choose a low value."
-    advancedFormLayout.addRow("Vessel contrast:", self._contrastSlider)
+    self._vesselnessFormLayout.addRow("Vessel contrast:", self._contrastSlider)
 
     self._suppressPlatesSlider = ctk.ctkSliderWidget()
     self._suppressPlatesSlider.decimals = 0
@@ -269,7 +305,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._suppressPlatesSlider.singleStep = 1
     self._suppressPlatesSlider.suffix = " %"
     self._suppressPlatesSlider.toolTip = "A higher value filters out more plate-like structures."
-    advancedFormLayout.addRow("Suppress plates:", self._suppressPlatesSlider)
+    self._vesselnessFormLayout.addRow("Suppress plates:", self._suppressPlatesSlider)
 
     self._suppressBlobsSlider = ctk.ctkSliderWidget()
     self._suppressBlobsSlider.decimals = 0
@@ -278,42 +314,54 @@ class VesselWidget(VerticalLayoutWidget):
     self._suppressBlobsSlider.singleStep = 1
     self._suppressBlobsSlider.suffix = " %"
     self._suppressBlobsSlider.toolTip = "A higher value filters out more blob-like structures."
-    advancedFormLayout.addRow("Suppress blobs:", self._suppressBlobsSlider)
+    self._vesselnessFormLayout.addRow("Suppress blobs:", self._suppressBlobsSlider)
 
-    self._useROI = qt.QCheckBox()
-    self._useROI.toolTip = "If true will limit vesselness filter and vessel extraction to placed nodes extent."
-    advancedFormLayout.addRow("Use bounding box:", self._useROI)
+    # SATO parameters
+    self._satoSigmaSpinBox = qt.QDoubleSpinBox()
+    self._satoSigmaSpinBox.singleStep = 0.1
+    self._satoSigmaSpinBox.toolTip = "Scale of the hessian gaussian filter kernel."
+    self._vesselnessFormLayout.addRow("Sato Hessian Sigma:", self._satoSigmaSpinBox)
 
-    self._roiSlider = ctk.ctkSliderWidget()
-    self._roiSlider.decimals = 1
-    self._roiSlider.minimum = 1
-    self._roiSlider.maximum = 5
-    self._roiSlider.singleStep = 0.1
-    self._roiSlider.toolTip = "Growth factor of the bounding box around defined nodes."
-    advancedFormLayout.addRow("Bounding box growth factor:", self._roiSlider)
+    alpha_tooltip = "Alpha 1 needs to be strictly inferior to Alpha2.\n" \
+                    "See http://www.image.med.osaka-u.ac.jp/member/yoshi/paper/linefilter.pdf for further information."
+    self._satoAlpha1SpinBox = qt.QDoubleSpinBox()
+    self._satoAlpha1SpinBox.singleStep = 0.1
+    self._satoAlpha1SpinBox.toolTip = alpha_tooltip
+    self._satoAlpha1SpinBox.connect("valueChanged(double)",
+                                    lambda _: self._ensureSatoAlpha2GreaterThanAlpha1(self._satoAlpha1SpinBox))
+    self._vesselnessFormLayout.addRow("Sato Alpha 1:", self._satoAlpha1SpinBox)
 
-    self._minRoiSlider = ctk.ctkSliderWidget()
-    self._minRoiSlider.decimals = 0
-    self._minRoiSlider.minimum = 0
-    self._minRoiSlider.maximum = 100
-    self._minRoiSlider.singleStep = 1
-    self._minRoiSlider.toolTip = "Minimum thickness of the bounding box in pixels."
-    advancedFormLayout.addRow("Min Bounding Box extent:", self._minRoiSlider)
+    self._satoAlpha2SpinBox = qt.QDoubleSpinBox()
+    self._satoAlpha2SpinBox.singleStep = 0.1
+    self._satoAlpha2SpinBox.toolTip = alpha_tooltip
+    self._satoAlpha2SpinBox.connect("valueChanged(double)",
+                                    lambda _: self._ensureSatoAlpha2GreaterThanAlpha1(self._satoAlpha2SpinBox))
+    self._vesselnessFormLayout.addRow("Sato Alpha 2:", self._satoAlpha2SpinBox)
 
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
     restoreDefaultButton.connect("clicked()", self._restoreDefaultVesselnessFilterParameters)
-    advancedFormLayout.addRow("Restore default filter parameters:", restoreDefaultButton)
+    self._vesselnessFormLayout.addRow("Restore default filter parameters:", restoreDefaultButton)
     self._restoreDefaultVesselnessFilterParameters()
 
     # Show/hide vesselness volume
     showVesselnessCheckbox = qt.QCheckBox()
     showVesselnessCheckbox.connect("stateChanged(int)", self._showVesselnessVolumeChanged)
-    advancedFormLayout.addRow("Show vesselness volume:", showVesselnessCheckbox)
+    self._vesselnessFormLayout.addRow("Show vesselness volume:", showVesselnessCheckbox)
     self._showVesselness = False
 
     return filterOptionCollapsibleButton
+
+  def _ensureSatoAlpha2GreaterThanAlpha1(self, source):
+    min_delta = 0.01
+    if self._satoAlpha2SpinBox.value >= self._satoAlpha1SpinBox.value + min_delta:
+      return
+
+    if source == self._satoAlpha1SpinBox:
+      self._satoAlpha2SpinBox.value = self._satoAlpha1SpinBox.value + min_delta
+    else:
+      self._satoAlpha1SpinBox.value = self._satoAlpha2SpinBox.value - min_delta
 
   def _createAdvancedLevelSetOptionWidget(self):
     collapsibleButton = ctk.ctkCollapsibleButton()
@@ -374,6 +422,18 @@ class VesselWidget(VerticalLayoutWidget):
     self._strategyChoice.toolTip = "Choose the strategy for vessel tree segmentation"
     segmentationAdvancedFormLayout.addRow("Segmentation strategy:", self._strategyChoice)
 
+    # initialization combo box
+    self._levelSetInitializationChoice = qt.QComboBox()
+    self._levelSetInitializationChoice.addItems(list(self._levelSetInitializations.keys()))
+    self._levelSetInitializationChoice.toolTip = "Choose the level set initialization methods"
+    segmentationAdvancedFormLayout.addRow("Segmentation initialization:", self._levelSetInitializationChoice)
+
+    # initialization combo box
+    self._levelSetSegmentationChoice = qt.QComboBox()
+    self._levelSetSegmentationChoice.addItems(list(self._levelSetSegmentations.keys()))
+    self._levelSetSegmentationChoice.toolTip = "Choose the level set method"
+    segmentationAdvancedFormLayout.addRow("Segmentation method:", self._levelSetSegmentationChoice)
+
     # Reset default button
     restoreDefaultButton = qt.QPushButton("Restore")
     restoreDefaultButton.toolTip = "Click to reset all input elements to default."
@@ -397,6 +457,9 @@ class VesselWidget(VerticalLayoutWidget):
 
     vesselnessDisplayNode = self._getVesselnessDisplayNode(vesselness)
     vesselnessDisplayNode.SetVisibility(isVisible)
+
+    # Reset slice window level between 0 and 1
+    vesselness.GetVolumeDisplayNode().SetWindowLevel(1, 0.5)
 
     if self._vesselVolumeNode:
       foregroundOpacity = 0.1 if isVisible else 0
@@ -472,6 +535,9 @@ class VesselWidget(VerticalLayoutWidget):
     parameters.inflation = self._inflationSlider.value
     parameters.attraction = self._attractionSlider.value
     parameters.curvature = self._curvatureSlider.value
+    parameters.levelSetMethod = self._levelSetSegmentations[self._levelSetSegmentationChoice.currentText]
+    parameters.initializationMethod = self._levelSetInitializations[self._levelSetInitializationChoice.currentText]
+
     self._logic.levelSetParameters = parameters
 
   def _updateVesselnessVolume(self):
@@ -487,6 +553,10 @@ class VesselWidget(VerticalLayoutWidget):
     parameters.roiGrowthFactor = self._roiSlider.value
     parameters.minROIExtent = self._minRoiSlider.value
     parameters.useROI = self._useROI.checked
+    parameters.useVmtkFilter = self._useVmtkCheckBox.checked
+    parameters.satoSigma = self._satoSigmaSpinBox.value
+    parameters.satoAlpha1 = self._satoAlpha1SpinBox.value
+    parameters.satoAlpha2 = self._satoAlpha2SpinBox.value
     self._logic.vesselnessFilterParameters = parameters
 
     idPositionDict = getMarkupIdPositionDictionary(self._vesselBranchWidget.getBranchMarkupNode())
@@ -504,6 +574,8 @@ class VesselWidget(VerticalLayoutWidget):
     self._inflationSlider.value = p.inflation
     self._iterationSpinBox.value = p.iterationNumber
     self._strategyChoice.setCurrentIndex(self._strategyChoice.findText(self._defaultStrategy))
+    self._levelSetInitializationChoice.setCurrentIndex(0)
+    self._levelSetSegmentationChoice.setCurrentIndex(0)
 
   def _updateVesselnessFilterParameters(self, params):
     """Updates UI vessel filter parameters with the input VesselnessFilterParameters
@@ -520,6 +592,28 @@ class VesselWidget(VerticalLayoutWidget):
     self._roiSlider.value = params.roiGrowthFactor
     self._minRoiSlider.value = params.minROIExtent
     self._useROI.setChecked(params.useROI)
+
+    self._useVmtkCheckBox.setChecked(params.useVmtkFilter)
+    self._satoSigmaSpinBox.value = params.satoSigma
+    self._satoAlpha1SpinBox.value = params.satoAlpha1
+    self._satoAlpha2SpinBox.value = params.satoAlpha2
+
+    self._updateVesselnessFilterParameterVisibility()
+
+  def _updateVesselnessFilterParameterVisibility(self):
+    isVmtk = self._useVmtkCheckBox.checked
+    self._setVesselWidgetVisible(self._minimumDiameterSpinBox, isVmtk)
+    self._setVesselWidgetVisible(self._maximumDiameterSpinBox, isVmtk)
+    self._setVesselWidgetVisible(self._suppressPlatesSlider, isVmtk)
+    self._setVesselWidgetVisible(self._suppressBlobsSlider, isVmtk)
+    self._setVesselWidgetVisible(self._contrastSlider, isVmtk)
+    self._setVesselWidgetVisible(self._satoSigmaSpinBox, not isVmtk)
+    self._setVesselWidgetVisible(self._satoAlpha1SpinBox, not isVmtk)
+    self._setVesselWidgetVisible(self._satoAlpha2SpinBox, not isVmtk)
+
+  def _setVesselWidgetVisible(self, widget, isVisible):
+    widget.setVisible(isVisible)
+    self._vesselnessFormLayout.labelForField(widget).setVisible(isVisible)
 
   def _updateButtonStatusAndFilterParameters(self):
     """Enable buttons if input volume was selected by user and Tree is not in edit mode. When tree is done with editing

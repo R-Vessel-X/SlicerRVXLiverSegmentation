@@ -5,8 +5,9 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, VesselWidget, addInCollapsibleLayout, SegmentWidget, \
-  VesselSegmentEditWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget
+from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, \
+  PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
+from RVesselXLiverSegmentationEffect import DependencyChecker
 from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
   VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
@@ -17,9 +18,11 @@ class RVesselXModule(ScriptedLoadableModule):
     self.parent.title = "R Vessel X"
     self.parent.categories = [self.parent.title]
     self.parent.dependencies = []
-    self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS"]
-    self.parent.helpText = ""
-    self.parent.acknowledgementText = ""
+    self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
+                                "Camille Huet - Kitware SAS"]
+    self.parent.helpText = "Liver and hepatic vessels annotation plugin."
+    self.parent.acknowledgementText = "Initially developed during the RVesselX research project. " \
+                                      "See https://anr.fr/Projet-ANR-18-CE45-0018 for details."
 
 
 class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
@@ -112,18 +115,56 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
                                  lambda: slicer.app.layoutManager().setLayout(layoutNode.SlicerLayoutUserView))
       layoutMenu.setActiveAction(layoutSwitchAction)
 
+  @staticmethod
+  def areDependenciesSatisfied():
+    # Find extra segment editor effects
+    try:
+      import SegmentEditorLocalThresholdLib
+    except ImportError:
+      return False
+
+    return DependencyChecker.areDependenciesSatisfied() and RVesselXModuleLogic.isVmtkFound()
+
+  @staticmethod
+  def downloadDependenciesAndRestart():
+    progressDialog = slicer.util.createProgressDialog(maximum=0)
+
+    # Install Slicer extensions
+    for slicerExt in ["SlicerVMTK", "MarkupsToModel", "SegmentEditorExtraEffects"]:
+      progressDialog.labelText = f"Installing {slicerExt}"
+      meta_data = slicer.app.extensionsManagerModel().retrieveExtensionMetadataByName(slicerExt)
+      slicer.app.extensionsManagerModel().downloadAndInstallExtension(meta_data["extension_id"])
+
+    # Install PIP dependencies
+    DependencyChecker.installDependenciesIfNeeded(progressDialog)
+
+    # Restart
+    slicer.app.restart()
+
   def setup(self):
     """Setups widget in Slicer UI.
     """
-    app_ver = slicer.app.applicationVersion.split(".")
-    vMajor = int(app_ver[0])
-    vMinor = int(app_ver[1])
-    if not (vMajor, vMinor) > (4, 10):
-      slicer.util.errorDisplay("The RVesselX plugin is only compatible from Slicer 4.11 onwards.\n"
-                               "Please download the latest Slicer version to use this plugin.")
+    ScriptedLoadableModuleWidget.setup(self)
+
+    # Verify Slicer version compatibility
+    if not (slicer.app.majorVersion, slicer.app.minorVersion, float(slicer.app.revision)) >= (4, 11, 29738):
+      error_msg = "The RVesselX plugin is only compatible from Slicer 4.11 2021.02.26 onwards.\n" \
+                  "Please download the latest Slicer version to use this plugin."
+      self.layout.addWidget(qt.QLabel(error_msg))
+      self.layout.addStretch()
+      slicer.util.errorDisplay(error_msg)
       return
 
-    ScriptedLoadableModuleWidget.setup(self)
+    if not DependencyChecker.areDependenciesSatisfied():
+      error_msg = "Slicer VMTK, MarkupsToModel, SegmentEditorExtraEffects and MONAI are required by this plugin.\n" \
+                  "Please click on the Download button to download and install these dependencies."
+      self.layout.addWidget(qt.QLabel(error_msg))
+      downloadDependenciesButton = createButton("Download dependencies and restart",
+                                                self.downloadDependenciesAndRestart)
+      self.layout.addWidget(downloadDependenciesButton)
+      self.layout.addStretch()
+      return
+
     # Reset tab list
     self._tabList = []
 

@@ -33,13 +33,16 @@ class RVesselXModuleTestCase(unittest.TestCase):
     # Run vessel extraction and expect non empty values and data
     logic = RVesselXModuleLogic()
     logic.setInputVolume(sourceVolume)
-    logic.updateVesselnessVolume([startPosition, endPosition])
-    seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition],
-                                                                                           [endPosition])
 
-    self.assertIsNotNone(outVolume)
-    self.assertIsNotNone(outModel)
-    self.assertNotEqual(0, outModel.GetPolyData().GetNumberOfCells())
+    for useVmtkVesselness in [True, False]:
+      logic.vesselnessFilterParameters.useVmtkFilter = useVmtkVesselness
+      logic.updateVesselnessVolume([startPosition, endPosition])
+      seedsNodes, stoppersNodes, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition],
+                                                                                             [endPosition])
+
+      self.assertIsNotNone(outVolume)
+      self.assertIsNotNone(outModel)
+      self.assertNotEqual(0, outModel.GetPolyData().GetNumberOfCells())
 
   def testSegmentedVesselPositionAndSizeIsTheSameAsSourceVolume(self):
     # Prepare source volume, start position and end position
@@ -72,7 +75,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
     logic = RVesselXModuleLogic()
 
     with self.assertRaises(ValueError):
-      logic._applyVesselnessFilter(None, None)
+      logic._applyVmtkVesselnessFilter(None)
 
     with self.assertRaises(ValueError):
       logic.centerLineFilter(None, None)
