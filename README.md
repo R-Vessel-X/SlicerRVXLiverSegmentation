@@ -12,7 +12,7 @@ The exported segmentations will then be used in research.
 The plugin provides a systematic annotation workflow and tools to allow for fast segmentation.
 The plugin is separated in the following tabs : 
 * Liver segmentation : Segmentation editor configured for liver segmentation
-* Portal vein segmentation : VMTK extension used for portal vein segmentation
+* Portal veins segmentation: VMTK extension used for portal vein segmentation
 * Inferior cava vein segmentation : VMTK extension used for IVC vein segmentation
 * Tumor segmentation : Segmentation editor configure for tumor segmentation
 
@@ -56,17 +56,73 @@ The plugin can be open by going to the Slicer module list and clicking on `Liver
 The plugin is built upon 4 tabs : Data, Liver, Vessels, Tumors.
 Navigation between tabs is done either using the arrow buttons at the top of the plugin or by directly clicking on the tabs.
 
-* The `Data Tab` is used to open the patient data. Loading can be done using the `Load DICOM` and the `Load Data` buttons. The input volume needs to be selected using the `Volume` combo box.
-* The `Liver Tab` is used to segment the liver volume. Two segments are created by default, the `Liver In` and `Liver Out` segments.
-* The `Vessels Tab` is used to segment the vessels volume. First the vessel tree needs to be constructed by selecting the vessels branching nodes in the views. Then the vessels can be extracted from the constructed tree using the `Extract Vessels from node tree` button.
-	* The tree is constructed in a depth first manner. First the root of the tree should be selected, then each intersection should be selected until the end of the vessel is reached.
-When the end of the vessel is reached, the previous intersection should be selected in the left panel tree and the other vessel starting from this intersection should be followed using the same method.
-If an intersection has been missed, a node can be inserted before another one by holding the `Shift` Keyboard key and clicking on the node before which the new node should be inserted.
-	*  Creation of new nodes is done using the `Add branching node` button. This mode is enabled while the button is checked. It can be disabled by pressing the `Escape` keyboard key.
-Nodes are added by either left clicking in the slicer vue or the 3D vue.
-	* Edition of the nodes position is done using the `Edit branching node` button. This mode is enabled while the button is checked. It can be disabled by pressing the `Escape` keyboard key.
-	* The nodes can be deleted in the left panel by either clicking the `delete icon` or by pressing the delete keyboard key.
-	* The nodes can be reordered in the left panel by drag and drop
-* The `TumorTab` is used to segment the tumor volume if any. Two segments are created by default, the `Tumor` and `Not Tumor` segments.
+### Data import and visualization
+The `Data Tab` is used to open the patient data. Loading can be done using the `Load DICOM` and the `Load Data` buttons. 
+The input volume needs to be selected using the `Volume` combo box.
 
-Once all the volumes are segmented, they can be exported to a directory using the `Export all segmented volumes` button.
+The `Data Tab` aggregates the functionalities of the `load Data` and `load DICOM` buttons as well as the `Volume` module.
+
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/data_tab.png" width="800"/>
+
+### Liver segmentation
+The `Liver Tab` is used to segment the liver volume. Two segments are created by default, the `Liver In` and `Liver Out` segments. 
+
+The "Segment CT Liver" segmentation effect is available for fast segmentation of the liver for CT data. 
+This segmentation effect is built upon MONAI and PyTorch to provide ML accelerated segmentation.
+
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/liver_tab.png" width="800"/>
+
+### Portal veins segmentation
+The portal veins segmentation is split into two tabs.
+
+The `Portal Veins` tab is used to initialize the segmentation of the vessels using a vessel intersection tree.
+First the vessel tree needs to be constructed by selecting the vessels branching nodes in the views. 
+To place the nodes, click in the tree on the intersection to be placed. Then click in the 2D or 3D view to place
+the markup node.
+
+The tree is constructed in a depth first manner. First the root of the tree should be selected, then each intersection 
+should be selected until the end of the vessel is reached.
+
+Edition of the nodes position is done using the `Unlock Node Position` button. This mode is enabled while the button 
+is checked. It can be disabled by pressing the `Escape` keyboard key.
+
+The nodes can be deleted in the left panel by either clicking the `delete icon` or by pressing the `delete` keyboard key.
+
+Intermediary nodes can be placed to improve the vessel extraction by clicking on the `Insert before` button in the tree.
+
+Once every node has been placed, the vessels can be extracted from the constructed tree using the 
+`Extract Vessels from node tree` button.
+The parameters of the vesselness can be edited to refine the extraction of the vessels.
+
+After the portal vessels have been extracted, the segmentation can be refined using the `Portal Veins Edit` tab.
+This tab uses the segmentation editor and allows for refining the overall portal vein segmentation.
+
+After the portal vein volume has been edited, click on the `Proceed to vessel splitting` button. This button will
+extract the center line for each portion of the portal vessels and will create one empty segment per vessel branch.
+The scissors tool will be selected automatically and will allow for splitting the overall portal vein volume into its
+sub-branches.
+
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/portal_vein_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/portal_vein_edit_tab.png" width="800"/>
+
+### IVC veins segmentation
+The IVC vein segmentation principle is identical as the portal vein segmentation.
+
+### Tumor segmentation
+The `Tumor` tab allows for annotating the portions of the liver which present any tumors.
+It uses the segment editor configured with two segments.
+
+### Exporting the results
+To export the annotation results, navigate to the last tab (the `Tumor` tab) and click on the `Export all segmetned volumes` 
+button. A dialog will open querying the location where the results need to be saved.
+
+The following results will be saved : 
+* Liver label map
+* Portal vein label map
+* Portal vein tree intersection positions (fiducial CSV and adjacent matrix)
+* IVC vein label map
+* IVC vein tree intersection positions (fiducial CSV and adjacent matrix)
+* Tumor label map
+* Slicer scene as .MRB
+
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/tumor_export_tab.png" width="800"/>
