@@ -8,7 +8,7 @@ import slicer
 from RVesselXLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
-from .RVesselXModuleLogic import VesselnessFilterParameters, LevelSetParameters
+from .RVesselXLogic import VesselnessFilterParameters, LevelSetParameters
 from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNodeIfNecessary, Signal, \
   getMarkupIdPositionDictionary
 from .VerticalLayoutWidget import VerticalLayoutWidget
@@ -114,7 +114,7 @@ class VesselWidget(VerticalLayoutWidget):
     """
     Parameters
     ----------
-    logic: RVesselXModuleLogic
+    logic: RVesselXLogic
     """
     VerticalLayoutWidget.__init__(self, widgetName + " Tab")
 

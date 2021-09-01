@@ -1,5 +1,5 @@
 from .ExtractVesselStrategyTestCase import ExtractVesselStrategyTestCase
-from .ModuleLogicTestCase import RVesselXModuleTestCase
+from .ModuleLogicTestCase import RVesselXTestCase
 from .VesselBranchTreeTestCase import VesselBranchTreeTestCase
 from .VesselBranchWizardTestCase import VesselBranchWizardTestCase
 from .VesselSegmentEditWidgetTestCase import VesselSegmentEditWidgetTestCase

@@ -69,7 +69,7 @@ class LevelSetParameters(object):
     self.levelSetMethod = "geodesic"
 
 
-class IRVesselXModuleLogic(object):
+class IRVesselXLogic(object):
   """Interface definition for Logic module.
   """
 
@@ -91,14 +91,14 @@ class IRVesselXModuleLogic(object):
     self._vesselnessFilterParam = value
 
 
-class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
+class RVesselXLogic(ScriptedLoadableModuleLogic, IRVesselXLogic):
   """Class regrouping the logic methods for the plugin. Uses the VMTK algorithm for most of its functionality.
   Holds a map of previously calculated vesselness volumes to avoid reprocessing it when extracting liver vessels.
   """
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleLogic.__init__(self, parent)
-    IRVesselXModuleLogic.__init__(self)
+    IRVesselXLogic.__init__(self)
 
     self._inputVolume = None
     self._croppedInputVolume = None
@@ -307,7 +307,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     slicer.mrmlScene.RemoveNode(tmpVolume)
 
     # Construct model boundary mesh
-    outModel = RVesselXModuleLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
+    outModel = RVesselXLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
 
     return seedsNodes, stoppersNodes, outVolume, outModel
 
@@ -464,7 +464,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
     endPoints = createFiducialNode("endPoint", *(startPoints + endPoints))
 
     # Call centerline extraction
-    centerLineModel = RVesselXModuleLogic.centerLineFilter(levelSetSegmentationModel, endPoints)
+    centerLineModel = RVesselXLogic.centerLineFilter(levelSetSegmentationModel, endPoints)
 
     # remove end point from slicer
     removeNodeFromMRMLScene(endPoints)
@@ -479,7 +479,7 @@ class RVesselXModuleLogic(ScriptedLoadableModuleLogic, IRVesselXModuleLogic):
 
   @staticmethod
   def _areExtremitiesValid(startPoint, endPoint):
-    return RVesselXModuleLogic._isPointValid(startPoint) and RVesselXModuleLogic._isPointValid(endPoint)
+    return RVesselXLogic._isPointValid(startPoint) and RVesselXLogic._isPointValid(endPoint)
 
   def updateVesselnessVolume(self, nodePositions):
     """Update vesselness volume node for current input volume and current filter parameters.
