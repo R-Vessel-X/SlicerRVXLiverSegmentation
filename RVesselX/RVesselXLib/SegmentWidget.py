@@ -1,7 +1,7 @@
 import qt
 import slicer
 
-from .RVesselXModuleLogic import RVesselXModuleLogic
+from .RVesselXLogic import RVesselXLogic
 from .RVesselXUtils import WidgetUtils, GeometryExporter, removeNodeFromMRMLScene
 from .VerticalLayoutWidget import VerticalLayoutWidget
 
@@ -153,7 +153,7 @@ class SegmentWidget(VerticalLayoutWidget):
 
   def _createLabelMapModel(self):
     removeNodeFromMRMLScene(self._model)
-    self._model = RVesselXModuleLogic.createVolumeBoundaryModel(self._labelMap, self._segmentNode.GetName() + "Model",
+    self._model = RVesselXLogic.createVolumeBoundaryModel(self._labelMap, self._segmentNode.GetName() + "Model",
                                                                 threshold=0.5)
     # Disable created model visibility in scene
     if self._model:

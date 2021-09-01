@@ -1,21 +1,30 @@
 # RVesselX Slicer Plugin
 
+<img src="https://github.com/R-Vessel-X/LiverAnatomyAnnotation/raw/main/RVesselX/Resources/Icons/RVesselX.png"/>
+
+<img src="https://github.com/R-Vessel-X/LiverAnatomyAnnotation/raw/main/Screenshots/1.png" width="800"/>
+
+
 ## Introduction
 
-The RVesselX slicer plugin is a plugin for Slicer3D which aims at easing the segmentation of liver, liver vessels and liver tumor from DICOM data. Theses segmented informations will then be used in research.
+The RVesselX slicer plugin is a plugin for Slicer3D which aims at easing the segmentation of liver, liver vessels and liver tumor from DICOM data for annotation purposes. 
+The exported segmentations will then be used in research.
 
 For more information on the R-Vessel-X project, please visit :  
 https://anr.fr/Projet-ANR-18-CE45-0018
 
-## Installing the plugin
+## Manually installing the plugin
 
-The plugin depends on the VMTK extension. Extensions can be installed in Slicer3D using the extension manager :
+The plugin depends on the VMTK and the extra segmentation editor effects extensions. Extensions can be installed in Slicer3D using the extension manager :
 https://www.slicer.org/wiki/Documentation/4.3/SlicerApplication/ExtensionsManager
 
 Once VMTK was installed, the plugin can be installed by going to : 
 Edit > Application Settings > Modules > Additional module paths
 
 The directory containing this readme file needs to be added to the path list.
+
+When first loading the plugin, a button will be displayed to download the required Python packages.
+After the download, the application will be restarted.
 
 ## Testing
 
@@ -34,7 +43,7 @@ The number and the result of the tests will be displayed in the console.
 
 ## Using the Plugin
 
-The plugin can be open by going to the Slicer module list and clicking on `R Vessel X>R Vessl X` module.
+The plugin can be open by going to the Slicer module list and clicking on `Liver Anatomy Annotation>R Vessel X` module.
 
 The plugin is built upon 4 tabs : Data, Liver, Vessels, Tumors.
 Navigation between tabs is done either using the arrow buttons at the top of the plugin or by directly clicking on the tabs.

@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import slicer
 
-from RVesselXLib import RVesselXModuleLogic, GeometryExporter, getVolumeIJKToRASDirectionMatrixAsNumpyArray
+from RVesselXLib import RVesselXLogic, GeometryExporter, getVolumeIJKToRASDirectionMatrixAsNumpyArray
 from .TestUtils import TemporaryDir, createNonEmptyVolume, createNonEmptyModel
 
 
@@ -20,7 +20,7 @@ def prepareEndToEndTest():
   return sourceVolume, startPosition, endPosition
 
 
-class RVesselXModuleTestCase(unittest.TestCase):
+class RVesselXTestCase(unittest.TestCase):
   def setUp(self):
     """ Clear scene before each tests
     """
@@ -31,7 +31,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
     sourceVolume, startPosition, endPosition = prepareEndToEndTest()
 
     # Run vessel extraction and expect non empty values and data
-    logic = RVesselXModuleLogic()
+    logic = RVesselXLogic()
     logic.setInputVolume(sourceVolume)
 
     for useVmtkVesselness in [True, False]:
@@ -49,7 +49,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
     sourceVolume, startPosition, endPosition = prepareEndToEndTest()
 
     # Run vessel extraction and expect non empty values and data
-    logic = RVesselXModuleLogic()
+    logic = RVesselXLogic()
     logic.setInputVolume(sourceVolume)
     logic.updateVesselnessVolume([startPosition, endPosition])
     _, _, outVolume, outModel = logic.extractVesselVolumeFromPosition([startPosition], [endPosition])
@@ -72,7 +72,7 @@ class RVesselXModuleTestCase(unittest.TestCase):
                                          outVolume.GetImageData().GetDimensions())
 
   def testLogicRaisesErrorWhenCalledWithNoneInputs(self):
-    logic = RVesselXModuleLogic()
+    logic = RVesselXLogic()
 
     with self.assertRaises(ValueError):
       logic._applyVmtkVesselnessFilter(None)
@@ -109,33 +109,33 @@ class RVesselXModuleTestCase(unittest.TestCase):
   def testGivenNoMinExtentRoiExtentReachesExtremeNodePositions(self):
     node_positions = [[1, 0, 0], [1, 0, 0], [1, 0, 0], [40, 0, 0], [-1, 0, 0]]
 
-    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    roi_center, roi_radius = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
     np.testing.assert_array_almost_equal([19.5, 0, 0], roi_center)
     np.testing.assert_array_almost_equal([20.5, 0, 0], roi_radius)
 
   def testGivenNoMinExtentAndGrowthFactorRadiusIsMultipliedByGrowthFactor(self):
     node_positions = [[1, 0, 0], [1, 0, 0], [1, 0, 0], [40, 0, 0], [-1, 0, 0]]
 
-    _, roi_radius_x1 = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
-    _, roi_radius_x2 = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=2)
+    _, roi_radius_x1 = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    _, roi_radius_x2 = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=2)
 
     np.testing.assert_array_almost_equal(roi_radius_x1 * 2, roi_radius_x2)
 
   def testGivenMinExtentROIRadiusIsAdjusted(self):
     node_positions = [[0, 1, 0], [40, 0, 0], [-1, 0, 0]]
-    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=1)
+    roi_center, roi_radius = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=1)
     np.testing.assert_array_almost_equal([19.5, 0.5, 0], roi_center)
     np.testing.assert_array_almost_equal([20.5, 5, 5], roi_radius)
 
   def testGivenMinExtentWithGrowthFactorROIRadiusIsAdjustedForMinSizeOnly(self):
     node_positions = [[0, 1, 0], [40, 0, 0], [-1, 0, 0]]
-    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=2)
+    roi_center, roi_radius = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=10, growthFactor=2)
     np.testing.assert_array_almost_equal([19.5, 0.5, 0], roi_center)
     np.testing.assert_array_almost_equal([41., 5, 5], roi_radius)
 
   def testGivenNegativeNodePositionsROICenterIsCorrect(self):
     node_positions = [[-46, -24, -28], [-45, -22, -54]]
 
-    roi_center, roi_radius = RVesselXModuleLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
+    roi_center, roi_radius = RVesselXLogic.calculateRoiExtent(node_positions, minExtent=0, growthFactor=1)
     np.testing.assert_array_almost_equal([-45.5, -23, -41], roi_center)
     np.testing.assert_array_almost_equal([0.5, 1., 13.], roi_radius)

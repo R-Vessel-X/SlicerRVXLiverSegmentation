@@ -5,18 +5,18 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from RVesselXLib import RVesselXModuleLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, \
+from RVesselXLib import RVesselXLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, \
   PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
 from RVesselXLiverSegmentationEffect import DependencyChecker
-from RVesselXTest import RVesselXModuleTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
+from RVesselXTest import RVesselXTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
   VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
 
-class RVesselXModule(ScriptedLoadableModule):
+class RVesselX(ScriptedLoadableModule):
   def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "R Vessel X"
-    self.parent.categories = [self.parent.title]
+    self.parent.categories = ["Liver Anatomy Annotation"]
     self.parent.dependencies = []
     self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
                                 "Camille Huet - Kitware SAS"]
@@ -25,7 +25,7 @@ class RVesselXModule(ScriptedLoadableModule):
                                       "See https://anr.fr/Projet-ANR-18-CE45-0018 for details."
 
 
-class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
+class RVesselXWidget(ScriptedLoadableModuleWidget):
   """Class responsible for the UI of the RVesselX project.
 
   For more information on the R-Vessel-X project, please visit :
@@ -70,7 +70,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
 
     Implementation closely resembles super class onReload method but without verbosity and with enabling handled.
     """
-    if RVesselXModuleWidget.enableReloadOnSceneClear:
+    if RVesselXWidget.enableReloadOnSceneClear:
       slicer.util.reloadScriptedModule(self.moduleName)
 
   def _configureLayout(self):
@@ -123,7 +123,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     except ImportError:
       return False
 
-    return DependencyChecker.areDependenciesSatisfied() and RVesselXModuleLogic.isVmtkFound()
+    return DependencyChecker.areDependenciesSatisfied() and RVesselXLogic.isVmtkFound()
 
   @staticmethod
   def downloadDependenciesAndRestart():
@@ -155,7 +155,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
       slicer.util.errorDisplay(error_msg)
       return
 
-    if not DependencyChecker.areDependenciesSatisfied():
+    if not self.areDependenciesSatisfied():
       error_msg = "Slicer VMTK, MarkupsToModel, SegmentEditorExtraEffects and MONAI are required by this plugin.\n" \
                   "Please click on the Download button to download and install these dependencies."
       self.layout.addWidget(qt.QLabel(error_msg))
@@ -173,7 +173,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     self._configure3DViewWithMaximumIntensityProjection()
 
     # Initialize Variables
-    self.logic = RVesselXModuleLogic()
+    self.logic = RVesselXLogic()
     self._dataTab = DataWidget()
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
@@ -192,7 +192,7 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     # Create tab widget and add it to layout in collapsible layout
     self._tabWidget = qt.QTabWidget()
     self._tabWidget.connect("currentChanged(int)", self._adjustTabSizeToContent)
-    addInCollapsibleLayout(self._tabWidget, self.layout, "R Vessel X", isCollapsed=False)
+    self.layout.addWidget(self._tabWidget)
 
     # Add widgets to tab widget and connect data tab input change to the liver and vessels tab set input methods
     self._addTab(self._dataTab, "Data")
@@ -377,20 +377,20 @@ class RVesselXModuleWidget(ScriptedLoadableModuleWidget):
     return buttonHBoxLayout
 
 
-class RVesselXModuleTest(ScriptedLoadableModuleTest):
+class RVesselXTest(ScriptedLoadableModuleTest):
   def runTest(self):
     # Disable module reloading between tests
-    RVesselXModuleWidget.enableReloadOnSceneClear = False
-    slicer.modules.RVesselXModuleWidget.setTestingMode(True)
+    RVesselXWidget.enableReloadOnSceneClear = False
+    slicer.modules.RVesselXWidget.setTestingMode(True)
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXModuleTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
+    testCases = [RVesselXTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
                  ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
 
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # Reactivate module reloading and cleanup slicer scene
-    RVesselXModuleWidget.enableReloadOnSceneClear = True
-    slicer.modules.RVesselXModuleWidget.setTestingMode(False)
+    RVesselXWidget.enableReloadOnSceneClear = True
+    slicer.modules.RVesselXWidget.setTestingMode(False)
     slicer.mrmlScene.Clear()
