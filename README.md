@@ -1,14 +1,22 @@
-# RVesselX Slicer Plugin
-
-<img src="https://github.com/R-Vessel-X/LiverAnatomyAnnotation/raw/main/RVesselX/Resources/Icons/RVesselX.png"/>
-
-<img src="https://github.com/R-Vessel-X/LiverAnatomyAnnotation/raw/main/Screenshots/1.png" width="800"/>
-
+# RVesselX Slicer Liver Anatomy Annotation Plugin
+<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/1.png" width="800"/>
 
 ## Introduction
+<div style="text-align:center">
+<img class="center" src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/RVesselX/Resources/Icons/RVesselX.png"/>
+</div>
 
 The RVesselX slicer plugin is a plugin for Slicer3D which aims at easing the segmentation of liver, liver vessels and liver tumor from DICOM data for annotation purposes. 
 The exported segmentations will then be used in research.
+
+The plugin provides a systematic annotation workflow and tools to allow for fast segmentation.
+The plugin is separated in the following tabs : 
+* Liver segmentation : Segmentation editor configured for liver segmentation
+* Portal vein segmentation : VMTK extension used for portal vein segmentation
+* Inferior cava vein segmentation : VMTK extension used for IVC vein segmentation
+* Tumor segmentation : Segmentation editor configure for tumor segmentation
+
+At the end of the workflow, the annotated data can be saved to a given output directory.
 
 For more information on the R-Vessel-X project, please visit :  
 https://anr.fr/Projet-ANR-18-CE45-0018
