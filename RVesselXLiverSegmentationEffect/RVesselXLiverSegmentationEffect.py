@@ -25,7 +25,7 @@ class RVesselXLiverSegmentationEffect(ScriptedLoadableModule):
   def registerEditorEffect(self):
     import qSlicerSegmentationsEditorEffectsPythonQt as qSlicerSegmentationsEditorEffects
 
-    if not DependencyChecker.areDependenciesSatisfied():
+    if not PythonDependencyChecker.areDependenciesSatisfied():
       return
 
     instance = qSlicerSegmentationsEditorEffects.qSlicerSegmentEditorScriptedEffect(None)
@@ -34,7 +34,7 @@ class RVesselXLiverSegmentationEffect(ScriptedLoadableModule):
     instance.self().register()
 
 
-class DependencyChecker(object):
+class PythonDependencyChecker(object):
   """
   Class responsible for installing the Modules dependencies
   """
@@ -59,7 +59,14 @@ class DependencyChecker(object):
 
     progressDialog = progressDialog or slicer.util.createProgressDialog(maximum=0)
     progressDialog.labelText = "Installing PyTorch"
-    slicer.util.pip_install("https://download.pytorch.org/whl/cu101/torch-1.8.1%2Bcu101-cp36-cp36m-win_amd64.whl")
+
+    try:
+      # Try to install the best available pytorch version for the environment using the PyTorch Slicer extension
+      import PyTorchUtils
+      PyTorchUtils.PyTorchUtilsLogic().installTorch()
+    except ImportError:
+      # Fallback on default torch available on PIP
+      slicer.util.pip_install("torch")
 
     for dep in ["itk", "nibabel", "scikit-image", "gdown", "monai"]:
       progressDialog.labelText = dep

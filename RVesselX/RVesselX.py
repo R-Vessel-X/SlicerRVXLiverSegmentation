@@ -5,9 +5,9 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from RVesselXLib import RVesselXLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, \
-  PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
-from RVesselXLiverSegmentationEffect import DependencyChecker
+from RVesselXLib import RVesselXLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, PortalVesselWidget, \
+  IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
+from RVesselXLiverSegmentationEffect import PythonDependencyChecker
 from RVesselXTest import RVesselXTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
   VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
@@ -123,20 +123,21 @@ class RVesselXWidget(ScriptedLoadableModuleWidget):
     except ImportError:
       return False
 
-    return DependencyChecker.areDependenciesSatisfied() and RVesselXLogic.isVmtkFound()
+    return PythonDependencyChecker.areDependenciesSatisfied() and RVesselXLogic.isVmtkFound()
 
   @staticmethod
   def downloadDependenciesAndRestart():
     progressDialog = slicer.util.createProgressDialog(maximum=0)
 
     # Install Slicer extensions
-    for slicerExt in ["SlicerVMTK", "MarkupsToModel", "SegmentEditorExtraEffects"]:
-      progressDialog.labelText = f"Installing {slicerExt}"
+    for slicerExt in ["SlicerVMTK", "MarkupsToModel", "SegmentEditorExtraEffects", "PyTorch"]:
       meta_data = slicer.app.extensionsManagerModel().retrieveExtensionMetadataByName(slicerExt)
-      slicer.app.extensionsManagerModel().downloadAndInstallExtension(meta_data["extension_id"])
+      if meta_data:
+        progressDialog.labelText = f"Installing the {slicerExt}\nSlicer extension"
+        slicer.app.extensionsManagerModel().downloadAndInstallExtension(meta_data["extension_id"])
 
     # Install PIP dependencies
-    DependencyChecker.installDependenciesIfNeeded(progressDialog)
+    PythonDependencyChecker.installDependenciesIfNeeded(progressDialog)
 
     # Restart
     slicer.app.restart()
@@ -384,8 +385,8 @@ class RVesselXTest(ScriptedLoadableModuleTest):
     slicer.modules.RVesselXWidget.setTestingMode(True)
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
-                 ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
+    testCases = [RVesselXTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase, ExtractVesselStrategyTestCase,
+                 VesselSegmentEditWidgetTestCase]
 
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)

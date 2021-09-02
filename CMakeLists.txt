@@ -10,7 +10,7 @@ set(EXTENSION_CONTRIBUTORS "Lucie Macron (Kitware SAS), Thibault Pelletier (Kitw
 set(EXTENSION_DESCRIPTION "Liver and hepatic vessels annotation plugin")
 set(EXTENSION_ICONURL "https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/RVesselX/Resources/Icons/RVesselX.png")
 set(EXTENSION_SCREENSHOTURLS "https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/1.png")
-set(EXTENSION_DEPENDS "SlicerVMTK MarkupsToModel SegmentEditorExtraEffects") # Specified as a list or "NA" if no dependencies
+set(EXTENSION_DEPENDS "SlicerVMTK MarkupsToModel SegmentEditorExtraEffects PyTorch") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
 # Extension dependencies

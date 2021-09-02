@@ -2,6 +2,7 @@ import gc
 import os.path
 
 from SegmentEditorEffects import *
+import monai
 from monai.inferers.utils import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.networks.nets.unet import UNet
@@ -222,19 +223,29 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
 
         model_path = os.path.join(os.path.dirname(__file__), "liver_ct_model.pt")
         model = cls.createUNetModel(device=device)
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, map_location=device))
 
         transform_output = cls.getPreprocessingTransform()(in_out_volume_node)
         model_input = transform_output['volume'].to(device)
 
         print("Run UNet model on input volume using sliding window inference")
         model_output = sliding_window_inference(model_input, (160, 160, 160), 4, model)
-        del model, model_input
 
         print("Keep largest connected components and threshold UNet output")
-        post_processed = KeepLargestConnectedComponent(applied_labels=[1])(AsDiscrete(argmax=True)(model_output))
-        output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
-        del post_processed, model_output
+        # Convert output to discrete
+
+        monai_version = [int(v) for v in monai.__version__.split(".")][:3]
+        # Keep largest connected components (expected shape changed after monai 0.6.0)
+        if monai_version >= [0, 6, 0]:
+          discrete_output = AsDiscrete(argmax=True)(model_output.reshape(model_output.shape[-4:]))
+          post_processed = KeepLargestConnectedComponent(applied_labels=[1])(discrete_output)
+          output_volume = post_processed.cpu().numpy()[0, :, :, :]
+        else:
+          discrete_output = AsDiscrete(argmax=True)(model_output)
+          post_processed = KeepLargestConnectedComponent(applied_labels=[1])(discrete_output)
+          output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
+
+        del post_processed, model_output, discrete_output, model, model_input
 
         transform_output["volume"] = output_volume
         original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
