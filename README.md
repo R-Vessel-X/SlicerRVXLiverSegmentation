@@ -3,7 +3,7 @@
 
 ## Introduction
 <div style="text-align:center">
-<img class="center" src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/RVesselX/Resources/Icons/RVXLiverSegmentation.png"/>
+<img class="center" src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/RVXLiverSegmentation/Resources/Icons/RVXLiverSegmentation.png"/>
 </div>
 
 The RVesselX slicer plugin is a plugin for Slicer3D which aims at easing the segmentation of liver, liver vessels and liver tumor from DICOM data for annotation purposes. 
