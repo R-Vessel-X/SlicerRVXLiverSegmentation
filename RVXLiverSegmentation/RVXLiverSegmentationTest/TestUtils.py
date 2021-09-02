@@ -3,7 +3,7 @@ from collections import OrderedDict
 import slicer
 import vtk
 
-from RVesselXLib import IRVesselXLogic
+from RVXLiverSegmentationLib import IRVXLiverSegmentationLogic
 
 
 class TemporaryDir(object):
@@ -24,7 +24,7 @@ class TemporaryDir(object):
     shutil.rmtree(self._dir)
 
 
-class FakeLogic(IRVesselXLogic):
+class FakeLogic(IRVXLiverSegmentationLogic):
   """Fake logic for faster tests of vessel tree
   """
 

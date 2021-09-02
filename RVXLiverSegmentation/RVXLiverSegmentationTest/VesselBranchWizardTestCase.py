@@ -2,7 +2,7 @@ import qt
 import slicer
 import unittest
 
-from RVesselXLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole, \
+from RVXLiverSegmentationLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole, \
   setup_portal_vein_default_branch, MarkupNode, TreeDrawer, INodePlaceWidget, InteractionStatus
 from .TestUtils import treeSort
 

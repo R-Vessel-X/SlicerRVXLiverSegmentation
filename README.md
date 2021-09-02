@@ -1,9 +1,9 @@
 # RVesselX Slicer Liver Anatomy Annotation Plugin
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/1.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/1.png" width="800"/>
 
 ## Introduction
 <div style="text-align:center">
-<img class="center" src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/RVesselX/Resources/Icons/RVesselX.png"/>
+<img class="center" src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/RVesselX/Resources/Icons/RVXLiverSegmentation.png"/>
 </div>
 
 The RVesselX slicer plugin is a plugin for Slicer3D which aims at easing the segmentation of liver, liver vessels and liver tumor from DICOM data for annotation purposes. 
@@ -62,7 +62,7 @@ The input volume needs to be selected using the `Volume` combo box.
 
 The `Data Tab` aggregates the functionalities of the `load Data` and `load DICOM` buttons as well as the `Volume` module.
 
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/data_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/data_tab.png" width="800"/>
 
 ### Liver segmentation
 The `Liver Tab` is used to segment the liver volume. Two segments are created by default, the `Liver In` and `Liver Out` segments. 
@@ -70,7 +70,7 @@ The `Liver Tab` is used to segment the liver volume. Two segments are created by
 The "Segment CT Liver" segmentation effect is available for fast segmentation of the liver for CT data. 
 This segmentation effect is built upon MONAI and PyTorch to provide ML accelerated segmentation.
 
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/liver_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/liver_tab.png" width="800"/>
 
 ### Portal veins segmentation
 The portal veins segmentation is split into two tabs.
@@ -102,8 +102,8 @@ extract the center line for each portion of the portal vessels and will create o
 The scissors tool will be selected automatically and will allow for splitting the overall portal vein volume into its
 sub-branches.
 
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/portal_vein_tab.png" width="800"/>
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/portal_vein_edit_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/portal_vein_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/portal_vein_edit_tab.png" width="800"/>
 
 ### IVC veins segmentation
 The IVC vein segmentation principle is identical as the portal vein segmentation.
@@ -125,4 +125,4 @@ The following results will be saved :
 * Tumor label map
 * Slicer scene as .MRB
 
-<img src="https://github.com/R-Vessel-X/SlicerLiverAnatomyAnnotation/raw/main/Screenshots/tumor_export_tab.png" width="800"/>
+<img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/tumor_export_tab.png" width="800"/>

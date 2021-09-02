@@ -2,9 +2,9 @@ import qt
 import slicer
 import vtk
 
-from RVesselXLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene, InteractionStatus, \
+from RVXLiverSegmentationLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene, InteractionStatus, \
   VesselTreeColumnRole
-from .RVesselXUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
+from .RVXLiverSegmentationUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
 
 class VesselBranchTreeItem(qt.QTreeWidgetItem):

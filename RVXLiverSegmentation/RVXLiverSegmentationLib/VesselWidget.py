@@ -5,11 +5,11 @@ import ctk
 import qt
 import slicer
 
-from RVesselXLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
+from RVXLiverSegmentationLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
-from .RVesselXLogic import VesselnessFilterParameters, LevelSetParameters
-from .RVesselXUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNodeIfNecessary, Signal, \
+from .RVXLiverSegmentationLogic import VesselnessFilterParameters, LevelSetParameters
+from .RVXLiverSegmentationUtils import GeometryExporter, removeNodesFromMRMLScene, createDisplayNodeIfNecessary, Signal, \
   getMarkupIdPositionDictionary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .VesselBranchTree import VesselBranchWidget, VesselBranchTree
@@ -114,7 +114,7 @@ class VesselWidget(VerticalLayoutWidget):
     """
     Parameters
     ----------
-    logic: RVesselXLogic
+    logic: RVXLiverSegmentationLogic
     """
     VerticalLayoutWidget.__init__(self, widgetName + " Tab")
 

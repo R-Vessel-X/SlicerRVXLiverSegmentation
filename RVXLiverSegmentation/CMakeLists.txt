@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME RVesselX)
+set(MODULE_NAME RVXLiverSegmentation)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
@@ -7,8 +7,8 @@ set(MODULE_PYTHON_SCRIPTS
     ${MODULE_NAME}Lib/__init__.py
     ${MODULE_NAME}Lib/DataWidget.py
     ${MODULE_NAME}Lib/ExtractVesselStrategies.py
-    ${MODULE_NAME}Lib/RVesselXLogic.py
-    ${MODULE_NAME}Lib/RVesselXUtils.py
+    ${MODULE_NAME}Lib/RVXLiverSegmentationLogic.py
+    ${MODULE_NAME}Lib/RVXLiverSegmentationUtils.py
     ${MODULE_NAME}Lib/SegmentWidget.py
     ${MODULE_NAME}Lib/VerticalLayoutWidget.py
     ${MODULE_NAME}Lib/VesselBranchTree.py

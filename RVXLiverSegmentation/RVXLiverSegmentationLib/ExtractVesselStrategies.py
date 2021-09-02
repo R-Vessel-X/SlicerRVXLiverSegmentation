@@ -1,8 +1,8 @@
 import slicer
 
-from RVesselXLib import removeNodeFromMRMLScene
-from .RVesselXLogic import RVesselXLogic
-from .RVesselXUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
+from RVXLiverSegmentationLib import removeNodeFromMRMLScene
+from .RVXLiverSegmentationLogic import RVXLiverSegmentationLogic
+from .RVXLiverSegmentationUtils import getMarkupIdPositionDictionary, createLabelMapVolumeNodeBasedOnModel
 
 
 class VesselSeedPoints(object):
@@ -155,7 +155,7 @@ class IExtractVesselStrategy(object):
       Tree containing the hierarchy of the markups
     vesselBranchMarkup: vtkMRMLMarkupsFiducialNode
       Markup containing all the vessel branches
-    logic: RVesselXLogic
+    logic: RVXLiverSegmentationLogic
 
     Returns
     -------
@@ -188,7 +188,7 @@ def mergeVolumes(volumes, volName):
   # Create output volume in slicer
   outVol = createLabelMapVolumeNodeBasedOnModel(volumes[0], volName)
   slicer.util.updateVolumeFromArray(outVol, mergedVol)
-  return outVol, RVesselXLogic.createVolumeBoundaryModel(outVol, volName + "Model", threshold=1)
+  return outVol, RVXLiverSegmentationLogic.createVolumeBoundaryModel(outVol, volName + "Model", threshold=1)
 
 
 class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
@@ -205,7 +205,7 @@ class ExtractAllVesselsInOneGoStrategy(IExtractVesselStrategy):
       Tree containing the hierarchy of the markups
     vesselBranchMarkup: vtkMRMLMarkupsFiducialNode
       Markup containing all the vessel branches
-    logic: RVesselXLogic
+    logic: RVXLiverSegmentationLogic
 
     Returns
     -------
@@ -266,7 +266,7 @@ class ExtractVesselFromVesselSeedPointsStrategy(IExtractVesselStrategy):
       Tree containing the hierarchy of the markups
     vesselBranchMarkup: vtkMRMLMarkupsFiducialNode
       Markup containing all the vessel branches
-    logic: RVesselXLogic
+    logic: RVXLiverSegmentationLogic
 
     Returns
     -------

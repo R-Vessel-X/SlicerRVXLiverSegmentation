@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME RVesselXLiverSegmentationEffect)
+set(MODULE_NAME RVXLiverSegmentationEffect)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS

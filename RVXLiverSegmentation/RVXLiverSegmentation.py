@@ -5,27 +5,29 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-from RVesselXLib import RVesselXLogic, Settings, DataWidget, addInCollapsibleLayout, SegmentWidget, PortalVesselWidget, \
-  IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
-from RVesselXLiverSegmentationEffect import PythonDependencyChecker
-from RVesselXTest import RVesselXTestCase, VesselBranchTreeTestCase, ExtractVesselStrategyTestCase, \
-  VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
+from RVXLiverSegmentationLib import RVXLiverSegmentationLogic, Settings, DataWidget, addInCollapsibleLayout, \
+  SegmentWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
+from RVXLiverSegmentationEffect import PythonDependencyChecker
+from RVXLiverSegmentationTest import RVXLiverSegmentationTestCase, VesselBranchTreeTestCase, \
+  ExtractVesselStrategyTestCase, VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
 
-class RVesselX(ScriptedLoadableModule):
+class RVXLiverSegmentation(ScriptedLoadableModule):
   def __init__(self, parent=None):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "R Vessel X"
-    self.parent.categories = ["Liver Anatomy Annotation"]
+    self.parent.title = "RVX Liver Segmentation"
+    self.parent.categories = ["Segmentation"]
     self.parent.dependencies = []
     self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
                                 "Camille Huet - Kitware SAS"]
-    self.parent.helpText = "Liver and hepatic vessels annotation plugin."
+    self.parent.helpText = "Liver and hepatic vessels segmentation plugin.\n\nThis plugin aims at easing the " \
+                           "segmentation of liver, liver vessels and liver tumor from DICOM data for annotation " \
+                           "purposes. The exported segmentations will then be used in research."
     self.parent.acknowledgementText = "Initially developed during the RVesselX research project. " \
                                       "See https://anr.fr/Projet-ANR-18-CE45-0018 for details."
 
 
-class RVesselXWidget(ScriptedLoadableModuleWidget):
+class RVXLiverSegmentationWidget(ScriptedLoadableModuleWidget):
   """Class responsible for the UI of the RVesselX project.
 
   For more information on the R-Vessel-X project, please visit :
@@ -70,7 +72,7 @@ class RVesselXWidget(ScriptedLoadableModuleWidget):
 
     Implementation closely resembles super class onReload method but without verbosity and with enabling handled.
     """
-    if RVesselXWidget.enableReloadOnSceneClear:
+    if RVXLiverSegmentationWidget.enableReloadOnSceneClear:
       slicer.util.reloadScriptedModule(self.moduleName)
 
   def _configureLayout(self):
@@ -123,7 +125,7 @@ class RVesselXWidget(ScriptedLoadableModuleWidget):
     except ImportError:
       return False
 
-    return PythonDependencyChecker.areDependenciesSatisfied() and RVesselXLogic.isVmtkFound()
+    return PythonDependencyChecker.areDependenciesSatisfied() and RVXLiverSegmentationLogic.isVmtkFound()
 
   @staticmethod
   def downloadDependenciesAndRestart():
@@ -174,7 +176,7 @@ class RVesselXWidget(ScriptedLoadableModuleWidget):
     self._configure3DViewWithMaximumIntensityProjection()
 
     # Initialize Variables
-    self.logic = RVesselXLogic()
+    self.logic = RVXLiverSegmentationLogic()
     self._dataTab = DataWidget()
     self._liverTab = SegmentWidget(segmentWidgetName="Liver Tab", segmentNodeName="Liver",
                                    segmentNames=["Liver In", "Liver Out"])
@@ -378,20 +380,20 @@ class RVesselXWidget(ScriptedLoadableModuleWidget):
     return buttonHBoxLayout
 
 
-class RVesselXTest(ScriptedLoadableModuleTest):
+class RVXLiverSegmentationTest(ScriptedLoadableModuleTest):
   def runTest(self):
     # Disable module reloading between tests
-    RVesselXWidget.enableReloadOnSceneClear = False
-    slicer.modules.RVesselXWidget.setTestingMode(True)
+    RVXLiverSegmentationWidget.enableReloadOnSceneClear = False
+    slicer.modules.RVXLiverSegmentationWidget.setTestingMode(True)
 
     # Gather tests for the plugin and run them in a test suite
-    testCases = [RVesselXTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase, ExtractVesselStrategyTestCase,
-                 VesselSegmentEditWidgetTestCase]
+    testCases = [RVXLiverSegmentationTestCase, VesselBranchTreeTestCase, VesselBranchWizardTestCase,
+                 ExtractVesselStrategyTestCase, VesselSegmentEditWidgetTestCase]
 
     suite = unittest.TestSuite([unittest.TestLoader().loadTestsFromTestCase(case) for case in testCases])
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # Reactivate module reloading and cleanup slicer scene
-    RVesselXWidget.enableReloadOnSceneClear = True
-    slicer.modules.RVesselXWidget.setTestingMode(False)
+    RVXLiverSegmentationWidget.enableReloadOnSceneClear = True
+    slicer.modules.RVXLiverSegmentationWidget.setTestingMode(False)
     slicer.mrmlScene.Clear()

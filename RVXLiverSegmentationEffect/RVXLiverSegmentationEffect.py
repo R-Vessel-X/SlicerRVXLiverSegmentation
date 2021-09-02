@@ -4,7 +4,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 
-class RVesselXLiverSegmentationEffect(ScriptedLoadableModule):
+class RVXLiverSegmentationEffect(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """

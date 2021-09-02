@@ -1,6 +1,6 @@
 import qt
 
-from RVesselXLib import Signal, jumpSlicesToNthMarkupPosition
+from RVXLiverSegmentationLib import Signal, jumpSlicesToNthMarkupPosition
 
 
 class VeinId(object):

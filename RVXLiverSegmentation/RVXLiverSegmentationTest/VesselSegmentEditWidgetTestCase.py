@@ -3,7 +3,7 @@ import unittest
 import qt
 import slicer
 
-from RVesselXLib import RVesselXLogic, VesselSegmentEditWidget, NodeBranches
+from RVXLiverSegmentationLib import RVXLiverSegmentationLogic, VesselSegmentEditWidget, NodeBranches
 from .ModuleLogicTestCase import prepareEndToEndTest
 
 
@@ -18,7 +18,7 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
     """ Clear scene before each tests
     """
     slicer.mrmlScene.Clear(0)
-    self.logic = RVesselXLogic()
+    self.logic = RVXLiverSegmentationLogic()
     self.vesselEdit = VesselSegmentEditWidget(logic=self.logic, treeWizard=FakeTreeWizard(), widgetName="")
 
   def testExportWhenNoSegmentationDoneDoesntRaise(self):

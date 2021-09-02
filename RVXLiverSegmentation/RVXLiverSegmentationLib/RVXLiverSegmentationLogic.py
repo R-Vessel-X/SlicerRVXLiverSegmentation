@@ -3,9 +3,9 @@ import slicer
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import vtk
 
-from .RVesselXUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, \
-  createModelNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, cloneSourceVolume, \
-  getVolumeIJKToRASDirectionMatrixAsNumpyArray
+from .RVXLiverSegmentationUtils import raiseValueErrorIfInvalidType, createLabelMapVolumeNodeBasedOnModel, \
+  createFiducialNode, createModelNode, createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, \
+  cloneSourceVolume, getVolumeIJKToRASDirectionMatrixAsNumpyArray
 
 try:
   from LevelSetSegmentation import LevelSetSegmentationWidget, LevelSetSegmentationLogic
@@ -69,7 +69,7 @@ class LevelSetParameters(object):
     self.levelSetMethod = "geodesic"
 
 
-class IRVesselXLogic(object):
+class IRVXLiverSegmentationLogic(object):
   """Interface definition for Logic module.
   """
 
@@ -91,14 +91,14 @@ class IRVesselXLogic(object):
     self._vesselnessFilterParam = value
 
 
-class RVesselXLogic(ScriptedLoadableModuleLogic, IRVesselXLogic):
+class RVXLiverSegmentationLogic(ScriptedLoadableModuleLogic, IRVXLiverSegmentationLogic):
   """Class regrouping the logic methods for the plugin. Uses the VMTK algorithm for most of its functionality.
   Holds a map of previously calculated vesselness volumes to avoid reprocessing it when extracting liver vessels.
   """
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleLogic.__init__(self, parent)
-    IRVesselXLogic.__init__(self)
+    IRVXLiverSegmentationLogic.__init__(self)
 
     self._inputVolume = None
     self._croppedInputVolume = None
@@ -307,7 +307,7 @@ class RVesselXLogic(ScriptedLoadableModuleLogic, IRVesselXLogic):
     slicer.mrmlScene.RemoveNode(tmpVolume)
 
     # Construct model boundary mesh
-    outModel = RVesselXLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
+    outModel = RVXLiverSegmentationLogic.createVolumeBoundaryModel(outVolume, "LevelSetSegmentationModel", evolImageData)
 
     return seedsNodes, stoppersNodes, outVolume, outModel
 
@@ -464,7 +464,7 @@ class RVesselXLogic(ScriptedLoadableModuleLogic, IRVesselXLogic):
     endPoints = createFiducialNode("endPoint", *(startPoints + endPoints))
 
     # Call centerline extraction
-    centerLineModel = RVesselXLogic.centerLineFilter(levelSetSegmentationModel, endPoints)
+    centerLineModel = RVXLiverSegmentationLogic.centerLineFilter(levelSetSegmentationModel, endPoints)
 
     # remove end point from slicer
     removeNodeFromMRMLScene(endPoints)
@@ -479,7 +479,7 @@ class RVesselXLogic(ScriptedLoadableModuleLogic, IRVesselXLogic):
 
   @staticmethod
   def _areExtremitiesValid(startPoint, endPoint):
-    return RVesselXLogic._isPointValid(startPoint) and RVesselXLogic._isPointValid(endPoint)
+    return RVXLiverSegmentationLogic._isPointValid(startPoint) and RVXLiverSegmentationLogic._isPointValid(endPoint)
 
   def updateVesselnessVolume(self, nodePositions):
     """Update vesselness volume node for current input volume and current filter parameters.

@@ -2,7 +2,7 @@ import qt
 import slicer
 import vtk
 
-from RVesselXLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromMRMLScene
+from RVXLiverSegmentationLib import SegmentWidget, createButton, GeometryExporter, NodeBranches, removeNodeFromMRMLScene
 
 
 class VesselSegmentEditWidget(SegmentWidget):

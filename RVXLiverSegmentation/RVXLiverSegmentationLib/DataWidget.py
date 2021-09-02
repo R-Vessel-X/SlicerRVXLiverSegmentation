@@ -3,7 +3,7 @@ import qt
 import slicer
 import vtk
 
-from .RVesselXUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, \
+from .RVXLiverSegmentationUtils import createInputNodeSelector, addInCollapsibleLayout, WidgetUtils, createButton, \
   createDisplayNodeIfNecessary
 from .VerticalLayoutWidget import VerticalLayoutWidget
 

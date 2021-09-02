@@ -1,7 +1,7 @@
 import unittest
 
-from RVesselXLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, VesselBranchTree, \
-  VesselSeedPoints, ExtractOneVesselPerBranch, PlaceStatus
+from RVXLiverSegmentationLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, \
+  VesselBranchTree, VesselSeedPoints, ExtractOneVesselPerBranch, PlaceStatus
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):

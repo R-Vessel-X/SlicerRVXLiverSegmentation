@@ -1,6 +1,6 @@
 import unittest
 
-from RVesselXLib import VesselBranchTree, PlaceStatus, VesselAdjacencyMatrixExporter
+from RVXLiverSegmentationLib import VesselBranchTree, PlaceStatus, VesselAdjacencyMatrixExporter
 from .TestUtils import FakeMarkupNode, treeSort
 
 
