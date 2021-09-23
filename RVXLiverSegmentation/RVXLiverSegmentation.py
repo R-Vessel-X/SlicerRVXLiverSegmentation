@@ -20,11 +20,39 @@ class RVXLiverSegmentation(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
                                 "Camille Huet - Kitware SAS"]
-    self.parent.helpText = "Liver and hepatic vessels segmentation plugin.\n\nThis plugin aims at easing the " \
+    self.parent.helpText = "Liver and hepatic vessels segmentation plugin.<br><br>This plugin aims at easing the " \
                            "segmentation of liver, liver vessels and liver tumor from DICOM data for annotation " \
-                           "purposes. The exported segmentations will then be used in research."
-    self.parent.acknowledgementText = "Initially developed during the RVesselX research project. " \
-                                      "See https://anr.fr/Projet-ANR-18-CE45-0018 for details."
+                           "purposes. The exported segmentations will then be used in research.<br><br>" \
+                           "To test the plugin, please use the 3D_IRCAD_B_5_Liver in the SampleData module."
+
+    self.parent.acknowledgementText = "This plugin was initially developed during the RVesselX research project. " \
+                                      "For mor details, please visit : https://anr.fr/Projet-ANR-18-CE45-0018<br><br>" \
+                                      "The sample data is extracted from the 3D-IRCADb (3D Image Reconstruction for " \
+                                      "Comparison of Algorithm Database) database.<br>" \
+                                      "The content of 3D-IRCADb is subject to a CC Attribution-Non commercial-No " \
+                                      "Derivative Works 3.0 licence.<br><br>For more information on the IRCAD " \
+                                      "dataset, please visit : https://www.ircad.fr/research/3dircadb/"
+
+    # Register sample data when the plugin has Slicer has finished loading
+    slicer.app.connect("startupCompleted()", registerSampleData)
+
+
+def registerSampleData():
+    """
+    Add 3D IRCAD data to the sample to test the LiverSegmentation module.
+    """
+    import SampleData
+    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        category="Chest",
+        sampleName='3D_IRCAD_B_5_Liver',
+        uris='https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/releases/download/SampleData/3Dircadb1.5.nii.gz',
+        fileNames='3Dircadb1.5.nii.gz',
+        nodeNames='3D_IRCAD_B_5_Liver',
+        thumbnailFileName=os.path.join(iconsPath, '3D_IRCAD_B_5_Liver.png'),
+        loadFileType='VolumeFile',
+        checksums='SHA256:e88c68a7280368aa93969de4d49efc2bc7b2537c0a962b05164a3ffbe6ffdebc')
 
 
 class RVXLiverSegmentationWidget(ScriptedLoadableModuleWidget):
