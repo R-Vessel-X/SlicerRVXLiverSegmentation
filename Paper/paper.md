@@ -9,31 +9,31 @@ tags:
   - liver
 authors:
   - name: Jonas Lamy^[co-first author] 
-    affiliation: "1, 2" 
+    affiliation: 1 
   - name: Thibault Pelletier^[co-first author] 
-    affiliation: 3
+    affiliation: 2
   - name: Guillaume Lienemann^[co-first author]
-    affiliation: 4
+    affiliation: 3
   - name: Benoît Magnin
-    affiliation: 4
+    affiliation: 3
   - name: Bertrand Kerautret
     affiliation: 1
   - name: Nicolas Passat
     affiliation: 4
   - name: Julien Finet
-    affiliation: 3
+    affiliation: 2
   - name: Antoine Vacavant^[corresponding author]
-    affiliation: 4
+    affiliation: 3
 affiliations:
- - name: Lyman Spitzer, Jr. Fellow, Princeton University
+ - name: Université Lyon 2, LIRIS (UMR 5205) Lyon, France
    index: 1
- - name: Institution Name
+ - name: Kitware SAS, Villeurbanne, France
    index: 2
- - name: Independent Researcher
+ - name: Université Clermont Auvergne, CNRS, SIGMA Clermont, Institut Pascal, F-63000, Clermont-Ferrand, France
    index: 3
- - name: 
+ - name: Université de Reims Champagne Ardenne, CReSTIC, EA 3804, 51097 Reims, France
    index: 4
-date: 10 October 2021
+date: 01 October 2021
 bibliography: paper.bib
 
 ---
