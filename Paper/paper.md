@@ -22,7 +22,7 @@ authors:
     affiliation: 4
   - name: Julien Finet
     affiliation: 2
-  - name: Antoine Vacavant^[corresponding author, antoine.vacavant@uca.fr]
+  - name: Antoine Vacavant^[corresponding author]
     affiliation: 3
 affiliations:
  - name: Université Lyon 2, LIRIS (UMR 5205) Lyon, France
