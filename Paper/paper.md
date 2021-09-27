@@ -22,7 +22,7 @@ authors:
     affiliation: 4
   - name: Julien Finet
     affiliation: 2
-  - name: Antoine Vacavant^[corresponding author]
+  - name: Antoine Vacavant^[corresponding author, antoine.vacavant@uca.fr]
     affiliation: 3
 affiliations:
  - name: Université Lyon 2, LIRIS (UMR 5205) Lyon, France
@@ -44,7 +44,11 @@ bibliography: paper.bib
 
 # Global description 
 
-`RVXLiverSegmentation` is a 3D Slicer [@3DSlicer2020-Web;@Kikinis2014-3DSlicer] plug-in.  
+Annotation plays a key role in the creation of reference datasets that are useful to evaluate medical image processing algorithms and to train machine learning based architectures. `RVXLiverSegmentation` is a 3D Slicer [@3DSlicer2020-Web;@Kikinis2014-3DSlicer] plug-in aimed at speeding-up the annotation of liver anatomy from medical images (CT scans or MRI for intance). This plug-in is decomposed into 4 main tabs:
+- loading and managing medical imaging data;
+- liver segmentation;
+- vessels annotation and segmentation;
+- tumor segmentation. 
 
 
 
