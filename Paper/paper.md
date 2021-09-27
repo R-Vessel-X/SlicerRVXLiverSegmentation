@@ -46,10 +46,10 @@ bibliography: paper.bib
 
 Annotation plays a key role in the creation of reference datasets that are useful to evaluate medical image processing algorithms and to train machine learning based architectures. `RVXLiverSegmentation` is a 3D Slicer [@3DSlicer2020-Web;@Kikinis2014-3DSlicer] plug-in aimed at speeding-up the annotation of liver anatomy from medical images (CT scans or MRI for intance). This plug-in is decomposed into 4 main tabs:
 
-- loading and managing medical imaging data;
-- liver segmentation;
-- vessels annotation and segmentation;
-- tumor segmentation. 
+* loading and managing medical imaging data;
+* liver segmentation;
+* vessels annotation and segmentation;
+* tumor segmentation. 
 
 The...
 
