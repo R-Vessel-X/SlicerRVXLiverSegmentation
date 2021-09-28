@@ -51,20 +51,20 @@ Annotation plays a key role in the creation of reference datasets that are usefu
 * tumor segmentation. 
 
 
-Once the medical image data is loaded into the 3D Slicer interface, the liver can be segmented with the associated tab, either by using interactive tools (such as region growing approaches) or by an automatic deep learning based algorithm (for CT scans only). 
-Then, the reconstructions of hepatic vessels (portal vein and inferior vena cava) are based on tree structures interactively constructed by the user, who places the nodes of important branches and bifurcations (with specific anatomical nomenclature) into the scene of the medical image to be processed. After this step, a VMTK (Vascular Modeling Tool Kit) [@a2008-VMTK] module segments the vessels by using those graphs as initialization patterns. The last tab allows the user to segment interactively possible tumoral tissues with dedicated tools.  
-This last tab also permits to export the complete scene, comprising:
+Once the medical image data is loaded into the 3D Slicer interface, the liver can be segmented with the associated tab, either by using interactive tools (such as region growing approaches) or by an automatic deep learning based algorithm (for CT scans only), as exposed in Figure \autoref{fig:liver_tab}. 
+Then, the reconstructions of hepatic vessels (portal vein and inferior vena cava) are based on tree structures interactively constructed by the user, who places the nodes of important branches and bifurcations (with specific anatomical nomenclature) into the scene of the medical image to be processed. After this step, a VMTK (Vascular Modeling Tool Kit) [@a2008-VMTK] module segments the vessels by using those graphs as initialization patterns (see Figure \autoref{fig:portal_vein_tab}). The last tab allows the user to segment interactively possible tumoral tissues with dedicated tools.  
+This tab also permits to export the complete scene, comprising:
 
 * segmentation label maps (liver, inferior vena cava, portal vein, tumors);
 * portal vein and inferior vena cava intersection positions (fiducial CSV and adjacent matrix);
 * the complete scene as a MRB file. 
 
-![Liver segmentation tab.\label{fig:liver_lab}](liver_tab.png)
-![Tab for portal vein annotation and segmentation.\label{fig:portal_vein_tab}](portal_vein_tab.png)
+![Liver segmentation tab.\label{fig:liver_lab}](liver_tab.png){ width=70% }
+![Tab for portal vein annotation and segmentation.\label{fig:portal_vein_tab}](portal_vein_tab.png){ width=70% }
 
 # Preliminary results obtained with the plug-in
 
-
+A first version of the `RVXLiverSegmentation` has been employed for segmenting livers from dynamic-contrast enhanced MRI data to test and evaluate a combined registration-segmentation algorithm, described in [@Debroux2020-IPTA]. We have also compared the time and quality of segmentations obtained by `RVXLiverSegmentation` and by embedded image processing tool General Electric AW  solution (Server 3.2). Our first results [@Lamy2020-VPH] have shown a real speed-up in the segmentation of liver volume and inner vessels for healthy and cirrhotic patients. 
 
 # Future works
 
