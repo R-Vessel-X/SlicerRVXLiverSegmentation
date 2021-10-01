@@ -71,10 +71,10 @@ This tab also permits to export the complete scene, comprising:
 
 A first version of the `RVXLiverSegmentation` has been employed for segmenting livers from dynamic-contrast enhanced MRI data to test and evaluate a combined registration-segmentation algorithm, described in [@Debroux2020-IPTA]. We have also compared the time and quality of segmentations obtained by `RVXLiverSegmentation` and by embedded image processing tool `General Electric AW` solution (Server 3.2). Our first results [@Lamy2020-VPH] have shown a real speed-up in the segmentation of liver volume and inner vessels: 
 
-| | `RVXLiverSegmentation`      | `General Electric AW` |
-| | ----------- | ----------- |
-| Liver | 3 mins      | 10 mins       |
-| Vessels | 5 mins   | 30 mins        |
+|          | `RVXLiverSegmentation`  | `General Electric AW` |
+| -------- | ----------------------- | --------------------- |
+| Liver    | 3 mins                  | 10 mins               |
+| Vessels  | 5 mins                  | 30 mins               |
 
 * for healthy patients: 
   - livers segmented in 3 mins with `RVXLiverSegmentation`; 10 mins with `General Electric AW`;
