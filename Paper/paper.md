@@ -62,7 +62,7 @@ This tab also permits to export the complete scene, comprising:
 * portal vein and inferior vena cava intersection positions (fiducial CSV and adjacent matrix);
 * the complete scene as a MRB file. 
 
-![Liver segmentation tab.\label{fig:liver_lab}](liver_tab.png){ width=70% }
+![Liver segmentation tab.\label{fig:liver_tab}](liver_tab.png){ width=70% }
 
 ![Tab for portal vein annotation and segmentation.\label{fig:portal_vein_tab}](portal_vein_tab.png){ width=70% }
 
