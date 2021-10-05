@@ -48,14 +48,14 @@ For research purpose needing annotation of liver anatomy from medical images, th
 
 * loading and managing medical imaging data;
 * liver segmentation;
-* portal veins annotation and segmentation;
+* annotation of portal veins and segmentation;
 * editing portal veins segmentation;
-* inferior vena cava annotation and segmentation;
+* annotation of inferior vena cava and segmentation;
 * editing inferior vena cava segmentation;
 * tumor segmentation. 
 
 Once the medical image data is loaded into the `3D Slicer` interface, the liver can be segmented with the associated tab, either by using interactive tools (such as region growing approaches) or by an automatic deep learning based algorithm (for CT scans only), as exposed in  \autoref{fig:liver_tab}. 
-Then, the reconstructions of hepatic vessels (portal vein and inferior vena cava) are based on tree structures interactively built by the user, who places the nodes of important branches and bifurcations (with specific anatomical nomenclature) into the scene of the medical image to be processed. After this step, a VMTK (Vascular Modeling Tool Kit) [@a2008-VMTK] module segments the vessels by using those graphs as initialization patterns (see  \autoref{fig:portal_vein_tab}). The last tab allows the user to segment interactively possible tumoral tissues with dedicated tools.  
+Then, the reconstructions of hepatic vessels (portal vein and inferior vena cava) are based on tree structures interactively built by the user, who places the nodes of important branches and bifurcations (with specific anatomical nomenclature) into the scene of the medical image to be processed. After this step, a VMTK (Vascular Modeling Tool Kit) [@a2008-VMTK] module segments the vessels by using those graphs as initialization patterns (see  \autoref{fig:portal_vein_tab}); also, the user can verify and edit this segmentation. The last tab allows the user to segment interactively possible tumoral tissues with dedicated tools.  
 This tab also permits to export the complete scene, comprising:
 
 * segmentation label maps (liver, inferior vena cava, portal vein, tumors);
@@ -83,7 +83,7 @@ A first version of the `RVXLiverSegmentation` has been employed for segmenting l
 
 # Future works
 
-We first would like to integrate advanced deep learning models for liver and hepatic vessels segmentation [@Affane2021-MDPI] into our `RVXLiverSegmentation` plug-in, in order to provide automatic reconstrutions that can be then edited by the user with the other tools proposed in the plug-in and in `3D Slicer`. Another important work concerns the VMTK module, which needs more adaptations for MRI processing. As an example, the Frangi filter is employed as a pre-processing step (as a vascular enhancement algorithm), while other approaches could be opted instead [@Lamy2020-ICPR]. Finally, a more complete evaluation protocol will be conducted with our plug-in, compared to commercial solutions, by taking into account larger patient cohorts.  
+We first would like to integrate advanced deep learning models for liver and hepatic vessels segmentation [@Affane2021-MDPI] into our `RVXLiverSegmentation` plug-in, in order to provide automatic reconstructions that can be then edited by the user with the other tools proposed in the plug-in and in `3D Slicer`. Another important work concerns the VMTK module, which needs more adaptations for MRI processing. As an example, the Frangi filter is employed as a pre-processing step (as a vascular enhancement algorithm), while other approaches could be opted instead [@Lamy2020-ICPR]. Finally, a more complete evaluation protocol will be conducted with our plug-in, compared to commercial solutions, by taking into account larger patient cohorts.  
 
 # Acknowledgements
 
