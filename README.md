@@ -33,7 +33,7 @@ https://www.slicer.org/wiki/Documentation/4.3/SlicerApplication/ExtensionsManage
 Once VMTK was installed, the plugin can be installed by going to :
 Edit > Application Settings > Modules > Additional module paths
 
-The directory containing this readme file needs to be added to the path list.
+The RVXLiverSegmentation and RVXLiverSegmentationEffect directories need to be added to the path list.
 
 When first loading the plugin, a button will be displayed to download the required Python packages. After the download,
 the application will be restarted.
