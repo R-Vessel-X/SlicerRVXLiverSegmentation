@@ -53,7 +53,9 @@ button.
 To visualize the test results, open the Python console by going to :
 View > Python Interactor
 
-The number and the result of the tests will be displayed in the console.
+The number and the result of the tests will be displayed in the console. Should any of the test fail, please don't
+hesitate to [open an issue](https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/issues) or contact us through
+the [Slicer forum](https://discourse.slicer.org).
 
 ## Using the Plugin
 
@@ -154,3 +156,8 @@ The following results will be saved :
 * Slicer scene as .MRB
 
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/tumor_export_tab.png" width="800"/>
+
+### Contributing
+
+This project welcomes contributions. If you want more information about how you can contribute, please refer to
+the [CONTRIBUTING.md file](CONTRIBUTING.md).
