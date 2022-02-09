@@ -33,7 +33,7 @@ https://www.slicer.org/wiki/Documentation/4.3/SlicerApplication/ExtensionsManage
 Once VMTK was installed, the plugin can be installed by going to :
 Edit > Application Settings > Modules > Additional module paths
 
-The directory containing this readme file needs to be added to the path list.
+The RVXLiverSegmentation and RVXLiverSegmentationEffect directories need to be added to the path list.
 
 When first loading the plugin, a button will be displayed to download the required Python packages. After the download,
 the application will be restarted.
@@ -53,7 +53,9 @@ button.
 To visualize the test results, open the Python console by going to :
 View > Python Interactor
 
-The number and the result of the tests will be displayed in the console.
+The number and the result of the tests will be displayed in the console. Should any of the test fail, please don't
+hesitate to [open an issue](https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/issues) or contact us through
+the [Slicer forum](https://discourse.slicer.org).
 
 ## Using the Plugin
 
@@ -154,3 +156,8 @@ The following results will be saved :
 * Slicer scene as .MRB
 
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/tumor_export_tab.png" width="800"/>
+
+### Contributing
+
+This project welcomes contributions. If you want more information about how you can contribute, please refer to
+the [CONTRIBUTING.md file](CONTRIBUTING.md).
