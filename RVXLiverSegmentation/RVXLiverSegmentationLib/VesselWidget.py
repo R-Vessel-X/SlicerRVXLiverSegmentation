@@ -5,7 +5,8 @@ import ctk
 import qt
 import slicer
 
-from RVXLiverSegmentationLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
+from RVXLiverSegmentationLib import setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch, \
+  VesselHelpWidget, createButton, VesselHelpType
 from .ExtractVesselStrategies import ExtractOneVesselPerBranch, ExtractOneVesselPerParentAndSubChildNode, \
   ExtractOneVesselPerParentChildNode, ExtractAllVesselsInOneGoStrategy
 from .RVXLiverSegmentationLogic import VesselnessFilterParameters, LevelSetParameters
@@ -110,7 +111,7 @@ class VesselWidget(VerticalLayoutWidget):
       Vessels Branch Node Tree : View tree to select, add, show / hide vessels intersection to extract them in one go
   """
 
-  def __init__(self, logic, widgetName, setupBranchF):
+  def __init__(self, logic, widgetName, setupBranchF, vesselHelpWidget):
     """
     Parameters
     ----------
@@ -130,7 +131,7 @@ class VesselWidget(VerticalLayoutWidget):
     self._vesselnessDisplay = None
     self._logic = logic
     self._segmentationOpacity = 0.7  # Initial segmentation opacity set to 70% to still view the vessel tree
-    self._vesselBranchWidget = VesselBranchWidget(setupBranchF)
+    self._vesselBranchWidget = VesselBranchWidget(setupBranchF, vesselHelpWidget)
     self._vesselBranchWidget.extractVesselsButton.connect("clicked(bool)", self._extractVessel)
     self._vesselBranchWidget.treeValidityChanged.connect(self._updateButtonStatusAndFilterParameters)
 
@@ -154,6 +155,7 @@ class VesselWidget(VerticalLayoutWidget):
 
     # Visualisation tree for Vessels nodes
     self._verticalLayout.addWidget(self._vesselBranchWidget)
+    self._verticalLayout.addWidget(self._createHelpWidget(vesselHelpWidget))
     self._verticalLayout.addWidget(self._createDisplayOptionWidget())
     self._verticalLayout.addWidget(self._createAdvancedVesselnessFilterOptionWidget())
     self._verticalLayout.addWidget(self._createAdvancedLevelSetOptionWidget())
@@ -164,6 +166,11 @@ class VesselWidget(VerticalLayoutWidget):
   def clear(self):
     self._removePreviouslyExtractedVessels()
     self._vesselBranchWidget.clear()
+
+  def _createHelpWidget(self, vesselHelpWidget):
+    self._vesselHelpWidget = vesselHelpWidget
+    self._vesselBranchWidget.currentNodeIdChanged.connect(self._vesselHelpWidget.updateHelp)
+    return createButton("Show Current Node Placement Help", self._vesselHelpWidget.showHelp)
 
   def _createDisplayOptionWidget(self):
     filterOptionCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -675,9 +682,11 @@ class VesselWidget(VerticalLayoutWidget):
 
 class PortalVesselWidget(VesselWidget):
   def __init__(self, logic):
-    super(PortalVesselWidget, self).__init__(logic, "Portal Vessels", setup_portal_vein_default_branch)
+    super(PortalVesselWidget, self).__init__(logic, "Portal Vessels", setup_portal_vein_default_branch,
+                                             VesselHelpWidget(VesselHelpType.Portal))
 
 
 class IVCVesselWidget(VesselWidget):
   def __init__(self, logic):
-    super(IVCVesselWidget, self).__init__(logic, "IVC Vessels", setup_inferior_cava_vein_default_branch)
+    super(IVCVesselWidget, self).__init__(logic, "IVC Vessels", setup_inferior_cava_vein_default_branch,
+                                          VesselHelpWidget(VesselHelpType.IVC))

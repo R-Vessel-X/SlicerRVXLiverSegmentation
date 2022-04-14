@@ -1,6 +1,7 @@
 from itertools import count
 import logging
 import os
+from pathlib import Path
 
 import ctk
 import numpy as np
@@ -634,3 +635,7 @@ def getVolumeIJKToRASDirectionMatrixAsNumpyArray(vol):
   m = vtk.vtkMatrix4x4()
   vol.GetIJKToRASDirectionMatrix(m)
   return arrayFromVTKMatrix(m)
+
+
+def resourcesPath():
+  return Path(os.path.join(os.path.dirname(__file__), '..', 'Resources'))

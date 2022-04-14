@@ -3,7 +3,7 @@ import slicer
 import vtk
 
 from RVXLiverSegmentationLib import Signal, PlaceStatus, VesselBranchWizard, removeNodeFromMRMLScene, InteractionStatus, \
-  VesselTreeColumnRole
+  VesselTreeColumnRole, VesselHelpWidget
 from .RVXLiverSegmentationUtils import Icons, getMarkupIdPositionDictionary, createMultipleMarkupFiducial, createButton
 
 
@@ -43,13 +43,14 @@ class VesselBranchTree(qt.QTreeWidget):
   Class signals when modified or user interacts with the UI.
   """
 
-  def __init__(self, parent=None):
+  def __init__(self, vesselHelpWidget, parent=None):
     qt.QTreeWidget.__init__(self, parent)
 
     self.keyPressed = Signal("VesselBranchTreeItem, qt.Qt.Key")
     self.insertBeforeClicked = Signal("VesselBranchTreeItem")
 
     self._branchDict = {}
+    self._vesselHelpWidget = vesselHelpWidget
 
     # Configure tree widget
     self.setColumnCount(3)
@@ -202,7 +203,8 @@ class VesselBranchTree(qt.QTreeWidget):
       ValueError
         If parentNodeId is not None and doesn't exist in the tree
     """
-    self._insertNode(nodeId, parentNodeId, status)
+    node = self._insertNode(nodeId, parentNodeId, status)
+    node.setToolTip(0, self._vesselHelpWidget.tooltipImageUrl(nodeId))
     self.expandAll()
 
   def insertBeforeNode(self, nodeId, beforeNodeId, status=PlaceStatus.NOT_PLACED):
@@ -752,7 +754,7 @@ class VesselBranchWidget(qt.QWidget):
   Creates the node edition buttons, branch node tree and starts and connects the branch markup node.
   """
 
-  def __init__(self, setupBranchF, parent=None):
+  def __init__(self, setupBranchF, vesselHelpWidget, parent=None):
     """
     Parameters
     ----------
@@ -765,7 +767,7 @@ class VesselBranchWidget(qt.QWidget):
     self._createVesselsBranchMarkupNode()
 
     # Create branch tree
-    self._branchTree = VesselBranchTree()
+    self._branchTree = VesselBranchTree(vesselHelpWidget)
 
     # Create tree drawer
     self._treeDrawer = TreeDrawer(self._branchTree, self._markupNode)
@@ -787,6 +789,10 @@ class VesselBranchWidget(qt.QWidget):
     # Emitted when validity changes
     self.treeValidityChanged = Signal()
     self._wizard.placingFinished.connect(self.treeValidityChanged.emit)
+
+    # Emitted when node id is changed in wizard
+    self.currentNodeIdChanged = Signal()
+    self._wizard.currentNodeIdChanged.connect(self.currentNodeIdChanged.emit)
 
   def enableShortcuts(self, isEnabled):
     """Enables/Disables the shortcuts for the widget. If enabled, add node and edit node can be disabled by pressing
