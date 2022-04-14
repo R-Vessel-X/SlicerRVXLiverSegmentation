@@ -4,7 +4,7 @@ from .RVXLiverSegmentationUtils import GeometryExporter, Settings, WidgetUtils, 
   getFiducialPositions, createModelNode, createLabelMapVolumeNodeBasedOnModel, createFiducialNode, addToScene, \
   raiseValueErrorIfInvalidType, removeNoneList, Icons, Signal, createDisplayNodeIfNecessary, \
   createVolumeNodeBasedOnModel, removeNodeFromMRMLScene, cropSourceVolume, cloneSourceVolume, \
-  getVolumeIJKToRASDirectionMatrixAsNumpyArray, arrayFromVTKMatrix
+  getVolumeIJKToRASDirectionMatrixAsNumpyArray, arrayFromVTKMatrix, resourcesPath
 from .VerticalLayoutWidget import VerticalLayoutWidget
 from .DataWidget import DataWidget
 from .SegmentWidget import SegmentWidget
@@ -15,6 +15,7 @@ from .ExtractVesselStrategies import ExtractAllVesselsInOneGoStrategy, ExtractOn
   VesselSeedPoints
 from .VesselBranchWizard import VesselBranchWizard, PlaceStatus, VeinId, NodeBranches, InteractionStatus, \
   VesselTreeColumnRole, setup_portal_vein_default_branch, setup_inferior_cava_vein_default_branch
+from .VesselHelpWidget import VesselHelpWidget, VesselHelpType
 from .VesselBranchTree import VesselBranchTree, VesselBranchWidget, MarkupNode, TreeDrawer, INodePlaceWidget
 from .VesselWidget import VesselWidget, VesselAdjacencyMatrixExporter, PortalVesselWidget, IVCVesselWidget
 from .VesselSegmentEditWidget import VesselSegmentEditWidget, PortalVesselEditWidget, IVCVesselEditWidget

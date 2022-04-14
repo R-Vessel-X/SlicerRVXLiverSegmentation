@@ -1,7 +1,7 @@
 import unittest
 
 from RVXLiverSegmentationLib import ExtractOneVesselPerParentAndSubChildNode, ExtractOneVesselPerParentChildNode, \
-  VesselBranchTree, VesselSeedPoints, ExtractOneVesselPerBranch, PlaceStatus
+  VesselBranchTree, VesselSeedPoints, ExtractOneVesselPerBranch, PlaceStatus, VesselHelpWidget, VesselHelpType
 
 
 class ExtractVesselStrategyTestCase(unittest.TestCase):
@@ -36,7 +36,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     #             |_ n20
     #             |_ n21
     #     |_ n11
-    branchWidget = VesselBranchTree()
+    branchWidget = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
     branchWidget.insertAfterNode("n0", None, PlaceStatus.PLACED)
     branchWidget.insertAfterNode("n10", "n0", PlaceStatus.PLACED)
     branchWidget.insertAfterNode("n11", "n0", PlaceStatus.PLACED)
@@ -62,7 +62,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     # n0
     #     |_ n10
     #     |_ n11
-    branchWidget = VesselBranchTree()
+    branchWidget = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
     branchWidget.insertAfterNode("n0", None)
     branchWidget.insertAfterNode("n10", "n0")
     branchWidget.insertAfterNode("n11", "n0")
@@ -83,7 +83,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     # Create tree
     # n0
     #     |_ n10
-    branchWidget = VesselBranchTree()
+    branchWidget = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
     branchWidget.insertAfterNode("n0", None)
     branchWidget.insertAfterNode("n10", "n0")
 
@@ -105,7 +105,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     #       |_n20
     #       |_n21
     #           |_n31
-    branchWidget = VesselBranchTree()
+    branchWidget = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
     branchWidget.insertAfterNode("n0", None)
     branchWidget.insertAfterNode("n10", "n0")
     branchWidget.insertAfterNode("n11", "n0")
@@ -144,7 +144,7 @@ class ExtractVesselStrategyTestCase(unittest.TestCase):
     # [n20, n31, n40, n50]
     # [n20, n32]
 
-    branchWidget = VesselBranchTree()
+    branchWidget = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
     branchWidget.insertAfterNode("n0", None)
     branchWidget.insertAfterNode("n10", "n0")
     branchWidget.insertAfterNode("n20", "n10")

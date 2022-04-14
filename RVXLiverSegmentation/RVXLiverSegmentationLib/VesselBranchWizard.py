@@ -34,15 +34,6 @@ class VeinId(object):
   leftHepaticVein_RightBranch = "LeftHepaticVein_RightBranch"
   leftHepaticVein_LeftBranch = "LeftHepaticVein_LeftBranch"
 
-  hepaticVein_Segment_1 = "HepaticVein_Segment_1"
-  hepaticVein_Segment_2 = "HepaticVein_Segment_2"
-  hepaticVein_Segment_3 = "HepaticVein_Segment_3"
-  hepaticVein_Segment_4 = "HepaticVein_Segment_4"
-  hepaticVein_Segment_5 = "HepaticVein_Segment_5"
-  hepaticVein_Segment_6 = "HepaticVein_Segment_6"
-  hepaticVein_Segment_7 = "HepaticVein_Segment_7"
-  hepaticVein_Segment_8 = "HepaticVein_Segment_8"
-
   ivcOptional_1 = "OptionalBranch_1"
   ivcOptional_2 = "OptionalBranch_2"
   ivcOptional_3 = "OptionalBranch_3"
@@ -54,9 +45,7 @@ class VeinId(object):
             self.inferiorCavaVeinRoot, self.inferiorCavaVein, self.rightHepaticVein, self.rightHepaticVein_RightBranch,
             self.rightHepaticVein_LeftBranch, self.medianHepaticVein, self.medianHepaticVein_RightBranch,
             self.medianHepaticVein_LeftBranch, self.leftHepaticVein, self.leftHepaticVein_RightBranch,
-            self.leftHepaticVein_LeftBranch, self.hepaticVein_Segment_1, self.hepaticVein_Segment_2,
-            self.hepaticVein_Segment_3, self.hepaticVein_Segment_4, self.hepaticVein_Segment_5,
-            self.hepaticVein_Segment_6, self.hepaticVein_Segment_7, self.hepaticVein_Segment_8, self.ivcOptional_1,
+            self.leftHepaticVein_LeftBranch, self.ivcOptional_1,
             self.ivcOptional_2, self.ivcOptional_3, self.portalOptional_1, self.portalOptional_2, self.portalOptional_3]
 
 
@@ -126,14 +115,6 @@ def setup_inferior_cava_vein_default_branch(tree):
               (VeinId.rightHepaticVein, VeinId.inferiorCavaVein),  #
               (VeinId.medianHepaticVein, VeinId.inferiorCavaVein),  #
               (VeinId.leftHepaticVein, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_1, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_2, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_3, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_4, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_5, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_6, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_7, VeinId.inferiorCavaVein),  #
-              (VeinId.hepaticVein_Segment_8, VeinId.inferiorCavaVein),  #
               (VeinId.rightHepaticVein_RightBranch, VeinId.rightHepaticVein),  #
               (VeinId.rightHepaticVein_LeftBranch, VeinId.rightHepaticVein),  #
               (VeinId.ivcOptional_1, VeinId.rightHepaticVein),  #
@@ -191,6 +172,9 @@ class VesselBranchWizard(object):
     # Emitted when all nodes have been placed in the wizard
     self._placingFinished = False
     self.placingFinished = Signal()
+
+    # Emitted when current selected node is changed
+    self.currentNodeIdChanged = Signal("str")
 
   def _currentItemPlaceStatus(self):
     """
@@ -312,6 +296,7 @@ class VesselBranchWizard(object):
     if self._interactionStatus != interaction:
       self._interactionStatus = interaction
       self.interactionChanged.emit()
+      self._emitNewNodeId()
 
   def onKeyPressed(self, treeItem, key):
     """
@@ -362,6 +347,10 @@ class VesselBranchWizard(object):
       self._tree.clickItem(self._currentTreeItem)
     else:
       self._placeWidget.setPlaceModeEnabled(False)
+    self._emitNewNodeId()
+
+  def _emitNewNodeId(self):
+    self.currentNodeIdChanged.emit(self._currentTreeItem.nodeId if self._currentTreeItem else None)
 
   def _renamePlacedNode(self, name):
     self._node.SetNthFiducialLabel(self._node.GetLastFiducialId(), name)
