@@ -3,7 +3,8 @@ import slicer
 import unittest
 
 from RVXLiverSegmentationLib import VesselBranchTree, VesselBranchWizard, VeinId, VesselTreeColumnRole, \
-  setup_portal_vein_default_branch, MarkupNode, TreeDrawer, INodePlaceWidget, InteractionStatus
+  setup_portal_vein_default_branch, MarkupNode, TreeDrawer, INodePlaceWidget, InteractionStatus, VesselHelpWidget, \
+  VesselHelpType
 from .TestUtils import treeSort
 
 
@@ -45,7 +46,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     slicer.mrmlScene.Clear(0)
 
     # Create tree widget
-    self.tree = VesselBranchTree()
+    self.tree = VesselBranchTree(VesselHelpWidget(VesselHelpType.Portal))
 
     # Create markup
     self.markupNode = MarkupNode(slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsFiducialNode'))

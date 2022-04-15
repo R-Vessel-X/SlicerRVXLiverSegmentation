@@ -6,7 +6,8 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 from RVXLiverSegmentationLib import RVXLiverSegmentationLogic, Settings, DataWidget, addInCollapsibleLayout, \
-  SegmentWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton
+  SegmentWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton, \
+  resourcesPath
 from RVXLiverSegmentationEffect import PythonDependencyChecker
 from RVXLiverSegmentationTest import RVXLiverSegmentationTestCase, VesselBranchTreeTestCase, \
   ExtractVesselStrategyTestCase, VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
@@ -42,7 +43,7 @@ def registerSampleData():
     Add 3D IRCAD data to the sample to test the LiverSegmentation module.
     """
     import SampleData
-    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+    iconsPath = resourcesPath().joinpath('Icons')
 
     SampleData.SampleDataLogic.registerCustomSampleDataSource(
         category="Chest",

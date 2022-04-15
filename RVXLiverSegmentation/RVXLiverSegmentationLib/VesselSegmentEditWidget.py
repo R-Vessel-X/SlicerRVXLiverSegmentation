@@ -70,8 +70,7 @@ class VesselSegmentEditWidget(SegmentWidget):
     segmentEditorNode.SetMaskSegmentID(treeId)
 
     # Allow editing inside a segment only
-    maskId = slicer.vtkMRMLSegmentEditorNode.ConvertMaskModeFromString('PaintAllowedInsideSingleSegment')
-    segmentEditorNode.SetMaskMode(maskId)
+    segmentEditorNode.SetMaskMode(slicer.vtkMRMLSegmentationNode.EditAllowedInsideSingleSegment)
 
   def _selectScissorsWithFillInsideOption(self, segmentEditorNode):
     segmentEditorNode.SetActiveEffectName("Scissors")
