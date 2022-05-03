@@ -1,0 +1,55 @@
+{
+    "description": "The 3D Slicer RVXLiverSegmentation plug-in for interactive liver anatomy reconstruction from medical images",
+    "license": "BSD",
+    "title": "The 3D Slicer RVXLiverSegmentation plug-in for interactive liver anatomy reconstruction from medical images",
+    "version": "v1.0.2",
+    "upload_type": "software",
+    "publication_date": "2022-05-03",
+    "creators": [
+        {
+            "affiliation": "Université Lyon 2, LIRIS (UMR 5205) Lyon, France",
+            "name": "Jonas Lamy"
+        },
+        {
+            "affiliation": "Kitware SAS, Villeurbanne, France",
+            "name": "Thibault Pelletier"
+        },
+        {
+            "affiliation": "Université Clermont Auvergne, CNRS, SIGMA Clermont, Institut Pascal, F-63000, Clermont-Ferrand, France",
+            "name": "Guillaume Lienemann"
+        },
+        {
+            "affiliation": "Université de Reims Champagne Ardenne, CReSTIC, EA 3804, 51100 Reims, France",
+            "name": "Benoît Magnin"
+        },
+        {
+            "affiliation": "Université Lyon 2, LIRIS (UMR 5205) Lyon, France",
+            "name": "Bertrand Kerautret"
+        },
+        {
+            "affiliation": "Université de Reims Champagne Ardenne, CReSTIC, EA 3804, 51100 Reims, France",
+            "name": "Nicolas Passat"
+        },
+        {
+            "affiliation": "Kitware SAS, Villeurbanne, France",
+            "name": "Julien Finet"
+        },
+        {
+            "affiliation": "Université Clermont Auvergne, CNRS, SIGMA Clermont, Institut Pascal, F-63000, Clermont-Ferrand, France",
+            "name": "Antoine Vacavant"
+        }
+    ],
+    "access_right": "open",
+    "related_identifiers": [
+        {
+            "scheme": "url",
+            "identifier": "https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/tree/v1.0.2",
+            "relation": "isSupplementTo"
+        },
+        {
+            "scheme": "doi",
+            "identifier": "10.5281/zenodo.6513516",
+            "relation": "isVersionOf"
+        }
+    ]
+}
