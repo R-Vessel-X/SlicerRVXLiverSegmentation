@@ -2,10 +2,13 @@
 
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/1.png" width="800"/>
 
+[![DOI](https://zenodo.org/badge/382068737.svg)](https://zenodo.org/badge/latestdoi/382068737)
+
 ## Table of contents
 
 * [Introduction](#Introduction)
 * [Using the Plugin](#Using-the-Plugin)
+    * [Video tutorials](#Video-tutorials)
     * [Installing the plugin](#Installing-the-plugin)
     * [Plugin Overview](#Plugin-Overview)
     * [Sample Data](#Sample-Data)
@@ -52,6 +55,19 @@ For more information on the R-Vessel-X project, please visit :
 https://anr.fr/Projet-ANR-18-CE45-0018
 
 ## Using the Plugin
+
+### Video tutorials
+
+The following videos outline the different steps to install and use the plugin.
+For more detailed explanations, please refer to each section.
+
+* [Installing the extension](https://drive.google.com/file/d/1Z5TFA9fu4cWYHBXDJb9UpMKxRPYIsr8f/view?usp=sharing)
+* [MRI Liver segmentation](https://drive.google.com/file/d/1CxagAEJODQB9rbO9V_W8Uuo52qcfFs1S/view?usp=sharing)
+* [AI CT Liver segmentation](https://drive.google.com/file/d/1vUXqklrRn4myTqP5Es6UGzkjN9JNSWsa/view?usp=sharing)
+* [Portal veins segmentation](https://drive.google.com/file/d/19mFWLX3TMPAbyX8zcgO3frofJuxYYqpL/view?usp=sharing)
+* [IVC veins segmentation](https://drive.google.com/file/d/1agkb0vDerbI4_qIeE4At9wHYx69GeUpp/view?usp=sharing)
+* [Exporting the results](https://drive.google.com/file/d/1g-Mud2p2a3r00J0_bqtWD8iHbXvodMpF/view?usp=sharing)
+
 
 ### Installing the plugin
 
