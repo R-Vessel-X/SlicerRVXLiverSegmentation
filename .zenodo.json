@@ -51,5 +51,8 @@
             "identifier": "10.5281/zenodo.6513516",
             "relation": "isVersionOf"
         }
-    ]
+    ],
+    "grants": [{
+        "id": "ANR-18-CE45-0018"
+    }]
 }
