@@ -61,12 +61,12 @@ https://anr.fr/Projet-ANR-18-CE45-0018
 The following videos outline the different steps to install and use the plugin.
 For more detailed explanations, please refer to each section.
 
-* [Installing the extension](https://drive.google.com/file/d/1Z5TFA9fu4cWYHBXDJb9UpMKxRPYIsr8f/view?usp=sharing)
-* [MRI Liver segmentation](https://drive.google.com/file/d/1CxagAEJODQB9rbO9V_W8Uuo52qcfFs1S/view?usp=sharing)
-* [AI CT Liver segmentation](https://drive.google.com/file/d/1vUXqklrRn4myTqP5Es6UGzkjN9JNSWsa/view?usp=sharing)
-* [Portal veins segmentation](https://drive.google.com/file/d/19mFWLX3TMPAbyX8zcgO3frofJuxYYqpL/view?usp=sharing)
-* [IVC veins segmentation](https://drive.google.com/file/d/1agkb0vDerbI4_qIeE4At9wHYx69GeUpp/view?usp=sharing)
-* [Exporting the results](https://drive.google.com/file/d/1g-Mud2p2a3r00J0_bqtWD8iHbXvodMpF/view?usp=sharing)
+* [Installing the extension](https://youtu.be/KQtNxKB3dvc)
+* [MRI Liver segmentation](https://youtu.be/tUtT1Om-eqQ)
+* [AI CT Liver segmentation](https://youtu.be/CSYJedE4Jnk)
+* [Portal veins segmentation](https://youtu.be/YIiysCpyAFk)
+* [IVC veins segmentation](https://youtu.be/CQBgRsky-wA)
+* [Exporting the results](https://youtu.be/5uvCQUqPeq4)
 
 
 ### Installing the plugin
