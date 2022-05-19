@@ -15,6 +15,7 @@ set(MODULE_PYTHON_SCRIPTS
     ${MODULE_NAME}Lib/VesselBranchWizard.py
     ${MODULE_NAME}Lib/VesselSegmentEditWidget.py
     ${MODULE_NAME}Lib/VesselWidget.py
+    ${MODULE_NAME}Lib/VesselHelpWidget.py
     ${MODULE_NAME}Test/__init__.py
     ${MODULE_NAME}Test/ExtractVesselStrategyTestCase.py
     ${MODULE_NAME}Test/ModuleLogicTestCase.py
