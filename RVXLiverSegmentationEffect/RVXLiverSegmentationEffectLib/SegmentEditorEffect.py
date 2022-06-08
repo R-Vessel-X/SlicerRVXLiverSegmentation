@@ -216,17 +216,16 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
     """
     if modality == "CT":
       trans = [SlicerLoadImage(keys=["volume"]), AddChanneld(keys=["volume"]),
-               Spacingd(keys=['volume'], pixdim=(1.5, 1.5, 2.0), mode="nearest"),
+               Spacingd(keys=['volume'], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
                Orientationd(keys=["volume"], axcodes="RAS"),
                ScaleIntensityRanged(keys=["volume"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True),
                AddChanneld(keys=["volume"]), ToTensord(keys=["volume"]),]
       return Compose(trans)
     elif modality == "MRI":
       trans = [SlicerLoadImage(keys=["volume"]), AddChanneld(keys=["volume"]),
-               Spacingd(keys=["volume"], pixdim=(1.5,1.5, 2.0), mode="nearest"),
+               Spacingd(keys=["volume"], pixdim=(1.5,1.5, 2.0), mode="bilinear"),
                Orientationd(keys=["volume"], axcodes="LPS"),
                Normalized(keys=["volume"]),
-               CropForegroundd(keys=["volume"], source_key="volume"),
                Resized(keys=["volume"],spatial_size=(240,240,96)),
                AddChanneld(keys=["volume"]),
                ToTensord(keys=["volume"])]
@@ -291,6 +290,7 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
         print("output label map shape is " + str(label_map_input.shape))
         
         output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
+
         in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
         slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
         del transform_output
