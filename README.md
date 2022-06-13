@@ -78,7 +78,7 @@ It can be found using the search bar by typing "RVesselX".
 When first installing the plugin the following extensions will be installed as well :
 
 * SegmentEditorExtraEffects
-* SlicerVMTL
+* SlicerVMTK
 * MarkupsToModel
 * PyTorch
 
