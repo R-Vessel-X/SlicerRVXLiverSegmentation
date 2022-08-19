@@ -159,19 +159,42 @@ class RVXLiverSegmentationWidget(ScriptedLoadableModuleWidget):
   @staticmethod
   def downloadDependenciesAndRestart():
     progressDialog = slicer.util.createProgressDialog(maximum=0)
+    extensionManager = slicer.app.extensionsManagerModel()
+
+    def downloadWithMetaData(extName):
+      # Method for downloading extensions prior to Slicer 5.0.3
+      meta_data = extensionManager.retrieveExtensionMetadataByName(extName)
+      if meta_data:
+        return extensionManager.downloadAndInstallExtension(meta_data["extension_id"])
+
+    def downloadWithName(extName):
+      # Direct extension download since Slicer 5.0.3
+      return extensionManager.downloadAndInstallExtensionByName(extName)
 
     # Install Slicer extensions
-    for slicerExt in ["SlicerVMTK", "MarkupsToModel", "SegmentEditorExtraEffects", "PyTorch"]:
-      meta_data = slicer.app.extensionsManagerModel().retrieveExtensionMetadataByName(slicerExt)
-      if meta_data:
-        progressDialog.labelText = f"Installing the {slicerExt}\nSlicer extension"
-        slicer.app.extensionsManagerModel().downloadAndInstallExtension(meta_data["extension_id"])
+    downloadF = downloadWithName if hasattr(extensionManager,
+                                            "downloadAndInstallExtensionByName") else downloadWithMetaData
+
+    slicerExtensions = ["SlicerVMTK", "MarkupsToModel", "SegmentEditorExtraEffects", "PyTorch"]
+    for slicerExt in slicerExtensions:
+      progressDialog.labelText = f"Installing the {slicerExt}\nSlicer extension"
+      downloadF(slicerExt)
 
     # Install PIP dependencies
     PythonDependencyChecker.installDependenciesIfNeeded(progressDialog)
+    progressDialog.close()
 
-    # Restart
-    slicer.app.restart()
+    # Restart if no extension failed to download. Otherwise warn the user about the failure.
+    failedDownload = [slicerExt for slicerExt in slicerExtensions if
+                      not extensionManager.isExtensionInstalled(slicerExt)]
+
+    if failedDownload:
+      failed_ext_list = "\n".join(failedDownload)
+      warning_msg = f"The download process failed install the following extensions : {failed_ext_list}" \
+                    f"\n\nPlease try to manually install them using Slicer's extension manager"
+      qt.QMessageBox.warning(None, "Failed to download extensions", warning_msg)
+    else:
+      slicer.app.restart()
 
   def setup(self):
     """Setups widget in Slicer UI.
