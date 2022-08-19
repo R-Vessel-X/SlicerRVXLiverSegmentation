@@ -42,13 +42,16 @@ class PythonDependencyChecker(object):
   @classmethod
   def areDependenciesSatisfied(cls):
     try:
+      from packaging import version
       import monai
       import itk
       import torch
       import skimage
       import gdown
       import nibabel
-      return True
+
+      # Make sure MONAI version is compatible with package
+      return version.parse(monai.__version__) <= version.parse("0.9.0")
     except ImportError:
       return False
 
@@ -68,6 +71,6 @@ class PythonDependencyChecker(object):
       # Fallback on default torch available on PIP
       slicer.util.pip_install("torch")
 
-    for dep in ["itk", "nibabel", "scikit-image", "gdown", "monai"]:
+    for dep in ["itk", "nibabel", "scikit-image", "gdown", "monai<=0.9.0"]:
       progressDialog.labelText = dep
       slicer.util.pip_install(dep)
