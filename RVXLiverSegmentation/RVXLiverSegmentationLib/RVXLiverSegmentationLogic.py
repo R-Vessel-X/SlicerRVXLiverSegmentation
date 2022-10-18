@@ -537,8 +537,9 @@ class RVXLiverSegmentationLogic(ScriptedLoadableModuleLogic, IRVXLiverSegmentati
     return center, radius
 
   def _createROIFromNodePositions(self, nodePositions):
-    roi = slicer.vtkMRMLAnnotationROINode()
-    roi.Initialize(slicer.mrmlScene)
+    roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
+    roi.CreateDefaultDisplayNodes()
+    roi.GetDisplayNode().SetVisibility(False)
     roi.SetName(slicer.mrmlScene.GetUniqueNameByString("VolumeCropROI"))
 
     center, radius = self.calculateRoiExtent(nodePositions, self._vesselnessFilterParam.minROIExtent,

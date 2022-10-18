@@ -61,7 +61,7 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.scriptedEffect.addLabeledOptionsWidget("Device:", self.device)
 
     # Add ROI options
-    self.roiSelector.nodeTypes = ['vtkMRMLAnnotationROINode']
+    self.roiSelector.nodeTypes = ['vtkMRMLMarkupsROINode']
     self.roiSelector.noneEnabled = True
     self.roiSelector.setMRMLScene(slicer.mrmlScene)
     self.scriptedEffect.addLabeledOptionsWidget("ROI: ", self.roiSelector)
