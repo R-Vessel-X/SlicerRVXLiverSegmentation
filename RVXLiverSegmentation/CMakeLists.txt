@@ -27,6 +27,40 @@ set(MODULE_PYTHON_SCRIPTS
 
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
+  Resources/Icons/3D_IRCAD_B_5_Liver.png
+  Resources/RVXVesselsHelp/vessels_schema_full.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_ivc.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_ivc_root.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_left.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_left_left.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_left_right.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_median.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_median_left.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_median_right.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_opt_1.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_opt_2.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_opt_3.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_right.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_right_left.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_right_right.png
+  Resources/RVXVesselsHelp/vessels_schema_ivc_veins.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_ii.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_iii.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_iv.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_left.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_opt_1.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_opt_2.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_opt_3.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_portal_root.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_portal_vein.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_right.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_right_anterior.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_right_posterior.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_v.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_vi.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_vii.png
+  Resources/RVXVesselsHelp/vessels_schema_portal_veins_viii.png
   )
 
 #-----------------------------------------------------------------------------
