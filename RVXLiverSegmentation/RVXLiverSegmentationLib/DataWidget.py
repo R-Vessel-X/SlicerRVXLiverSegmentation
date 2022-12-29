@@ -41,6 +41,7 @@ class DataWidget(VerticalLayoutWidget):
     self._importButton = None
     self.inputSelector = createInputNodeSelector("vtkMRMLScalarVolumeNode", toolTip="Pick the input.",
                                                  callBack=self.onInputSelectorNodeChanged)
+    self.inputSelector.noneEnabled = True
 
     # Add load DICOM and load DATA button to the layout
     inputLayout.addWidget(self.inputSelector)
@@ -117,8 +118,8 @@ class DataWidget(VerticalLayoutWidget):
     ----------
     node: vtkMRMLNode
     """
-    # Early return if invalid node
-    if not node or node == self._previousNode:
+    # Early return if unchanged node
+    if node == self._previousNode:
       return
 
     self._previousNode = node
@@ -126,7 +127,7 @@ class DataWidget(VerticalLayoutWidget):
 
     # If node not yet properly initialized, attach observer to image change.
     # Else notify image changed and save node as new input volume
-    if node.GetImageData() is None:
+    if node and node.GetImageData() is None:
       self._attachNodeAddedObserverToScene(node)
     else:
       self._notifyInputChanged(node)
@@ -217,13 +218,13 @@ class DataWidget(VerticalLayoutWidget):
     ----------
     volumeNode: vtkMRMLVolumeNode
     """
-    # Early return if invalid volume node
-    if volumeNode is None:
-      return
-
     # hide previous node if necessary
     if self._volumeDisplayNode:
       self._volumeDisplayNode.SetVisibility(False)
+
+    # Early return if invalid volume node
+    if volumeNode is None:
+      return
 
     # Create new display node for input volume
     self._volumeDisplayNode = createDisplayNodeIfNecessary(volumeNode, 'MR-Default')
