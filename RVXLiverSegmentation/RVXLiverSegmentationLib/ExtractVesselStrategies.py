@@ -177,8 +177,8 @@ def mergeVolumes(volumes, volName):
   -------
   Tuple[vtkMRMLVolumeNode, vtkMRMLModelNode]
   """
-  # Extract list of volumes as list of np arrays
-  npVolumes = [slicer.util.arrayFromVolume(volume).astype(int) for volume in volumes]
+  # Extract list of volumes as list of np arrays in int32 format
+  npVolumes = [slicer.util.arrayFromVolume(volume).astype("int32") for volume in volumes]
 
   # Merge all volumes in one
   mergedVol = npVolumes[0]
