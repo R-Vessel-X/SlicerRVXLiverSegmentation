@@ -662,24 +662,24 @@ class MarkupNode(object):
     self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self._emitPointModified)
 
     # Forward slicer markup functions
-    self.GetNumberOfFiducials = self._node.GetNumberOfFiducials
-    self.AddFiducial = self._node.AddFiducial
-    self.GetNthFiducialLabel = self._node.GetNthFiducialLabel
-    self.GetNthFiducialPosition = self._node.GetNthFiducialPosition
+    self.GetNumberOfControlPoints = self._node.GetNumberOfControlPoints
+    self.AddControlPoint = self._node.AddControlPoint
+    self.GetNthControlPointLabel = self._node.GetNthControlPointLabel
+    self.GetNthControlPointPosition = self._node.GetNthControlPointPosition
     self.GetNthFiducialVisibility = self._node.GetNthFiducialVisibility
-    self.SetNthFiducialVisibility = self._node.SetNthFiducialVisibility
-    self.SetNthFiducialLabel = self._node.SetNthFiducialLabel
+    self.SetNthControlPointVisibility = self._node.SetNthControlPointVisibility
+    self.SetNthControlPointLabel = self._node.SetNthControlPointLabel
     self.SetName = self._node.SetName
     self.SetLocked = self._node.SetLocked
     self.GetLocked = self._node.GetLocked
     self.GetDisplayNode = self._node.GetDisplayNode
-    self.RemoveAllMarkups = self._node.RemoveAllMarkups
+    self.RemoveAllControlPoints = self._node.RemoveAllControlPoints
 
   def GetSlicerNode(self):
     return self._node
 
   def GetLastFiducialId(self):
-    return max(0, self.GetNumberOfFiducials() - 1)
+    return max(0, self.GetNumberOfControlPoints() - 1)
 
   def __del__(self):
     for obsId in self._nodeObsId:

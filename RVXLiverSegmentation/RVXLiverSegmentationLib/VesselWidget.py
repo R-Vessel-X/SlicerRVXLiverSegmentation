@@ -89,7 +89,7 @@ class VesselAdjacencyMatrixExporter(GeometryExporter):
     edges = []
     for i_n, node_name in enumerate(node_list):
       node_position = [0] * 3
-      markup.GetNthFiducialPosition(i_n, node_position)
+      markup.GetNthControlPointPosition(i_n, node_position)
       vertices.append(node_position)
 
     l_matrix = len(matrix)

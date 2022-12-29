@@ -89,13 +89,13 @@ class FakeMarkupNode(object):
   def add_node(self, label, position):
     self._nodes[label] = position
 
-  def GetNumberOfFiducials(self):
+  def GetNumberOfControlPoints(self):
     return len(self._nodes)
 
-  def GetNthFiducialLabel(self, i_fiducial):
+  def GetNthControlPointLabel(self, i_fiducial):
     return self._nodes.keys()[i_fiducial]
 
-  def GetNthFiducialPosition(self, i_fiducial, out_position):
+  def GetNthControlPointPosition(self, i_fiducial, out_position):
     node_pos = list(self._nodes.values())[i_fiducial]
     for i in range(len(out_position)):
       out_position[i] = node_pos[i]

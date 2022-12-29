@@ -180,13 +180,13 @@ def jumpSlicesToNthMarkupPosition(markupNode, i_nthMarkup):
   """
   try:
     # Early return if incorrect index
-    isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfFiducials()
+    isMarkupIndexInRange = 0 <= i_nthMarkup < markupNode.GetNumberOfControlPoints()
     if i_nthMarkup is None or not isMarkupIndexInRange:
       return
 
     # Get fiducial position and center slices to it
     pos = [0] * 3
-    markupNode.GetNthFiducialPosition(i_nthMarkup, pos)
+    markupNode.GetNthControlPointPosition(i_nthMarkup, pos)
     jumpSlicesToLocation(pos)
 
   except AttributeError:
@@ -318,7 +318,7 @@ def createFiducialNode(name, *positions):
   fiducialPoint.UnRegister(None)
   fiducialPoint.SetName(slicer.mrmlScene.GetUniqueNameByString(name))
   for position in positions:
-    fiducialPoint.AddFiducialFromArray(position)
+    fiducialPoint.AddControlPoint(position)
   return slicer.mrmlScene.AddNode(fiducialPoint)
 
 
@@ -427,10 +427,10 @@ def getMarkupIdPositionDictionary(markup):
     Dictionary containing the node ids contained in the markup node and its associated positions
   """
   markupDict = {}
-  for i in range(markup.GetNumberOfFiducials()):
-    nodeId = markup.GetNthFiducialLabel(i)
+  for i in range(markup.GetNumberOfControlPoints()):
+    nodeId = markup.GetNthControlPointLabel(i)
     nodePosition = [0] * 3
-    markup.GetNthFiducialPosition(i, nodePosition)
+    markup.GetNthControlPointPosition(i, nodePosition)
     markupDict[nodeId] = nodePosition
   return markupDict
 
@@ -448,9 +448,9 @@ def getFiducialPositions(fiducialNode):
   List of arrays[3] of fiducial positions
   """
   positions = []
-  for i in range(fiducialNode.GetNumberOfFiducials()):
+  for i in range(fiducialNode.GetNumberOfControlPoints()):
     pos = [0, 0, 0]
-    fiducialNode.GetNthFiducialPosition(i, pos)
+    fiducialNode.GetNthControlPointPosition(i, pos)
     positions.append(pos)
   return positions
 

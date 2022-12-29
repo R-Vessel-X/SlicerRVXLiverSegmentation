@@ -85,7 +85,7 @@ class RVXLiverSegmentationTestCase(unittest.TestCase):
     model = createNonEmptyModel()
     volume = createNonEmptyVolume()
     markup = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode")
-    markup.AddFiducial(0, 0, 0)
+    markup.AddControlPoint(0, 0, 0)
 
     # Create geometry exporter and add the two nodes to it
     exporter = GeometryExporter()

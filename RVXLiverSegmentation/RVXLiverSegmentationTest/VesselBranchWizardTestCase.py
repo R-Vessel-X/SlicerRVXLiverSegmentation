@@ -24,7 +24,7 @@ class FakeNodePlaceWidget(INodePlaceWidget):
     return self._isEnabled
 
   def placeNode(self):
-    self._node.AddFiducial(0, 0, 0)
+    self._node.AddControlPoint(0, 0, 0)
 
 
 class Mock(object):
@@ -93,7 +93,7 @@ class VesselBranchWizardTestCase(unittest.TestCase):
       ["PosteriorBranch", "OptionalBranch_2"],  #
     ]
     self.assertEqual(treeSort(expTree), treeSort(self.tree.getTreeParentList()))
-    self.assertEqual(0, self.markupNode.GetNumberOfFiducials())
+    self.assertEqual(0, self.markupNode.GetNumberOfControlPoints())
     self.assertIn('start placing', self.get_first_element_text())
 
   def test_given_not_placed_element_clicked_triggers_markup_place_mode_and_tree_name_as_placing(self):
@@ -110,8 +110,8 @@ class VesselBranchWizardTestCase(unittest.TestCase):
   def test_given_not_placed_element_placed_creates_fiducial_and_sets_its_name_to_node_name(self):
     self.click_first_element()
     self.nodePlace.placeNode()
-    self.assertEqual(1, self.markupNode.GetNumberOfFiducials())
-    self.assertEqual(VeinId.portalVein, self.markupNode.GetNthFiducialLabel(0))
+    self.assertEqual(1, self.markupNode.GetNumberOfControlPoints())
+    self.assertEqual(VeinId.portalVein, self.markupNode.GetNthControlPointLabel(0))
 
   def test_given_first_placed_element_second_element_is_selected_to_be_placed_in_tree(self):
     self.click_first_element()
