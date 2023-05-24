@@ -8,7 +8,6 @@ from slicer.ScriptedLoadableModule import *
 from RVXLiverSegmentationLib import RVXLiverSegmentationLogic, Settings, DataWidget, addInCollapsibleLayout, \
   SegmentWidget, PortalVesselWidget, IVCVesselWidget, PortalVesselEditWidget, IVCVesselEditWidget, createButton, \
   resourcesPath
-from RVXLiverSegmentationEffect import PythonDependencyChecker
 from RVXLiverSegmentationTest import RVXLiverSegmentationTestCase, VesselBranchTreeTestCase, \
   ExtractVesselStrategyTestCase, VesselBranchWizardTestCase, VesselSegmentEditWidgetTestCase
 
@@ -148,6 +147,7 @@ class RVXLiverSegmentationWidget(ScriptedLoadableModuleWidget):
 
   @staticmethod
   def areDependenciesSatisfied():
+    from RVXLiverSegmentationEffect import PythonDependencyChecker
     # Find extra segment editor effects
     try:
       import SegmentEditorLocalThresholdLib
@@ -158,6 +158,7 @@ class RVXLiverSegmentationWidget(ScriptedLoadableModuleWidget):
 
   @staticmethod
   def downloadDependenciesAndRestart():
+    from RVXLiverSegmentationEffect import PythonDependencyChecker
     progressDialog = slicer.util.createProgressDialog(maximum=0)
     extensionManager = slicer.app.extensionsManagerModel()
 
