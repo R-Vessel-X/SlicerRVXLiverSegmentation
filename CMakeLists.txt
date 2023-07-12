@@ -6,7 +6,7 @@ project(RVesselX)
 # Extension meta-information
 set(EXTENSION_HOMEPAGE "https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation")
 set(EXTENSION_CATEGORY "Segmentation")
-set(EXTENSION_CONTRIBUTORS "Lucie Macron (Kitware SAS), Thibault Pelletier (Kitware SAS), Camille Huet (Kitware SAS)")
+set(EXTENSION_CONTRIBUTORS "Lucie Macron (Kitware SAS), Thibault Pelletier (Kitware SAS), Camille Huet (Kitware SAS), Leo Sanchez (Kitware SAS)")
 set(EXTENSION_DESCRIPTION "Liver and hepatic vessels segmentation plugin")
 set(EXTENSION_ICONURL "https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/RVXLiverSegmentation/Resources/Icons/RVXLiverSegmentation.png")
 set(EXTENSION_SCREENSHOTURLS "https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/1.png")

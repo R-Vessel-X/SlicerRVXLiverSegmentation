@@ -14,7 +14,11 @@ class RVXLiverSegmentationEffect(ScriptedLoadableModule):
     self.parent.title = "SegmentEditorLiver"
     self.parent.categories = ["Segmentation"]
     self.parent.dependencies = ["Segmentations"]
-    self.parent.contributors = ["Camille Huet - Kitware SAS", "Thibault Pelletier - Kitware SAS"]
+    self.parent.contributors = [
+      "Camille Huet - Kitware SAS",
+      "Leo Sanchez - Kitware SAS",
+      "Thibault Pelletier - Kitware SAS"
+    ]
     self.parent.hidden = True
     self.parent.helpText = "This hidden module registers the segment editor effect"
     self.parent.helpText += self.getDefaultModuleDocumentationLink()

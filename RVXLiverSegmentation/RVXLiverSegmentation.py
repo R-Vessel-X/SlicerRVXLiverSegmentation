@@ -18,8 +18,12 @@ class RVXLiverSegmentation(ScriptedLoadableModule):
     self.parent.title = "RVX Liver Segmentation"
     self.parent.categories = ["Segmentation"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Lucie Macron - Kitware SAS", "Thibault Pelletier - Kitware SAS",
-                                "Camille Huet - Kitware SAS"]
+    self.parent.contributors = [
+      "Lucie Macron - Kitware SAS",
+      "Thibault Pelletier - Kitware SAS",
+      "Camille Huet - Kitware SAS",
+      "Leo Sanchez - Kitware SAS"
+    ]
     self.parent.helpText = "Liver and hepatic vessels segmentation plugin.<br><br>This plugin aims at easing the " \
                            "segmentation of liver, liver vessels and liver tumor from DICOM data for annotation " \
                            "purposes. The exported segmentations will then be used in research.<br><br>" \
