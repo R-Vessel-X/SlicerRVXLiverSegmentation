@@ -14,8 +14,8 @@
     * [Sample Data](#Sample-Data)
     * [Data import and visualization](#Data-import-and-visualization)
     * [Liver segmentation](#Liver-segmentation)
-        * [Liver segmentation for MRI data](#Liver-segmentation-for-MRI-data)
-        * [Liver segmentation for CT data](#Liver-segmentation-for-CT-data)
+        * [Manual Liver segmentation](#Manual-Liver-segmentation)
+        * [AI Liver segmentation](#AI-Liver-segmentation)
     * [Portal veins segmentation](#Portal-veins-segmentation)
         * [Constructing the portal tree](#Constructing-the-portal-tree)
         * [Extracting and segmenting the portal tree](#Extracting-and-segmenting-the-portal-tree)
@@ -27,6 +27,8 @@
         * [Editing the IVC tree](#Editing-the-IVC-tree)
     * [Tumor segmentation](#Tumor-segmentation)
     * [Exporting the results](#Exporting-the-results)
+* [Changelog](#Changelog)
+  * [1.1.0 (2023/07/12)](#1.1.0-(2023/07/12))
 * [Developers](#Developers)
     * [Manually installing the plugin](#Manually-installing-the-plugin)
     * [Testing](#Testing)
@@ -146,9 +148,9 @@ segments.
 The `Segment CT Liver` segmentation effect is also available for fast segmentation of the liver for CT data. This
 segmentation effect is built upon MONAI and PyTorch to provide ML accelerated segmentation for CT data.
 
-#### Liver segmentation for MRI data
+#### Manual Liver segmentation
 
-To segmentation of the liver for MRI data can be done using the following process:
+To manually segmenting the liver can be done using the following process:
 
 * Select the `Liver In` segment and start painting in the liver. To improve the painting speed, you can choose a 3D
   brush.
@@ -164,15 +166,17 @@ To segmentation of the liver for MRI data can be done using the following proces
 
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/liver_tab_result.png" width="800"/>
 
-#### Liver segmentation for CT data
+#### AI Liver segmentation
 
-To segmentation of the liver for CT data can be done using the following process:
+AI segmentation of the liver can be done using the following process:
 
 * Select the `Liver In` segment
-* Select the `Segment CT Liver` tool
-* Select the volumes ROI in the `ROI` combo box
-* Toggle the visibility of the ROI
-* Shrink the ROI until it roughly encompasses the volume's liver
+* Select the `Segment CT/MRI Liver` tool
+* Select the volume Modality
+* (optional) Specify the Liver's Region of Interest
+  * Select the volumes ROI in the `ROI` combo box
+  * Toggle the visibility of the ROI
+  * Shrink the ROI until it roughly encompasses the volume's liver
 * Click on apply
 * Correct the segmented liver if necessary using the `Scissors`, `Margin` and `Smoothing` tools.
 
@@ -330,6 +334,14 @@ The following results will be saved :
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/tumor_export_tab_export_click.png" width="800"/>
 
 <img src="https://github.com/R-Vessel-X/SlicerRVXLiverSegmentation/raw/main/Screenshots/tumor_export_tab_export_result.png" width="800"/>
+
+## Changelog
+### 1.1.0 (2023/07/12)
+
+* Add MRI AI Liver segmentation support
+* Reduce CUDA insufficient memory error by managing sliding window inference devices
+* Fix deprecated code and warnings for Slicer 5.2+
+* Fix MacOS vessel extraction conversion errors
 
 ## Developers
 
