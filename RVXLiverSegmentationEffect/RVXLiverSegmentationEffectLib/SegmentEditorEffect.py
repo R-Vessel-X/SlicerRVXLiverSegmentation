@@ -62,8 +62,8 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     self.device.addItems(["cuda", "cpu"])
     self.scriptedEffect.addLabeledOptionsWidget("Device:", self.device)
 
-    self.modality.addItems(["CT","MRI"])
-    self.scriptedEffect.addLabeledOptionsWidget("Modality:",self.modality)
+    self.modality.addItems(["CT", "MRI"])
+    self.scriptedEffect.addLabeledOptionsWidget("Modality:", self.modality)
 
     # Add ROI options
     self.roiSelector.nodeTypes = ['vtkMRMLMarkupsROINode']
@@ -103,7 +103,8 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
     slicer.vtkSlicerSegmentationsModuleLogic.CopyOrientedImageDataToVolumeNode(self.getClippedMasterImageData(),
                                                                                masterVolumeNode)
     try:
-      self.logic.launchLiverSegmentation(masterVolumeNode, use_cuda=self.device.currentText == "cuda", modality=self.modality.currentText)
+      self.logic.launchLiverSegmentation(masterVolumeNode, use_cuda=self.device.currentText == "cuda",
+                                         modality=self.modality.currentText)
 
       self.scriptedEffect.saveStateForUndo()
       self.scriptedEffect.modifySelectedSegmentByLabelmap(
@@ -156,10 +157,12 @@ class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
 
     roiNode.SetDisplayVisibility(not roiNode.GetDisplayVisibility())
 
+
 class Normalized(MapTransform):
   """
   Normalizes input
   """
+
   def __init__(self, keys, meta_key_postfix: str = "meta_dict") -> None:
     super().__init__(keys)
     self.meta_key_postfix = meta_key_postfix
@@ -168,8 +171,10 @@ class Normalized(MapTransform):
   def __call__(self, volume_node):
     d = dict(volume_node)
     for key in self.keys:
-      d[key] = ScaleIntensityRange(a_max=np.amax(d[key]), a_min=np.amin(d[key]), b_max=1.0, b_min=0.0, clip=True)(d[key])
+      d[key] = ScaleIntensityRange(a_max=np.amax(d[key]), a_min=np.amin(d[key]), b_max=1.0, b_min=0.0, clip=True)(
+        d[key])
     return d
+
 
 class SlicerLoadImage(MapTransform):
   """
@@ -215,20 +220,20 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
     The values in this transform are the same as in the training transform preprocessing.
     """
     if modality == "CT":
-      trans = [SlicerLoadImage(keys=["volume"]), AddChanneld(keys=["volume"]),
-               Spacingd(keys=['volume'], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
-               Orientationd(keys=["volume"], axcodes="RAS"),
-               ScaleIntensityRanged(keys=["volume"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True),
-               AddChanneld(keys=["volume"]), ToTensord(keys=["volume"]),]
+      trans = [SlicerLoadImage(keys=["image"]), AddChanneld(keys=["image"]),
+               Spacingd(keys=["image"], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
+               Orientationd(keys=["image"], axcodes="RAS"),
+               ScaleIntensityRanged(keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True),
+               AddChanneld(keys=["image"]),
+               ToTensord(keys=["image"]), ]
       return Compose(trans)
     elif modality == "MRI":
-      trans = [SlicerLoadImage(keys=["volume"]), AddChanneld(keys=["volume"]),
-               Spacingd(keys=["volume"], pixdim=(1.5,1.5, 2.0), mode="bilinear"),
-               Orientationd(keys=["volume"], axcodes="LPS"),
-               Normalized(keys=["volume"]),
-               Resized(keys=["volume"],spatial_size=(240,240,96)),
-               AddChanneld(keys=["volume"]),
-               ToTensord(keys=["volume"])]
+      trans = [SlicerLoadImage(keys=["image"]), AddChanneld(keys=["image"]),
+               Spacingd(keys=["image"], pixdim=(1.5, 1.5, 2.0), mode="bilinear"),
+               Orientationd(keys=["image"], axcodes="LPS"),
+               Normalized(keys=["image"]),
+               AddChanneld(keys=["image"]),
+               ToTensord(keys=["image"])]
       return Compose(trans)
 
   @classmethod
@@ -236,9 +241,11 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
     """
     Simple post processing transform to convert the volume back to its original spacing.
     """
-    return Compose([AddChanneld(keys=["volume"]), 
-                   Spacingd(keys=['volume'], pixdim=original_spacing, mode="nearest"),
-                   Resized(keys=["volume"],spatial_size=original_size)])
+    return Compose([
+      AddChanneld(keys=["image"]),
+      Spacingd(keys=["image"], pixdim=original_spacing, mode="nearest"),
+      Resized(keys=["image"], spatial_size=original_size)
+    ])
 
   @classmethod
   def launchLiverSegmentation(cls, in_out_volume_node, use_cuda, modality):
@@ -257,39 +264,32 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
         model.load_state_dict(torch.load(model_path, map_location=device))
 
         transform_output = cls.getPreprocessingTransform(modality)(in_out_volume_node)
-        model_input = transform_output['volume'].to(device)
-        
+        model_input = transform_output["image"].to(device)
+
         print("Run UNet model on input volume")
-        
-        roi_size = (160, 160, 160) if modality == "CT" else (240,240,96)
-        
-        model_output = sliding_window_inference(model_input, roi_size, 4, model)
-        
+
+        roi_size = (160, 160, 160) if modality == "CT" else (240, 240, 96)
+
+        model_output = sliding_window_inference(model_input, roi_size, 4, model, device="cpu", sw_device=device)
+
         print("Keep largest connected components and threshold UNet output")
-        # Convert output to discrete
+        discrete_output = AsDiscrete(argmax=True)(model_output.reshape(model_output.shape[-4:]))
+        post_processed = KeepLargestConnectedComponent(applied_labels=[1])(discrete_output)
+        output_volume = post_processed.cpu().numpy()[0, :, :, :]
 
-        monai_version = [int(v) for v in monai.__version__.split(".")][:3]
-        # Keep largest connected components (expected shape changed after monai 0.6.0)
-        if monai_version >= [0, 6, 0]:
-          discrete_output = AsDiscrete(argmax=True)(model_output.reshape(model_output.shape[-4:]))
-          post_processed = KeepLargestConnectedComponent(applied_labels=[1])(discrete_output)
-          output_volume = post_processed.cpu().numpy()[0, :, :, :]
-        else:
-          discrete_output = AsDiscrete(argmax=True)(model_output)
-          post_processed = KeepLargestConnectedComponent(applied_labels=[1])(discrete_output)
-          output_volume = post_processed.cpu().numpy()[0, 0, :, :, :]
         del post_processed, discrete_output, model_output, model, model_input
-        
-        transform_output["volume"] = output_volume
-        original_spacing = (transform_output["volume_meta_dict"]["original_spacing"])
-        original_size = (transform_output["volume_meta_dict"]["spacial_shape"])
-        output_inverse_transform = cls.getPostProcessingTransform(original_spacing, original_size, modality)(transform_output)
 
-        label_map_input = output_inverse_transform["volume"][0, :, :, :]
+        transform_output["image"] = output_volume
+        original_spacing = (transform_output["image_meta_dict"]["original_spacing"])
+        original_size = (transform_output["image_meta_dict"]["spacial_shape"])
+        output_inverse_transform = cls.getPostProcessingTransform(original_spacing, original_size, modality)(
+          transform_output)
+
+        label_map_input = output_inverse_transform["image"][0, :, :, :]
 
         print("output label map shape is " + str(label_map_input.shape))
-        
-        output_affine_matrix = transform_output["volume_meta_dict"]["affine"]
+
+        output_affine_matrix = transform_output["image_meta_dict"]["affine"]
 
         in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
         slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
@@ -306,4 +306,3 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
 
       gc.collect()
       torch.cuda.empty_cache()
-
