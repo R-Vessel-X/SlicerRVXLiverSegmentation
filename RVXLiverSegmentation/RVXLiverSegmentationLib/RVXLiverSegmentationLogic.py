@@ -475,7 +475,7 @@ class RVXLiverSegmentationLogic(ScriptedLoadableModuleLogic, IRVXLiverSegmentati
   @staticmethod
   def _isPointValid(point):
     return (point is not None) and (isinstance(point, slicer.vtkMRMLMarkupsFiducialNode)) and (
-        point.GetNumberOfFiducials() > 0)
+        point.GetNumberOfControlPoints() > 0)
 
   @staticmethod
   def _areExtremitiesValid(startPoint, endPoint):

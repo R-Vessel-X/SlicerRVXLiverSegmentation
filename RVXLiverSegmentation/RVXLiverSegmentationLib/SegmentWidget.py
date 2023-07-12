@@ -80,7 +80,7 @@ class SegmentWidget(VerticalLayoutWidget):
     """Changes visibility for master volume selector and segmentation node selector. Both selectors need to be hidden
     when integrated in the RVesselX plugin but shown otherwise.
     """
-    self._segmentationWidget.setMasterVolumeNodeSelectorVisible(isVisible)
+    self._segmentationWidget.setSourceVolumeNodeSelectorVisible(isVisible)
     self._segmentationWidget.setSegmentationNodeSelectorVisible(isVisible)
 
   def setInputNode(self, node):
@@ -101,7 +101,7 @@ class SegmentWidget(VerticalLayoutWidget):
 
     if self._inputNode:
       def updateMasterVolumeNode():
-        self._segmentationWidget.setMasterVolumeNode(self._inputNode)
+        self._segmentationWidget.setSourceVolumeNode(self._inputNode)
         self._segmentNode.SetReferenceImageGeometryParameterFromVolumeNode(self._inputNode)
 
       # Wrap update in QTimer for better reliability on set event (otherwise set can fail somehow)

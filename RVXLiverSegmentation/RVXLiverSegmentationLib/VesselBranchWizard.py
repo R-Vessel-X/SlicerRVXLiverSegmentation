@@ -287,8 +287,8 @@ class VesselBranchWizard(object):
     int or None
       Markup index associated with id if found else None
     """
-    for i in range(self._node.GetNumberOfFiducials()):
-      if self._node.GetNthFiducialLabel(i) == nodeId:
+    for i in range(self._node.GetNumberOfControlPoints()):
+      if self._node.GetNthControlPointLabel(i) == nodeId:
         return i
     return None
 
@@ -320,8 +320,8 @@ class VesselBranchWizard(object):
     """
     Hides markup nodes which may have been deleted
     """
-    for i in range(self._node.GetNumberOfFiducials()):
-      self._node.SetNthFiducialVisibility(i, self._tree.isInTree(self._node.GetNthFiducialLabel(i)))
+    for i in range(self._node.GetNumberOfControlPoints()):
+      self._node.SetNthControlPointVisibility(i, self._tree.isInTree(self._node.GetNthControlPointLabel(i)))
 
     self._treeDrawer.updateTreeLines()
 
@@ -353,7 +353,7 @@ class VesselBranchWizard(object):
     self.currentNodeIdChanged.emit(self._currentTreeItem.nodeId if self._currentTreeItem else None)
 
   def _renamePlacedNode(self, name):
-    self._node.SetNthFiducialLabel(self._node.GetLastFiducialId(), name)
+    self._node.SetNthControlPointLabel(self._node.GetLastFiducialId(), name)
 
   def _insertPlacedNodeBeforeCurrent(self):
     insertedId = self._nextInsertedNodeId(self._currentTreeItem.nodeId)
@@ -381,9 +381,9 @@ class VesselBranchWizard(object):
     """
     self._treeDrawer.setVisible(isVisible)
 
-    for i in range(self._node.GetNumberOfFiducials()):
-      isNodeVisible = isVisible and self._tree.isInTree(self._node.GetNthFiducialLabel(i))
-      self._node.SetNthFiducialVisibility(i, isNodeVisible)
+    for i in range(self._node.GetNumberOfControlPoints()):
+      isNodeVisible = isVisible and self._tree.isInTree(self._node.GetNthControlPointLabel(i))
+      self._node.SetNthControlPointVisibility(i, isNodeVisible)
 
   def _updatePlacingFinished(self):
     """
@@ -415,10 +415,10 @@ class VesselBranchWizard(object):
     return treeBranches
 
   def _getNodePosition(self, nodeId):
-    for i in range(self._node.GetNumberOfFiducials()):
-      if self._node.GetNthFiducialLabel(i) == nodeId:
+    for i in range(self._node.GetNumberOfControlPoints()):
+      if self._node.GetNthControlPointLabel(i) == nodeId:
         position = [0] * 3
-        self._node.GetNthFiducialPosition(i, position)
+        self._node.GetNthControlPointPosition(i, position)
         return position
 
     return None
@@ -426,7 +426,7 @@ class VesselBranchWizard(object):
   def clear(self):
     self._tree.clear()
     self._treeDrawer.clear()
-    self._node.RemoveAllMarkups()
+    self._node.RemoveAllControlPoints()
     self._setupDefaultBranchNodes()
 
 
