@@ -6,33 +6,33 @@
 
 ## Table of contents
 
-* [Introduction](#Introduction)
-* [Using the Plugin](#Using-the-Plugin)
-    * [Video tutorials](#Video-tutorials)
-    * [Installing the plugin](#Installing-the-plugin)
-    * [Plugin Overview](#Plugin-Overview)
-    * [Sample Data](#Sample-Data)
-    * [Data import and visualization](#Data-import-and-visualization)
-    * [Liver segmentation](#Liver-segmentation)
-        * [Manual Liver segmentation](#Manual-Liver-segmentation)
-        * [AI Liver segmentation](#AI-Liver-segmentation)
-    * [Portal veins segmentation](#Portal-veins-segmentation)
-        * [Constructing the portal tree](#Constructing-the-portal-tree)
-        * [Extracting and segmenting the portal tree](#Extracting-and-segmenting-the-portal-tree)
-        * [Editing the portal tree](#Editing-the-portal-tree)
-        * [Splitting the portal tree](#Splitting-the-portal-tree)
-    * [IVC veins segmentation](#IVC-veins-segmentation)
-        * [Constructing the IVC tree](#Constructing-the-IVC-tree)
-        * [Extracting and segmenting the IVC tree](#Extracting-and-segmenting-the-IVC-tree)
-        * [Editing the IVC tree](#Editing-the-IVC-tree)
-    * [Tumor segmentation](#Tumor-segmentation)
-    * [Exporting the results](#Exporting-the-results)
-* [Changelog](#Changelog)
-  * [1.1.0 (2023/07/12)](#1.1.0-(2023/07/12))
-* [Developers](#Developers)
-    * [Manually installing the plugin](#Manually-installing-the-plugin)
-    * [Testing](#Testing)
-    * [Contributing](#Contributing)
+* [Introduction](#introduction)
+* [Using the Plugin](#using-the-plugin)
+    * [Video tutorials](#video-tutorials)
+    * [Installing the plugin](#installing-the-plugin)
+    * [Plugin Overview](#plugin-overview)
+    * [Sample Data](#sample-data)
+    * [Data import and visualization](#data-import-and-visualization)
+    * [Liver segmentation](#liver-segmentation)
+        * [Manual Liver segmentation](#manual-liver-segmentation)
+        * [AI Liver segmentation](#ai-liver-segmentation)
+    * [Portal veins segmentation](#portal-veins-segmentation)
+        * [Constructing the portal tree](#constructing-the-portal-tree)
+        * [Extracting and segmenting the portal tree](#extracting-and-segmenting-the-portal-tree)
+        * [Editing the portal tree](#editing-the-portal-tree)
+        * [Splitting the portal tree](#splitting-the-portal-tree)
+    * [IVC veins segmentation](#ivc-veins-segmentation)
+        * [Constructing the IVC tree](#constructing-the-ivc-tree)
+        * [Extracting and segmenting the IVC tree](#extracting-and-segmenting-the-ivc-tree)
+        * [Editing the IVC tree](#editing-the-ivc-tree)
+    * [Tumor segmentation](#tumor-segmentation)
+    * [Exporting the results](#exporting-the-results)
+* [Changelog](#changelog)
+  * [1.1.0 (2023/07/12)](#110-20230712)
+* [Developers](#developers)
+    * [Manually installing the plugin](#manually-installing-the-plugin)
+    * [Testing](#testing)
+    * [Contributing](#contributing)
 
 ## Introduction
 
@@ -145,8 +145,8 @@ To start working on the segmentation :
 The `Liver Tab` is used to segment the liver volume. Two segments are created by default, the `Liver In` and `Liver Out`
 segments.
 
-The `Segment CT Liver` segmentation effect is also available for fast segmentation of the liver for CT data. This
-segmentation effect is built upon MONAI and PyTorch to provide ML accelerated segmentation for CT data.
+The `Segment CT/MRI Liver` segmentation effect is also available for fast segmentation of the liver for CT and MRI data. 
+This segmentation effect is built upon MONAI and PyTorch to provide ML accelerated segmentation for CT and MRI data.
 
 #### Manual Liver segmentation
 
