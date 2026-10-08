@@ -161,6 +161,7 @@ class VesselBranchWizard(object):
                        lambda current, previous: self.onItemClicked(current, 0))
     self._tree.keyPressed.connect(self.onKeyPressed)
     self._node.pointAdded.connect(self.onMarkupPointAdded)
+    self._node.pointPreviewAdded.connect(self.onMarkupPointPreviewAdded)
     self._node.pointModified.connect(lambda *x: self._treeDrawer.updateTreeLines())
     self._node.pointInteractionEnded.connect(lambda *x: self._treeDrawer.updateTreeLines())
     self._placeWidget.placeModeChanged.connect(self._onNodePlaceModeChanged)
@@ -354,6 +355,23 @@ class VesselBranchWizard(object):
 
   def _renamePlacedNode(self, name):
     self._node.SetNthControlPointLabel(self._node.GetLastFiducialId(), name)
+
+  def onMarkupPointPreviewAdded(self):
+    name = self._currentPlacingName()
+    if name is not None:
+      self._node.SetNthControlPointLabel(self._node.GetLastFiducialId(), name)
+
+  def _currentPlacingName(self):
+    """
+    :return: Name that should be given to the control point being placed, None if not placing
+    """
+    if self._currentTreeItem is None:
+      return None
+    elif self._interactionStatus == InteractionStatus.PLACING:
+      return self._currentTreeItem.nodeId
+    elif self._interactionStatus == InteractionStatus.INSERT_BEFORE:
+      return self._nextInsertedNodeId(self._currentTreeItem.nodeId)
+    return None
 
   def _insertPlacedNodeBeforeCurrent(self):
     insertedId = self._nextInsertedNodeId(self._currentTreeItem.nodeId)
