@@ -43,6 +43,9 @@ class PythonDependencyChecker(object):
   Class responsible for installing the Modules dependencies
   """
 
+  # Min MONAI version for Python 3.12+
+  MINIMUM_MONAI_VERSION = "1.3.1"
+
   @classmethod
   def areDependenciesSatisfied(cls):
     try:
@@ -54,9 +57,8 @@ class PythonDependencyChecker(object):
       import gdown
       import nibabel
 
-      # Make sure MONAI version is compatible with package
-      return version.parse("0.6.0") < version.parse(monai.__version__) <= version.parse("0.9.0")
-    except ImportError:
+      return version.parse(monai.__version__) >= version.parse(cls.MINIMUM_MONAI_VERSION)
+    except Exception:
       return False
 
   @classmethod
@@ -75,6 +77,6 @@ class PythonDependencyChecker(object):
       # Fallback on default torch available on PIP
       slicer.util.pip_install("torch")
 
-    for dep in ["itk", "nibabel", "scikit-image", "gdown", "monai>0.6.0,<=0.9.0"]:
+    for dep in ["itk", "nibabel", "scikit-image", "gdown", f"monai>={cls.MINIMUM_MONAI_VERSION}"]:
       progressDialog.labelText = dep
       slicer.util.pip_install(dep)

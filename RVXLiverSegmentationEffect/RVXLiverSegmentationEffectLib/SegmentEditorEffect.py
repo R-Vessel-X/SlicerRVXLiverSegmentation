@@ -3,13 +3,22 @@ import os.path
 
 from SegmentEditorEffects import *
 import monai
+from monai.data import MetaTensor
 from monai.inferers.utils import sliding_window_inference
 from monai.networks.layers import Norm
 from monai.networks.nets.unet import UNet
-from monai.transforms import (AddChanneld, Compose, Orientationd, ScaleIntensityRanged, Spacingd, ToTensord, Resized,
-                              Resize, CropForegroundd, ScaleIntensityRange)
-from monai.transforms.compose import MapTransform
-from monai.transforms.post.array import AsDiscrete, KeepLargestConnectedComponent
+from monai.transforms import (
+    AsDiscrete,
+    Compose,
+    EnsureTyped,
+    KeepLargestConnectedComponent,
+    MapTransform,
+    Orientationd,
+    Resized,
+    ScaleIntensityRange,
+    ScaleIntensityRanged,
+    Spacingd,
+)
 import numpy as np
 import qt
 import slicer
@@ -18,6 +27,18 @@ import slicer.modules
 from slicer.util import VTKObservationMixin
 import torch
 import vtk
+
+
+class AddChanneld(MapTransform):
+  """
+  Replaces MONAI's function which was removed in MONAI 1.0.
+  """
+
+  def __call__(self, data):
+    d = dict(data)
+    for key in self.keys:
+      d[key] = d[key][None]
+    return d
 
 
 class SegmentEditorEffect(AbstractScriptedSegmentEditorEffect):
@@ -197,6 +218,8 @@ class SlicerLoadImage(MapTransform):
     meta_data = {"affine": affine, "original_affine": affine, "spacial_shape": spatial_shape,
                  'original_spacing': volume_node.GetSpacing()}
 
+    # Add affine information to the meta tensor (required by MONAI>=1.0.0)
+    data = MetaTensor(data, affine=affine, meta=dict(meta_data))
     return {self.keys[0]: data, '{}_{}'.format(self.keys[0], self.meta_key_postfix): meta_data}
 
 
@@ -210,7 +233,7 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
 
   @classmethod
   def createUNetModel(cls, device):
-    return UNet(dimensions=3, in_channels=1, out_channels=2, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2),
+    return UNet(spatial_dims=3, in_channels=1, out_channels=2, channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2),
                 num_res_units=2, norm=Norm.BATCH, ).to(device)
 
   @classmethod
@@ -225,7 +248,7 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
                Orientationd(keys=["image"], axcodes="RAS"),
                ScaleIntensityRanged(keys=["image"], a_min=-57, a_max=164, b_min=0.0, b_max=1.0, clip=True),
                AddChanneld(keys=["image"]),
-               ToTensord(keys=["image"]), ]
+               EnsureTyped(keys=["image"]), ]
       return Compose(trans)
     elif modality == "MRI":
       trans = [SlicerLoadImage(keys=["image"]), AddChanneld(keys=["image"]),
@@ -233,18 +256,17 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
                Orientationd(keys=["image"], axcodes="LPS"),
                Normalized(keys=["image"]),
                AddChanneld(keys=["image"]),
-               ToTensord(keys=["image"])]
+               EnsureTyped(keys=["image"])]
       return Compose(trans)
 
   @classmethod
-  def getPostProcessingTransform(cls, original_spacing, original_size, modality):
+  def getPostProcessingTransform(cls, original_spacing):
     """
-    Simple post processing transform to convert the volume back to its original spacing.
+    Simple post-processing transform to resample the volume back to its original spacing.
     """
     return Compose([
       AddChanneld(keys=["image"]),
       Spacingd(keys=["image"], pixdim=original_spacing, mode="nearest"),
-      Resized(keys=["image"], spatial_size=original_size)
     ])
 
   @classmethod
@@ -261,7 +283,11 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
                                   "liver_ct_model.pt" if modality == "CT" else "liver_mri_model.pt")
 
         model = cls.createUNetModel(device=device)
-        model.load_state_dict(torch.load(model_path, map_location=device))
+        try:
+          state_dict = torch.load(model_path, map_location=device, weights_only=True)
+        except TypeError:
+          state_dict = torch.load(model_path, map_location=device)
+        model.load_state_dict(state_dict)
 
         transform_output = cls.getPreprocessingTransform(modality)(in_out_volume_node)
         model_input = transform_output["image"].to(device)
@@ -279,17 +305,21 @@ class SegmentEditorEffectLogic(ScriptedLoadableModuleLogic):
 
         del post_processed, discrete_output, model_output, model, model_input
 
-        transform_output["image"] = output_volume
         original_spacing = (transform_output["image_meta_dict"]["original_spacing"])
         original_size = (transform_output["image_meta_dict"]["spacial_shape"])
-        output_inverse_transform = cls.getPostProcessingTransform(original_spacing, original_size, modality)(
-          transform_output)
 
-        label_map_input = output_inverse_transform["image"][0, :, :, :]
+        # Affine of the preprocessed volume.
+        preprocessed_affine = np.asarray(transform_output["image"].affine)
+
+        # Resample the segmentation back to the original spacing using the preprocessed affine.
+        transform_output["image"] = MetaTensor(output_volume, affine=preprocessed_affine)
+        transform_output = cls.getPostProcessingTransform(original_spacing)(transform_output)
+        output_affine_matrix = np.asarray(transform_output["image"].affine)
+
+        transform_output = Resized(keys=["image"], spatial_size=original_size)(transform_output)
+        label_map_input = transform_output["image"][0, :, :, :]
 
         print("output label map shape is " + str(label_map_input.shape))
-
-        output_affine_matrix = transform_output["image_meta_dict"]["affine"]
 
         in_out_volume_node.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(output_affine_matrix))
         slicer.util.updateVolumeFromArray(in_out_volume_node, np.swapaxes(label_map_input, 0, 2))
