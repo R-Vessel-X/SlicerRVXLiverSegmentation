@@ -53,3 +53,8 @@ class VesselSegmentEditWidgetTestCase(unittest.TestCase):
 
     # Verify centerline volume was extracted
     self.assertIsNotNone(self.vesselEdit.getCenterLineVolume())
+
+    # Verify one segment named after the branch was created on top of the vessel tree segment
+    segmentation = self.vesselEdit._segmentNode.GetSegmentation()
+    self.assertEqual(1 + len(vesselBranches.names()), segmentation.GetNumberOfSegments())
+    self.assertNotEqual("", segmentation.GetSegmentIdBySegmentName("vessel name"))

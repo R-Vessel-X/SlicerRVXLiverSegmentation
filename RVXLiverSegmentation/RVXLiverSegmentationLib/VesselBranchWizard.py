@@ -420,15 +420,18 @@ class VesselBranchWizard(object):
     :return: List of all the default branches present in the tree as well as their start and end positions
     """
     treeBranches = NodeBranches()
+    nodeList = self._tree.getNodeList()
+    knownNodeIds = list(dict.fromkeys(VeinId().sortedIds()))
+    orderedNodeIds = [nodeId for nodeId in knownNodeIds if nodeId in nodeList]
+    orderedNodeIds += [nodeId for nodeId in nodeList if nodeId not in knownNodeIds]
 
-    for nodeId in VeinId().sortedIds():
-      if nodeId in self._tree.getNodeList():
-        nodePosition = self._getNodePosition(nodeId)
-        treeBranches.addBranch(nodeId)
-        if self._tree.isRoot(nodeId):
-          treeBranches.addStartPoint(nodePosition)
-        elif self._tree.isLeaf(nodeId):
-          treeBranches.addEndPoint(nodePosition)
+    for nodeId in orderedNodeIds:
+      nodePosition = self._getNodePosition(nodeId)
+      treeBranches.addBranch(nodeId)
+      if self._tree.isRoot(nodeId):
+        treeBranches.addStartPoint(nodePosition)
+      elif self._tree.isLeaf(nodeId):
+        treeBranches.addEndPoint(nodePosition)
 
     return treeBranches
 

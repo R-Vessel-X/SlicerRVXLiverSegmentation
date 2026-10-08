@@ -157,6 +157,12 @@ class VesselBranchWizardTestCase(unittest.TestCase):
     self.assertFalse(self.tree.isInTree(VeinId.rightPortalVein))
     self.assertFalse(self.markupNode.GetNthFiducialVisibility(1))
 
+  def test_get_vessel_branches_contains_each_tree_node_exactly_once(self):
+    names = self.wizard.getVesselBranches().names()
+    self.assertEqual(len(self.tree.getNodeList()), len(names))
+    self.assertEqual(len(set(names)), len(names))
+    self.assertIn(VeinId.portalOptional_1, names)
+
   def test_given_optional_branch_2_placed_placing_switch_to_left_portal_vein(self):
     self.tree.itemClicked.emit(self.tree.getTreeWidgetItem(VeinId.portalOptional_2), 0)
     self.nodePlace.placeNode()
