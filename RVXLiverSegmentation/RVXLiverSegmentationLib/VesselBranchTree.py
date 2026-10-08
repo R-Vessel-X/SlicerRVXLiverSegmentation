@@ -640,6 +640,7 @@ class MarkupNode(object):
     """
     # Instance signals
     self.pointAdded = Signal()
+    self.pointPreviewAdded = Signal()
     self.pointClicked = Signal("int pointId")
     self.pointInteractionEnded = Signal("int pointId")
     self.pointModified = Signal("int pointId")
@@ -660,6 +661,9 @@ class MarkupNode(object):
     self._connectNodeSignal(pointClickedEvent, self._emitPointClicked)
     self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointEndInteractionEvent, self._emitPointInteractionEnded)
     self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self._emitPointModified)
+
+    if hasattr(slicer.vtkMRMLMarkupsNode, 'PointAddedEvent'):
+      self._connectNodeSignal(slicer.vtkMRMLMarkupsNode.PointAddedEvent, self._emitPointPreviewAdded)
 
     # Forward slicer markup functions
     self.GetNumberOfControlPoints = self._node.GetNumberOfControlPoints
@@ -690,6 +694,9 @@ class MarkupNode(object):
 
   def _emitPointAdded(self, *args):
     self.pointAdded.emit()
+
+  def _emitPointPreviewAdded(self, *args):
+    self.pointPreviewAdded.emit()
 
   def _emitPointClicked(self, caller, callData):
     self.pointClicked.emit(callData)

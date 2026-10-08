@@ -161,6 +161,7 @@ class VesselBranchWizard(object):
                        lambda current, previous: self.onItemClicked(current, 0))
     self._tree.keyPressed.connect(self.onKeyPressed)
     self._node.pointAdded.connect(self.onMarkupPointAdded)
+    self._node.pointPreviewAdded.connect(self.onMarkupPointPreviewAdded)
     self._node.pointModified.connect(lambda *x: self._treeDrawer.updateTreeLines())
     self._node.pointInteractionEnded.connect(lambda *x: self._treeDrawer.updateTreeLines())
     self._placeWidget.placeModeChanged.connect(self._onNodePlaceModeChanged)
@@ -355,6 +356,23 @@ class VesselBranchWizard(object):
   def _renamePlacedNode(self, name):
     self._node.SetNthControlPointLabel(self._node.GetLastFiducialId(), name)
 
+  def onMarkupPointPreviewAdded(self):
+    name = self._currentPlacingName()
+    if name is not None:
+      self._node.SetNthControlPointLabel(self._node.GetLastFiducialId(), name)
+
+  def _currentPlacingName(self):
+    """
+    :return: Name that should be given to the control point being placed, None if not placing
+    """
+    if self._currentTreeItem is None:
+      return None
+    elif self._interactionStatus == InteractionStatus.PLACING:
+      return self._currentTreeItem.nodeId
+    elif self._interactionStatus == InteractionStatus.INSERT_BEFORE:
+      return self._nextInsertedNodeId(self._currentTreeItem.nodeId)
+    return None
+
   def _insertPlacedNodeBeforeCurrent(self):
     insertedId = self._nextInsertedNodeId(self._currentTreeItem.nodeId)
     self._renamePlacedNode(insertedId)
@@ -402,15 +420,18 @@ class VesselBranchWizard(object):
     :return: List of all the default branches present in the tree as well as their start and end positions
     """
     treeBranches = NodeBranches()
+    nodeList = self._tree.getNodeList()
+    knownNodeIds = list(dict.fromkeys(VeinId().sortedIds()))
+    orderedNodeIds = [nodeId for nodeId in knownNodeIds if nodeId in nodeList]
+    orderedNodeIds += [nodeId for nodeId in nodeList if nodeId not in knownNodeIds]
 
-    for nodeId in VeinId().sortedIds():
-      if nodeId in self._tree.getNodeList():
-        nodePosition = self._getNodePosition(nodeId)
-        treeBranches.addBranch(nodeId)
-        if self._tree.isRoot(nodeId):
-          treeBranches.addStartPoint(nodePosition)
-        elif self._tree.isLeaf(nodeId):
-          treeBranches.addEndPoint(nodePosition)
+    for nodeId in orderedNodeIds:
+      nodePosition = self._getNodePosition(nodeId)
+      treeBranches.addBranch(nodeId)
+      if self._tree.isRoot(nodeId):
+        treeBranches.addStartPoint(nodePosition)
+      elif self._tree.isLeaf(nodeId):
+        treeBranches.addEndPoint(nodePosition)
 
     return treeBranches
 
